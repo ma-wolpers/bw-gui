@@ -1,0 +1,19 @@
+# Migration Guide
+
+## 0.x to 0.1.0
+
+Initial adoption steps:
+
+1. Add repository as git submodule in consumer repo.
+2. Ensure `bw_gui` import path is available from the consumer runtime.
+3. Replace local duplicated contract modules with imports from `bw_gui.contracts`.
+4. Route theme configuration via `bw_gui.theming.theme_manager`.
+5. Replace native menubar usage with `bw_gui.menu.custom_menu_bar.CustomMenuBar`.
+6. Replace ad-hoc tooltip snippets with `bw_gui.widgets.hover_tooltip.HoverTooltip`.
+
+## Consumer Checklist
+
+- No duplicate local contract copies remain.
+- No native Tk menubar in target windows.
+- Shortcut labels and hover help are centralized.
+- Theme application covers all major widgets.
