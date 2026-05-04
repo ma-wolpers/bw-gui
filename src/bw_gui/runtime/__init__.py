@@ -1,5 +1,5 @@
 """Shared runtime primitives wrapping tkinter and ttk."""
 
-from .primitives import ui, widgets
+from .primitives import fonts, ui, widgets
 
-__all__ = ["ui", "widgets"]
+__all__ = ["fonts", "ui", "widgets"]

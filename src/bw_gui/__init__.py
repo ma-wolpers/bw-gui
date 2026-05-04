@@ -13,12 +13,13 @@ from .contracts import (
     build_ui_hsm_contract,
 )
 from .dialogs import FileDialogService, MessageDialogService, TextPromptDialogService
-from .runtime import ui, widgets
+from .runtime import fonts, ui, widgets
 
 __all__ = [
     "HsmContract",
     "HsmIntentSpec",
     "FileDialogService",
+    "fonts",
     "KeyBindingDefinition",
     "KeybindingRegistry",
     "KeybindingRuntimeContext",

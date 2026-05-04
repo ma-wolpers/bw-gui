@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 - Unit tests for shared dialog services covering modal routing, default-root fallback, and file dialog result normalization.
 - `MessageDialogService.askretrycancel(...)` for startup/path-validation flows that need retry semantics via the shared dialog layer.
 - Shared runtime aliases `bw_gui.runtime.ui` and `bw_gui.runtime.widgets` as a central import path for tkinter/ttk primitives.
+- Shared runtime alias `bw_gui.runtime.fonts` for tkinter font primitives, enabling app modules to avoid direct `tkinter.font` imports.
 
 ## [0.1.0] - 2026-05-04
 
