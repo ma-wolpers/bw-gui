@@ -13,6 +13,7 @@ from .contracts import (
     build_ui_hsm_contract,
 )
 from .dialogs import FileDialogService, MessageDialogService, TextPromptDialogService
+from .runtime import ui, widgets
 
 __all__ = [
     "HsmContract",
@@ -28,4 +29,6 @@ __all__ = [
     "TextPromptDialogService",
     "TransitionRule",
     "build_ui_hsm_contract",
+    "ui",
+    "widgets",
 ]
