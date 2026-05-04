@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- Shared dialog service module `bw_gui.dialogs` with `MessageDialogService`, `TextPromptDialogService`, and `FileDialogService`.
+- Modal-call routing in dialog services that respects popup-policy aware hosts via `_run_modal_dialog_call` when present.
+- Unit tests for shared dialog services covering modal routing, default-root fallback, and file dialog result normalization.
+
 ## [0.1.0] - 2026-05-04
 
 ### Added
