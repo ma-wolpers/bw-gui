@@ -46,6 +46,10 @@ class MessageDialogService:
         parent = kwargs.get("parent")
         return _run_modal(parent, title, lambda: messagebox.askyesnocancel(title, message, **kwargs))
 
+    def askretrycancel(self, title: str, message: str, **kwargs: Any) -> bool:
+        parent = kwargs.get("parent")
+        return bool(_run_modal(parent, title, lambda: messagebox.askretrycancel(title, message, **kwargs)))
+
 
 class TextPromptDialogService:
     """Wrapper for simpledialog text prompts with popup policy tracking."""

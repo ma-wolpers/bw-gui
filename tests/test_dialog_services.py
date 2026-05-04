@@ -72,3 +72,15 @@ def test_message_dialog_askyesno_normalizes_bool(monkeypatch):
     result = service.askyesno("Frage", "Weiter?")
 
     assert result is True
+
+
+def test_message_dialog_askretrycancel_normalizes_bool(monkeypatch):
+    def fake_askretrycancel(title, message, **kwargs):
+        return 0
+
+    monkeypatch.setattr(dialog_service.messagebox, "askretrycancel", fake_askretrycancel)
+
+    service = MessageDialogService()
+    result = service.askretrycancel("Pfadpruefung", "Nochmal?")
+
+    assert result is False
