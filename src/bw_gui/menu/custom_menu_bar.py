@@ -139,6 +139,7 @@ class CustomMenuBar:
 
         theme = get_theme(self.theme_key)
         popup = tk.Toplevel(self.root)
+        setattr(popup, "_bw_menu_popup", True)
         popup.overrideredirect(True)
         popup.transient(self.root)
         popup.attributes("-topmost", True)
