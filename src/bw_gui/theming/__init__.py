@@ -2,6 +2,9 @@
 
 from .theme_manager import (
     DEFAULT_THEME,
+    THEME_CONTRACT_KEYS,
+    THEME_CORE_KEYS,
+    THEME_TOKEN_ALIASES,
     THEME_ORDER,
     THEMES,
     apply_window_theme,
@@ -9,10 +12,14 @@ from .theme_manager import (
     get_theme,
     normalize_theme_key,
     register_theme,
+    theme_contract_keys,
 )
 
 __all__ = [
     "DEFAULT_THEME",
+    "THEME_CONTRACT_KEYS",
+    "THEME_CORE_KEYS",
+    "THEME_TOKEN_ALIASES",
     "THEME_ORDER",
     "THEMES",
     "apply_window_theme",
@@ -20,4 +27,5 @@ __all__ = [
     "get_theme",
     "normalize_theme_key",
     "register_theme",
+    "theme_contract_keys",
 ]

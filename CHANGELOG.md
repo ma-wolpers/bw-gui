@@ -11,6 +11,12 @@ All notable changes to this project will be documented in this file.
 - `MessageDialogService.askretrycancel(...)` for startup/path-validation flows that need retry semantics via the shared dialog layer.
 - Shared runtime aliases `bw_gui.runtime.ui` and `bw_gui.runtime.widgets` as a central import path for tkinter/ttk primitives.
 - Shared runtime alias `bw_gui.runtime.fonts` for tkinter font primitives, enabling app modules to avoid direct `tkinter.font` imports.
+- Theme contract documentation in `docs/THEME_CONTRACT.md` including guaranteed token keys, alias mapping, and domain fallback behavior.
+
+### Changed
+- Shared theme manager now exposes explicit contract helpers (`THEME_CORE_KEYS`, `THEME_CONTRACT_KEYS`, `theme_contract_keys`) for cross-repo theming integration.
+- `get_theme(...)` now guarantees alias and domain-extension tokens for every theme (`error*` aliases and `hospitation*` fallback keys) while preserving per-theme overrides.
+- Theming tests now validate presence of both Kursplaner and Blattwerk theme families plus full contract coverage for all registered themes.
 
 ## [0.1.0] - 2026-05-04
 

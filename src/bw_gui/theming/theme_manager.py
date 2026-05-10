@@ -5,6 +5,58 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk
 
+THEME_CORE_KEYS: tuple[str, ...] = (
+    "bg_main",
+    "bg_surface",
+    "fg_primary",
+    "fg_muted",
+    "accent",
+    "accent_hover",
+    "accent_soft",
+    "danger",
+    "border",
+)
+
+THEME_TOKEN_ALIASES: dict[str, str] = {
+    "error": "danger",
+    "error_hover": "danger_hover",
+    "error_soft": "danger_soft",
+    "fg_on_error": "fg_on_danger",
+}
+
+THEME_CONTRACT_KEYS: tuple[str, ...] = (
+    "label",
+    *THEME_CORE_KEYS,
+    "bg_panel",
+    "panel_strong",
+    "secondary",
+    "secondary_soft",
+    "selection_bg",
+    "selection_fg",
+    "success",
+    "success_hover",
+    "success_soft",
+    "warning",
+    "warning_hover",
+    "warning_soft",
+    "danger_hover",
+    "danger_soft",
+    "focus_ring",
+    "button_fg",
+    "fg_on_accent",
+    "fg_on_success",
+    "fg_on_warning",
+    "fg_on_danger",
+    "error",
+    "error_hover",
+    "error_soft",
+    "fg_on_error",
+    "hospitation",
+    "hospitation_hover",
+    "hospitation_soft",
+    "fg_on_hospitation",
+)
+
 THEMES: dict[str, dict[str, str]] = {
     # Kursplaner baseline family
     "mono_day": {
@@ -254,6 +306,19 @@ def _ensure_semantic_defaults(theme: dict[str, str]) -> dict[str, str]:
     out.setdefault("fg_on_success", "#FFFFFF" if _is_dark(out["success"]) else "#111827")
     out.setdefault("fg_on_warning", "#FFFFFF" if _is_dark(out["warning"]) else "#111827")
     out.setdefault("fg_on_danger", "#FFFFFF" if _is_dark(out.get("danger", "#DC2626")) else "#111827")
+    out.setdefault("hospitation", _mix(out.get("accent", "#2563EB"), out.get("warning", "#D97706"), 0.42))
+    out.setdefault(
+        "hospitation_hover",
+        _mix(
+            out["hospitation"],
+            "#000000",
+            0.15 if _is_dark(out["hospitation"]) else 0.05,
+        ),
+    )
+    out.setdefault("hospitation_soft", _mix(out["bg_panel"], out["hospitation"], 0.24))
+    out.setdefault("fg_on_hospitation", "#FFFFFF" if _is_dark(out["hospitation"]) else "#111827")
+    for alias_key, canonical_key in THEME_TOKEN_ALIASES.items():
+        out.setdefault(alias_key, out.get(canonical_key, ""))
     return out
 
 
@@ -270,6 +335,11 @@ def normalize_theme_key(theme_key: str | None = None) -> str:
 
 def get_theme(theme_key: str | None = None) -> dict[str, str]:
     return _ensure_semantic_defaults(THEMES[normalize_theme_key(theme_key)])
+
+
+def theme_contract_keys() -> tuple[str, ...]:
+    """Return the key set guaranteed by ``get_theme`` for every registered theme."""
+    return THEME_CONTRACT_KEYS
 
 
 def apply_window_theme(window: tk.Misc, theme_key: str | None = None) -> None:
