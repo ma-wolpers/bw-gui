@@ -62,9 +62,11 @@ class CustomMenuBar:
         self.strip = strip
 
         for definition in self.definitions:
+            underline_index = self._underline_index(definition.label, definition.alt)
             button = tk.Button(
                 strip,
                 text=definition.label,
+                underline=underline_index,
                 relief="flat",
                 bd=0,
                 padx=10,
@@ -261,24 +263,28 @@ class CustomMenuBar:
             return
 
         self.root.bind_all("<Button-1>", self._on_global_click, add="+")
+        self.root.bind_all("<Alt-KeyPress>", self._on_alt_keypress, add="+")
         self.root.bind("<Unmap>", self._on_deactivate, add="+")
         self.root.bind("<Deactivate>", self._on_deactivate, add="+")
 
-        for definition in self.definitions:
-            lower = definition.alt.lower()
-            upper = definition.alt.upper()
-            self.root.bind_all(
-                f"<Alt-{lower}>",
-                lambda _event, d=definition: self._on_mnemonic(d),
-                add="+",
-            )
-            self.root.bind_all(
-                f"<Alt-{upper}>",
-                lambda _event, d=definition: self._on_mnemonic(d),
-                add="+",
-            )
-
         self._bound = True
+
+    @staticmethod
+    def _underline_index(label: str, mnemonic: str) -> int:
+        if not label or not mnemonic:
+            return -1
+        lowered = label.lower()
+        target = mnemonic.lower()
+        return lowered.find(target)
+
+    def _on_alt_keypress(self, event) -> str | None:
+        key = str(getattr(event, "keysym", "") or getattr(event, "char", "")).lower()
+        if not key:
+            return None
+        for definition in self.definitions:
+            if definition.alt.lower() == key:
+                return self._on_mnemonic(definition)
+        return None
 
     def _on_mnemonic(self, definition: MenuDefinition) -> str:
         self.open_top_menu(definition)
