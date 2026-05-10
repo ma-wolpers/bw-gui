@@ -43,6 +43,12 @@ class CustomMenuBar:
         self._active_key: str | None = None
         self._bound = False
 
+    def set_definitions(self, definitions: Iterable[MenuDefinition]) -> None:
+        """Replace menu definitions and rebuild if strip already exists."""
+        self.definitions = tuple(definitions)
+        if self.strip is not None and self.strip.winfo_exists():
+            self.build()
+
     def build(self) -> None:
         """Build or rebuild the top menu strip."""
         self.destroy()
@@ -73,6 +79,7 @@ class CustomMenuBar:
             self._buttons[definition.key] = button
 
         self._bind_handlers()
+        self._refresh_button_states()
 
     def refresh_theme(self, theme_key: str) -> None:
         """Apply another theme and update visible widgets."""
@@ -81,14 +88,8 @@ class CustomMenuBar:
             return
         theme = get_theme(theme_key)
         self.strip.configure(bg=theme["bg_surface"], highlightbackground=theme["border"])
-        for button in self._buttons.values():
-            if button.winfo_exists():
-                button.configure(
-                    bg=theme["bg_surface"],
-                    fg=theme["fg_primary"],
-                    activebackground=theme["accent_soft"],
-                    activeforeground=theme["fg_primary"],
-                )
+        self._refresh_button_states()
+        self._refresh_popup_theme()
 
     def destroy(self) -> None:
         """Destroy strip and close open popup windows."""
@@ -108,6 +109,7 @@ class CustomMenuBar:
                 pass
         self._popup_stack = []
         self._active_key = None
+        self._refresh_button_states()
 
     def close_popups_from_level(self, level: int) -> None:
         """Close submenus deeper than a requested level."""
@@ -147,6 +149,7 @@ class CustomMenuBar:
 
         body = tk.Frame(popup, bg=theme["bg_surface"], bd=0, highlightthickness=0)
         body.pack(fill="both", expand=True, padx=1, pady=1)
+        setattr(popup, "_bw_menu_body", body)
 
         if level == 0:
             x_pos = anchor_widget.winfo_rootx()
@@ -159,7 +162,9 @@ class CustomMenuBar:
 
         for item in items:
             if item.type == "separator":
-                tk.Frame(body, height=1, bg=theme["border"], bd=0, highlightthickness=0).pack(fill="x", padx=8, pady=4)
+                separator = tk.Frame(body, height=1, bg=theme["border"], bd=0, highlightthickness=0)
+                setattr(separator, "_bw_menu_separator", True)
+                separator.pack(fill="x", padx=8, pady=4)
                 continue
 
             fg = theme["fg_muted"] if item.type == "disabled" else theme["fg_primary"]
@@ -181,6 +186,8 @@ class CustomMenuBar:
                 pady=6,
                 font=("Segoe UI", 9),
             )
+            setattr(row, "_bw_menu_row", True)
+            setattr(row, "_bw_menu_base_fg", fg)
             row.pack(fill="x")
 
             if item.type == "disabled":
@@ -206,11 +213,48 @@ class CustomMenuBar:
 
         self._popup_stack.append(popup)
         self._active_key = top_key
+        self._refresh_button_states()
 
     def _execute_menu_command(self, command: Callable[[], None] | None) -> None:
         self.close_all_popups()
         if callable(command):
             command()
+
+    def _refresh_button_states(self) -> None:
+        if self.strip is None or not self.strip.winfo_exists():
+            return
+        theme = get_theme(self.theme_key)
+        for key, button in self._buttons.items():
+            if not button.winfo_exists():
+                continue
+            active = key == self._active_key and bool(self._popup_stack)
+            button.configure(
+                bg=theme["accent_soft"] if active else theme["bg_surface"],
+                fg=theme["fg_primary"],
+                activebackground=theme["accent_soft"],
+                activeforeground=theme["fg_primary"],
+            )
+
+    def _refresh_popup_theme(self) -> None:
+        theme = get_theme(self.theme_key)
+        for popup in list(self._popup_stack):
+            try:
+                if not popup.winfo_exists():
+                    continue
+                popup.configure(bg=theme["border"])
+                body = getattr(popup, "_bw_menu_body", None)
+                if body is not None and body.winfo_exists():
+                    body.configure(bg=theme["bg_surface"])
+                    for child in body.winfo_children():
+                        if getattr(child, "_bw_menu_separator", False):
+                            child.configure(bg=theme["border"])
+                            continue
+                        if not getattr(child, "_bw_menu_row", False):
+                            continue
+                        base_fg = getattr(child, "_bw_menu_base_fg", theme["fg_primary"])
+                        child.configure(bg=theme["bg_surface"], fg=base_fg)
+            except tk.TclError:
+                continue
 
     def _bind_handlers(self) -> None:
         if self._bound:

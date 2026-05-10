@@ -23,6 +23,8 @@ All notable changes to this project will be documented in this file.
 - Theming tests now validate presence of both Kursplaner and Blattwerk theme families plus full contract coverage for all registered themes.
 - Shortcut label formatting now includes readable Tk-sequence normalization and intent-aware helper functions for button labels and hover overlays.
 - Keybinding registry now provides intent-based shortcut resolution (`shortcut_for_intent`) used by shared button/tooltip contracts.
+- Custom menu bar now keeps active top-level menu state visually in sync and reapplies theme updates to already opened popup levels.
+- Custom menu bar now supports replacing menu definitions at runtime via `set_definitions(...)` and rebuilding safely.
 
 ## [0.1.0] - 2026-05-04
 
