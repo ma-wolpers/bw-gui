@@ -179,11 +179,11 @@ class TabbedSettingsDialog:
         self.sections_listbox.configure(
             background=theme["bg_surface"],
             foreground=theme["fg_primary"],
-            selectbackground=theme["accent_soft"],
-            selectforeground=theme["fg_primary"],
+            selectbackground=theme["accent"],
+            selectforeground=theme["fg_on_accent"],
             highlightthickness=1,
             highlightbackground=theme["border"],
-            highlightcolor=theme["accent"],
+            highlightcolor=theme["focus_ring"],
             borderwidth=0,
             relief="flat",
         )
@@ -195,14 +195,14 @@ class TabbedSettingsDialog:
         )
 
     def _build_sections_list(self, root) -> None:
-        side = widgets.Frame(root)
+        side = widgets.Frame(root, style="Settings.Sidebar.TFrame", padding=(6, 6, 6, 6))
         side.grid(row=0, column=0, sticky="nsw", padx=(0, 10))
         side.rowconfigure(0, weight=1)
 
-        self.sections_listbox = ui.Listbox(side, exportselection=False, height=24)
+        self.sections_listbox = ui.Listbox(side, exportselection=False, height=24, width=28)
         self.sections_listbox.grid(row=0, column=0, sticky="ns")
 
-        scroll = widgets.Scrollbar(side, orient="vertical", command=self.sections_listbox.yview)
+        scroll = widgets.Scrollbar(side, orient="vertical", command=self.sections_listbox.yview, style="Vertical.TScrollbar")
         scroll.grid(row=0, column=1, sticky="ns")
         self.sections_listbox.configure(yscrollcommand=scroll.set)
 
@@ -212,7 +212,7 @@ class TabbedSettingsDialog:
         self.sections_listbox.bind("<<ListboxSelect>>", self._on_section_select)
 
     def _build_content_area(self, root) -> None:
-        content = widgets.Frame(root)
+        content = widgets.Frame(root, style="Settings.Panel.TFrame", padding=(6, 6, 6, 6))
         content.grid(row=0, column=1, sticky="nsew")
         content.rowconfigure(0, weight=1)
         content.columnconfigure(0, weight=1)
@@ -220,11 +220,11 @@ class TabbedSettingsDialog:
         self.content_canvas = ui.Canvas(content, highlightthickness=0)
         self.content_canvas.grid(row=0, column=0, sticky="nsew")
 
-        scroll = widgets.Scrollbar(content, orient="vertical", command=self.content_canvas.yview)
+        scroll = widgets.Scrollbar(content, orient="vertical", command=self.content_canvas.yview, style="Vertical.TScrollbar")
         scroll.grid(row=0, column=1, sticky="ns")
         self.content_canvas.configure(yscrollcommand=scroll.set)
 
-        self.content_frame = widgets.Frame(self.content_canvas, padding=(6, 2, 10, 10))
+        self.content_frame = widgets.Frame(self.content_canvas, style="Settings.Panel.TFrame", padding=(6, 2, 10, 10))
         self.content_window_id = self.content_canvas.create_window((0, 0), window=self.content_frame, anchor="nw")
 
         self.content_frame.bind("<Configure>", self._on_content_configure)
@@ -327,7 +327,7 @@ class TabbedSettingsDialog:
             hint_label = widgets.Label(
                 self.content_frame,
                 text=" | ".join(hints),
-                style="Muted.TLabel",
+                style="SettingsHint.TLabel",
             )
             hint_label.grid(row=row_index + 1, column=1, sticky="w", pady=(0, 6))
             return row_index + 2

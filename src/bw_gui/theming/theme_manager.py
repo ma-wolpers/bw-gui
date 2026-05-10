@@ -362,8 +362,12 @@ def configure_ttk_theme(root: tk.Misc, theme_key: str | None = None) -> None:
     style.configure("TFrame", background=theme["bg_main"])
     style.configure("Panel.TFrame", background=panel_bg)
     style.configure("Toolbar.TFrame", background=panel_bg)
+    style.configure("Settings.Panel.TFrame", background=theme["bg_surface"])
+    style.configure("Settings.Sidebar.TFrame", background=panel_bg)
     style.configure("TLabel", background=theme["bg_main"], foreground=theme["fg_primary"])
     style.configure("Muted.TLabel", background=theme["bg_main"], foreground=theme["fg_muted"])
+    style.configure("SectionTitle.TLabel", background=theme["bg_main"], foreground=theme["fg_primary"])
+    style.configure("SettingsHint.TLabel", background=theme["bg_main"], foreground=theme["fg_muted"])
 
     style.configure(
         "TButton",
@@ -423,11 +427,12 @@ def configure_ttk_theme(root: tk.Misc, theme_key: str | None = None) -> None:
         darkcolor=border,
     )
 
-    scroll_bg = _mix(theme["border"], theme["bg_surface"], 0.35)
-    scroll_active = _mix(theme["accent_soft"], theme["bg_surface"], 0.52)
+    scroll_trough = _mix(theme["bg_surface"], panel_bg, 0.35)
+    scroll_bg = _mix(theme["border"], theme["bg_surface"], 0.46)
+    scroll_active = _mix(theme["accent_soft"], theme["bg_surface"], 0.66)
     style.configure(
         "TScrollbar",
-        troughcolor=theme["bg_surface"],
+        troughcolor=scroll_trough,
         background=scroll_bg,
         arrowcolor=theme["fg_primary"],
         bordercolor=border,
@@ -435,6 +440,10 @@ def configure_ttk_theme(root: tk.Misc, theme_key: str | None = None) -> None:
         darkcolor=border,
         gripcount=0,
     )
-    style.map("TScrollbar", background=[("active", scroll_active), ("pressed", scroll_active)])
-    style.configure("Horizontal.TScrollbar", troughcolor=theme["bg_surface"], background=scroll_bg)
-    style.configure("Vertical.TScrollbar", troughcolor=theme["bg_surface"], background=scroll_bg)
+    style.map(
+        "TScrollbar",
+        background=[("active", scroll_active), ("pressed", scroll_active)],
+        arrowcolor=[("active", theme["fg_primary"]), ("pressed", theme["fg_primary"]), ("disabled", theme["fg_muted"])],
+    )
+    style.configure("Horizontal.TScrollbar", troughcolor=scroll_trough, background=scroll_bg)
+    style.configure("Vertical.TScrollbar", troughcolor=scroll_trough, background=scroll_bg)
