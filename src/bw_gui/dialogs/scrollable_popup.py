@@ -92,7 +92,8 @@ class ScrollablePopupWindow:
     def _activate_modal_focus(self) -> None:
         if not self.winfo_exists():
             return
-        if ScrollablePopupWindow.active_popup() is not self:
+        active_popup = getattr(type(self), "active_popup", ScrollablePopupWindow.active_popup)
+        if active_popup() is not self:
             return
         try:
             self.lift()
@@ -149,7 +150,8 @@ class ScrollablePopupWindow:
 
     def _handle_escape_request(self) -> str:
         focused = self.focus_get()
-        if self._is_descendant_of_popup(focused) and ScrollablePopupWindow._is_editable_widget(focused):
+        editable_check = getattr(type(self), "_is_editable_widget", ScrollablePopupWindow._is_editable_widget)
+        if self._is_descendant_of_popup(focused) and editable_check(focused):
             try:
                 self.focus_force()
             except ui.TclError:
