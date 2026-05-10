@@ -41,6 +41,7 @@ class CustomMenuBar:
         self._buttons: dict[str, tk.Button] = {}
         self._popup_stack: list[tk.Toplevel] = []
         self._active_key: str | None = None
+        self._focus_check_after_id: str | None = None
         self._bound = False
 
     def set_definitions(self, definitions: Iterable[MenuDefinition]) -> None:
@@ -95,6 +96,7 @@ class CustomMenuBar:
 
     def destroy(self) -> None:
         """Destroy strip and close open popup windows."""
+        self._cancel_focus_check()
         self.close_all_popups()
         if self.strip is not None and self.strip.winfo_exists():
             self.strip.destroy()
@@ -146,7 +148,6 @@ class CustomMenuBar:
         setattr(popup, "_bw_menu_popup", True)
         popup.overrideredirect(True)
         popup.transient(self.root)
-        popup.attributes("-topmost", True)
         popup.configure(bg=theme["border"], bd=1, highlightthickness=0)
 
         body = tk.Frame(popup, bg=theme["bg_surface"], bd=0, highlightthickness=0)
@@ -264,6 +265,8 @@ class CustomMenuBar:
 
         self.root.bind_all("<Button-1>", self._on_global_click, add="+")
         self.root.bind_all("<Alt-KeyPress>", self._on_alt_keypress, add="+")
+        self.root.bind_all("<FocusIn>", self._on_focus_change, add="+")
+        self.root.bind_all("<FocusOut>", self._on_focus_change, add="+")
         self.root.bind("<Unmap>", self._on_deactivate, add="+")
         self.root.bind("<Deactivate>", self._on_deactivate, add="+")
 
@@ -292,6 +295,39 @@ class CustomMenuBar:
 
     def _on_deactivate(self, _event=None) -> None:
         if self._popup_stack:
+            self.close_all_popups()
+
+    def _on_focus_change(self, _event=None) -> None:
+        if not self._popup_stack:
+            return
+        self._schedule_focus_check()
+
+    def _schedule_focus_check(self) -> None:
+        self._cancel_focus_check()
+        try:
+            self._focus_check_after_id = self.root.after_idle(self._close_if_focus_outside_menu)
+        except tk.TclError:
+            self._focus_check_after_id = None
+
+    def _cancel_focus_check(self) -> None:
+        if not self._focus_check_after_id:
+            return
+        try:
+            self.root.after_cancel(self._focus_check_after_id)
+        except tk.TclError:
+            pass
+        self._focus_check_after_id = None
+
+    def _close_if_focus_outside_menu(self) -> None:
+        self._focus_check_after_id = None
+        if not self._popup_stack:
+            return
+        try:
+            focused = self.root.focus_displayof()
+        except tk.TclError:
+            self.close_all_popups()
+            return
+        if focused is None or not self._is_menu_managed(focused):
             self.close_all_popups()
 
     def _on_global_click(self, event) -> None:

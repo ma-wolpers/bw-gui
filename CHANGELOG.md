@@ -26,6 +26,7 @@ All notable changes to this project will be documented in this file.
 - Custom menu bar now keeps active top-level menu state visually in sync and reapplies theme updates to already opened popup levels.
 - Custom menu bar now supports replacing menu definitions at runtime via `set_definitions(...)` and rebuilding safely.
 - Custom menu bar now renders mnemonic underlines for top-level buttons and resolves Alt navigation through one centralized keypress handler.
+- Open menu overlays now close reliably on focus changes (inside and outside the app window), and popups no longer enforce a global topmost flag.
 
 ## [0.1.0] - 2026-05-04
 
