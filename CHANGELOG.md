@@ -6,8 +6,10 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 - Shared dialog service module `bw_gui.dialogs` with `MessageDialogService`, `TextPromptDialogService`, and `FileDialogService`.
+- Shared tabbed settings dialog module `bw_gui.dialogs.settings_dialog` with schema-driven sections/fields and payload coercion helpers for cross-app settings integration.
 - Modal-call routing in dialog services that respects popup-policy aware hosts via `_run_modal_dialog_call` when present.
 - Unit tests for shared dialog services covering modal routing, default-root fallback, and file dialog result normalization.
+- Unit tests for settings schema and payload coercion (`tests/test_settings_dialog.py`).
 - `MessageDialogService.askretrycancel(...)` for startup/path-validation flows that need retry semantics via the shared dialog layer.
 - Shared runtime aliases `bw_gui.runtime.ui` and `bw_gui.runtime.widgets` as a central import path for tkinter/ttk primitives.
 - Shared runtime alias `bw_gui.runtime.fonts` for tkinter font primitives, enabling app modules to avoid direct `tkinter.font` imports.
