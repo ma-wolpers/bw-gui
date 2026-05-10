@@ -10,6 +10,7 @@ from .hsm import (
     TransitionRule,
     build_ui_hsm_contract,
 )
+from .button import ButtonDefinition, ButtonRegistry
 from .keybinding import (
     UI_MODE_DIALOG,
     UI_MODE_EDITOR,
@@ -50,4 +51,6 @@ __all__ = [
     "PopupPolicyRegistry",
     "PopupSession",
     "build_ui_hsm_contract",
+    "ButtonDefinition",
+    "ButtonRegistry",
 ]

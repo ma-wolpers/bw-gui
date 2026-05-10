@@ -1,5 +1,17 @@
 """Helpers for rendering consistent shortcut labels and hints."""
 
-from .label_formatter import compose_hover_text, format_shortcut_label
+from .label_formatter import (
+	compose_action_label,
+	compose_hover_text,
+	compose_hover_text_for_intent,
+	format_shortcut_label,
+	humanize_shortcut_sequence,
+)
 
-__all__ = ["compose_hover_text", "format_shortcut_label"]
+__all__ = [
+	"compose_action_label",
+	"compose_hover_text",
+	"compose_hover_text_for_intent",
+	"format_shortcut_label",
+	"humanize_shortcut_sequence",
+]

@@ -62,6 +62,33 @@ class KeybindingRegistry:
         """Return all keybindings in registry order."""
         return tuple(self._bindings)
 
+    def bindings_for_intent(self, intent: str) -> tuple[KeyBindingDefinition, ...]:
+        """Return all keybindings declared for one intent."""
+        return tuple(definition for definition in self._bindings if definition.intent == intent)
+
+    def shortcut_for_intent(
+        self,
+        intent: str,
+        *,
+        mode: str | None = None,
+        offline: bool = False,
+        text_input_focused: bool = False,
+    ) -> str | None:
+        """Resolve first matching shortcut sequence for one intent."""
+        if mode is None:
+            source = self._bindings
+        else:
+            source = self.active_for_mode(
+                mode,
+                offline=offline,
+                text_input_focused=text_input_focused,
+            )
+
+        for definition in source:
+            if definition.intent == intent:
+                return definition.sequence
+        return None
+
     def active_for_mode(
         self,
         mode: str,

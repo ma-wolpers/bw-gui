@@ -47,6 +47,30 @@ def test_keybinding_runtime_evaluation():
     assert reason == "text-input-focus"
 
 
+def test_keybinding_shortcut_for_intent_resolution():
+    registry = KeybindingRegistry()
+    registry.register(
+        KeyBindingDefinition(
+            binding_id="save.editor",
+            sequence="<Control-s>",
+            intent="save",
+            modes=("editor",),
+        )
+    )
+    registry.register(
+        KeyBindingDefinition(
+            binding_id="save.global",
+            sequence="<Control-Shift-s>",
+            intent="save",
+            modes=("global",),
+        )
+    )
+
+    assert registry.shortcut_for_intent("save", mode="editor") == "<Control-s>"
+    assert registry.shortcut_for_intent("save", mode="preview") == "<Control-Shift-s>"
+    assert registry.shortcut_for_intent("missing") is None
+
+
 def test_popup_policy_registry_stack_behavior():
     registry = PopupPolicyRegistry()
     registry.register_policy(PopupPolicy(policy_id="modal_default"))
