@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- Shared runtime root host `bw_gui.runtime.TkRootHost` for composed Tk root delegation in app adapters.
+- Shared scrollable popup host `bw_gui.dialogs.ScrollablePopupWindow` with modal focus/escape handling and reusable theme hooks.
+- Shared multiline form widget `bw_gui.widgets.WrappedTextField` with editor-like Ctrl+Backspace/Ctrl+Delete behavior.
+- Unit tests for root host, scrollable popup behaviors, and wrapped text field helpers (`tests/test_runtime_root_host.py`, `tests/test_scrollable_popup.py`, `tests/test_wrapped_text_field.py`).
 - Shared dialog service module `bw_gui.dialogs` with `MessageDialogService`, `TextPromptDialogService`, and `FileDialogService`.
 - Shared tabbed settings dialog module `bw_gui.dialogs.settings_dialog` with schema-driven sections/fields and payload coercion helpers for cross-app settings integration.
 - Shared button contract module `bw_gui.contracts.button` (`ButtonDefinition`, `ButtonRegistry`) for icon-first labels and intent-linked hover text generation.
@@ -18,6 +22,7 @@ All notable changes to this project will be documented in this file.
 - Theme contract documentation in `docs/THEME_CONTRACT.md` including guaranteed token keys, alias mapping, and domain fallback behavior.
 
 ### Changed
+- Runtime and widget/dialog package exports now include the new Step-4 primitives (`TkRootHost`, `ScrollablePopupWindow`, `WrappedTextField`) as stable shared import paths.
 - Shared theme manager now exposes explicit contract helpers (`THEME_CORE_KEYS`, `THEME_CONTRACT_KEYS`, `theme_contract_keys`) for cross-repo theming integration.
 - `get_theme(...)` now guarantees alias and domain-extension tokens for every theme (`error*` aliases and `hospitation*` fallback keys) while preserving per-theme overrides.
 - Theming tests now validate presence of both Kursplaner and Blattwerk theme families plus full contract coverage for all registered themes.

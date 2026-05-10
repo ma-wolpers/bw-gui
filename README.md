@@ -14,8 +14,11 @@ Shared GUI core for Blattwerk-family apps.
 
 - Contracts: keybinding, popup, hsm
 - Theming: unified theme registry and ttk setup
+- Runtime host: composed Tk root host (`bw_gui.runtime.TkRootHost`)
 - Menu: themed custom menubar widget
+- Dialogs: shared settings dialog and scrollable popup host
 - Widgets: hover tooltip primitive
+- Widgets: wrapped multiline text field with word-delete shortcuts
 - Shortcuts: shared label formatting helpers
 
 ## Integration (Submodule-first)
