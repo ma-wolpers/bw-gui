@@ -14,6 +14,10 @@ class ScrollablePopupWindow:
         """Delegate unknown attributes to the composed ``ui.Toplevel`` window."""
         return getattr(self._popup_window, name)
 
+    def __str__(self) -> str:
+        """Expose the popup Tk widget path for APIs that stringify owners."""
+        return str(self._popup_window)
+
     def __init__(
         self,
         master,

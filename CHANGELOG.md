@@ -23,6 +23,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 - Runtime and widget/dialog package exports now include the new Step-4 primitives (`TkRootHost`, `ScrollablePopupWindow`, `WrappedTextField`) as stable shared import paths.
+- Shared primitives now also delegate `__str__` to their composed Tk widgets (`TkRootHost.tk_root`, `ScrollablePopupWindow._popup_window`, `WrappedTextField._container`) so parent/transient calls that stringify masters stay valid across consuming apps.
 - Shared theme manager now exposes explicit contract helpers (`THEME_CORE_KEYS`, `THEME_CONTRACT_KEYS`, `theme_contract_keys`) for cross-repo theming integration.
 - `get_theme(...)` now guarantees alias and domain-extension tokens for every theme (`error*` aliases and `hospitation*` fallback keys) while preserving per-theme overrides.
 - Theming tests now validate presence of both Kursplaner and Blattwerk theme families plus full contract coverage for all registered themes.

@@ -21,3 +21,7 @@ class TkRootHost:
     def __getattr__(self, name: str):
         """Delegate unknown attributes to the composed Tk root instance."""
         return getattr(self._tk_root, name)
+
+    def __str__(self) -> str:
+        """Expose the Tk widget path for APIs that stringify widget masters."""
+        return str(self._tk_root)

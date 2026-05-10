@@ -9,3 +9,13 @@ def test_wrapped_text_field_left_delete_span_deletes_previous_word_and_spaces():
 def test_wrapped_text_field_right_delete_span_deletes_next_word_and_spaces():
     assert WrappedTextField._right_delete_span("Welt hier") == 4
     assert WrappedTextField._right_delete_span("   Welt hier") == 7
+
+
+def test_wrapped_text_field_str_delegates_to_container_path():
+    class _FakeContainer:
+        def __str__(self):
+            return ".wrapped"
+
+    wrapper = type("_FakeWrapper", (), {"_container": _FakeContainer()})()
+
+    assert WrappedTextField.__str__(wrapper) == ".wrapped"

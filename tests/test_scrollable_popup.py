@@ -104,3 +104,13 @@ def test_request_close_respects_confirmation_callback():
 
     assert result == "break"
     assert popup.destroy_calls == 0
+
+
+def test_scrollable_popup_str_delegates_to_popup_window_path():
+    class _FakePopupWindow:
+        def __str__(self):
+            return ".popup"
+
+    popup = SimpleNamespace(_popup_window=_FakePopupWindow())
+
+    assert ScrollablePopupWindow.__str__(popup) == ".popup"

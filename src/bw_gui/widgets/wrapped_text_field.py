@@ -10,6 +10,10 @@ class WrappedTextField:
         """Delegate unknown widget attributes to the composed frame container."""
         return getattr(self._container, name)
 
+    def __str__(self) -> str:
+        """Expose the container Tk widget path when callers stringify masters."""
+        return str(self._container)
+
     def __init__(self, master, *, initial: str = "", height: int = 3):
         self._container = widgets.Frame(master)
         self.text = ui.Text(self._container, wrap="word", height=height, undo=True)
