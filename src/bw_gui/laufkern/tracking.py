@@ -21,6 +21,13 @@ _AREA_CODES = frozenset({"ARC", "API", "MAN", "RTC", "RCH", "TRK", "MIG", "ROL",
 _COMPLETED_STATES = frozenset({"done", "completed", "passed", "ok"})
 
 
+def _has_evidence_ref(artifact: TrackingArtifact) -> bool:
+    """Return whether an artifact carries a non-empty evidence reference."""
+
+    value = artifact.evidence_ref
+    return bool(value and value.strip())
+
+
 def validate_step_id(step_id: str) -> bool:
     """Validate canonical step id format and supported area codes."""
 
@@ -77,7 +84,12 @@ def aggregate_completion(
     mandatory_steps: set[str] | None = None,
     trusted_producers: set[str] | None = None,
 ) -> CompletionSummary:
-    """Aggregate artifact stream into one completion summary."""
+    """Aggregate artifact stream into one completion summary.
+
+    `summary.status` is only `complete` when every mandatory step has a trusted,
+    completed artifact with a non-empty evidence reference and no aggregation
+    errors are present.
+    """
 
     values = tuple(artifacts)
     trusted = trusted_producers or {"laufkern"}
@@ -110,12 +122,18 @@ def aggregate_completion(
 
     blockers: list[str] = []
     completed_steps = 0
+    if not mandatory_candidates:
+        blockers.append(f"{LK_TRK_MISSING_MANDATORY}:__MANDATORY_STEPS_EMPTY__")
+
     for step_id in sorted(mandatory_candidates):
         artifact = by_step_latest.get(step_id)
         if artifact is None:
             blockers.append(f"{LK_TRK_MISSING_MANDATORY}:{step_id}")
             continue
         if artifact.state not in _COMPLETED_STATES:
+            blockers.append(f"{LK_TRK_MISSING_MANDATORY}:{step_id}")
+            continue
+        if not _has_evidence_ref(artifact):
             blockers.append(f"{LK_TRK_MISSING_MANDATORY}:{step_id}")
             continue
         completed_steps += 1

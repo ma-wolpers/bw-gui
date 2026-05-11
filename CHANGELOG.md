@@ -24,6 +24,7 @@ All notable changes to this project will be documented in this file.
 - Theme contract documentation in `docs/THEME_CONTRACT.md` including guaranteed token keys, alias mapping, and domain fallback behavior.
 
 ### Changed
+- LaufKern completion aggregation now enforces a strict completion gate: `summary.status` becomes `complete` only when all mandatory steps have completed artifacts with non-empty `evidence_ref` values and no trust/checksum/sequence errors are present.
 - Runtime and widget/dialog package exports now include the new Step-4 primitives (`TkRootHost`, `ScrollablePopupWindow`, `WrappedTextField`) as stable shared import paths.
 - Shared primitives now also delegate `__str__` to their composed Tk widgets (`TkRootHost.tk_root`, `ScrollablePopupWindow._popup_window`, `WrappedTextField._container`) so parent/transient calls that stringify masters stay valid across consuming apps.
 - Shared theme manager now exposes explicit contract helpers (`THEME_CORE_KEYS`, `THEME_CONTRACT_KEYS`, `theme_contract_keys`) for cross-repo theming integration.

@@ -96,6 +96,7 @@ def test_emit_tracking_artifact_and_completion_summary():
         sequence=1,
         mandatory=True,
         producer="laufkern",
+        evidence_ref="artifact://run-1/LK-A-ARC-001",
     )
     second = emit_tracking_artifact(
         run_id="run-1",
@@ -106,12 +107,43 @@ def test_emit_tracking_artifact_and_completion_summary():
         sequence=2,
         mandatory=True,
         producer="laufkern",
+        evidence_ref="artifact://run-1/LK-B-API-001",
     )
 
     summary = aggregate_completion((first, second))
     assert summary.status == "complete"
     assert summary.mandatory_steps == 2
     assert summary.completed_steps == 2
+
+
+def test_aggregate_completion_requires_mandatory_evidence_ref():
+    artifact = emit_tracking_artifact(
+        run_id="run-3",
+        repo_name="blattwerk",
+        step_id="LK-A-ARC-001",
+        phase="A",
+        state="done",
+        sequence=1,
+        mandatory=True,
+        producer="laufkern",
+        evidence_ref=None,
+    )
+
+    summary = aggregate_completion((artifact,))
+
+    assert summary.status == "non-complete"
+    assert summary.mandatory_steps == 1
+    assert summary.completed_steps == 0
+    assert f"LK-TRK-MISSING_MANDATORY:{artifact.step_id}" in summary.blockers
+
+
+def test_aggregate_completion_rejects_empty_mandatory_scope():
+    summary = aggregate_completion(())
+
+    assert summary.status == "non-complete"
+    assert summary.mandatory_steps == 0
+    assert summary.completed_steps == 0
+    assert "LK-TRK-MISSING_MANDATORY:__MANDATORY_STEPS_EMPTY__" in summary.blockers
 
 
 def test_aggregate_completion_detects_missing_mandatory_step():
