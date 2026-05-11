@@ -13,11 +13,28 @@ from .contracts import (
     build_ui_hsm_contract,
 )
 from .dialogs import FileDialogService, MessageDialogService, TextPromptDialogService
+from .laufkern import (
+    CompletionSummary,
+    LaufKernManifest,
+    LaufKernRoute,
+    ReachabilityResult,
+    TrackingArtifact,
+    aggregate_completion,
+    build_manifest,
+    build_runtime_context,
+    emit_tracking_artifact,
+    evaluate_intent_routes,
+    verify_manifest,
+    verify_reachability,
+)
 from .runtime import fonts, ui, widgets
 
 __all__ = [
     "HsmContract",
     "HsmIntentSpec",
+    "LaufKernManifest",
+    "LaufKernRoute",
+    "CompletionSummary",
     "FileDialogService",
     "fonts",
     "KeyBindingDefinition",
@@ -27,9 +44,18 @@ __all__ = [
     "PopupPolicy",
     "PopupPolicyRegistry",
     "PopupSession",
+    "ReachabilityResult",
+    "TrackingArtifact",
     "TextPromptDialogService",
     "TransitionRule",
     "build_ui_hsm_contract",
+    "build_manifest",
+    "build_runtime_context",
+    "verify_manifest",
+    "verify_reachability",
+    "evaluate_intent_routes",
+    "emit_tracking_artifact",
+    "aggregate_completion",
     "ui",
     "widgets",
 ]

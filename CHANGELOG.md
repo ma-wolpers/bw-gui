@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- New `bw_gui.laufkern` core package with manifest validation, route reachability checks, step/reason-code standards, and completion-tracking aggregation for LaufKern-based app integration.
+- Unit tests for LaufKern manifest/reachability/tracking behavior (`tests/test_laufkern.py`).
 - Shared runtime root host `bw_gui.runtime.TkRootHost` for composed Tk root delegation in app adapters.
 - Shared scrollable popup host `bw_gui.dialogs.ScrollablePopupWindow` with modal focus/escape handling and reusable theme hooks.
 - Shared multiline form widget `bw_gui.widgets.WrappedTextField` with editor-like Ctrl+Backspace/Ctrl+Delete behavior.
