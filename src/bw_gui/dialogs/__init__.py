@@ -2,6 +2,7 @@
 
 from .service import FileDialogService, MessageDialogService, TextPromptDialogService
 from .scrollable_popup import ScrollablePopupWindow
+from .settings_orchestrator import SettingsDialogOrchestrator
 from .settings_dialog import (
 	SettingsDialogSpec,
 	SettingsFieldSpec,
@@ -16,6 +17,7 @@ __all__ = [
 	"MessageDialogService",
 	"TextPromptDialogService",
 	"ScrollablePopupWindow",
+	"SettingsDialogOrchestrator",
 	"SettingsDialogSpec",
 	"SettingsFieldSpec",
 	"SettingsSectionSpec",

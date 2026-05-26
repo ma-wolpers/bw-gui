@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- New centralized settings flow helper `bw_gui.dialogs.SettingsDialogOrchestrator` to wire theme/spec/value providers and commit handlers behind one reusable open call.
+- Standardized menu-definition builder in `bw_gui.menu.standard_menu` (`section_spec`, `build_standard_menu_definitions`) for consistent core menu ordering with app-specific extension sections.
 - New `bw_gui.laufkern` core package with manifest validation, route reachability checks, step/reason-code standards, and completion-tracking aggregation for LaufKern-based app integration.
 - Unit tests for LaufKern manifest/reachability/tracking behavior (`tests/test_laufkern.py`).
 - Shared runtime root host `bw_gui.runtime.TkRootHost` for composed Tk root delegation in app adapters.
