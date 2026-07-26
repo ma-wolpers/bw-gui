@@ -1,39 +1,67 @@
-"""Themed custom menubar replacing native Tk menubar."""
+"""Themed custom menubar replacing the native Tk menubar.
+
+``CustomMenuBar`` renders a horizontal strip of ``tk.Button`` widgets at the top of
+the root window. Clicking a button opens a floating ``tk.Toplevel`` popup with the
+section's items. Submenus open as nested popups to the right.
+
+This replaces the native ``tk.Menu`` / ``root.config(menu=...)`` approach entirely, which
+allows the menubar to be fully themed (colors, fonts, borders) using the same token
+system as the rest of the application.
+
+Typical usage::
+
+    from bw_gui.menu.custom_menu_bar import CustomMenuBar, MenuItem, MenuDefinition
+
+    defs = (
+        MenuDefinition("file", "Datei", "d", items_provider=my_file_items),
+    )
+    bar = CustomMenuBar(root, defs, theme_key="mono_day")
+    bar.build()
+"""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Callable, Iterable
 import tkinter as tk
 
 from bw_gui.theming.theme_manager import get_theme
 
-
-@dataclass(frozen=True)
-class MenuItem:
-    """Declarative menu row entry for popup rendering."""
-
-    type: str
-    label: str = ""
-    command: Callable[[], None] | None = None
-    checked: bool = False
-    items: tuple["MenuItem", ...] = ()
-
-
-@dataclass(frozen=True)
-class MenuDefinition:
-    """Top-level menu definition."""
-
-    key: str
-    label: str
-    alt: str
-    items_provider: Callable[[], Iterable[MenuItem]]
+from .menu_types import MenuDefinition, MenuItem  # noqa: F401 — re-exported for callers
 
 
 class CustomMenuBar:
-    """Reusable themed menu strip with popup support and mnemonic access."""
+    """Themed menu strip widget with popup stack management and mnemonic access.
+
+    Low-level API — not exported from ``bw_gui`` top-level. Use ``BwBaseWindow`` instead.
+
+    Renders as a ``tk.Frame`` strip packed at the top of the root window, containing
+    one ``tk.Button`` per registered menu definition. Clicking a button opens a
+    styled ``tk.Toplevel`` popup. Submenus open recursively as additional Toplevels.
+
+    The popup stack is tracked explicitly so closing at one level destroys any
+    deeper levels first. A global click handler closes all popups when the user
+    clicks outside the menu.
+
+    Theme changes are applied via ``refresh_theme()`` which re-colors the strip,
+    buttons, and any currently open popup frames without rebuilding the widget tree.
+
+    Attributes:
+        root: The root Tk widget that owns this menubar.
+        definitions: Ordered tuple of ``MenuDefinition`` objects to render.
+        theme_key: The currently active theme key.
+        strip: The tk.Frame strip widget, or None before ``build()`` is called.
+    """
 
     def __init__(self, root: tk.Misc, definitions: Iterable[MenuDefinition], *, theme_key: str):
+        """Store configuration but do not create any widgets yet.
+
+        Call ``build()`` after construction to create the strip and buttons.
+
+        Args:
+            root: The root or host Tk window to attach the strip to.
+            definitions: Ordered menu definitions to render.
+            theme_key: Initial theme key for colors and styling.
+        """
         self.root = root
         self.definitions = tuple(definitions)
         self.theme_key = theme_key
@@ -45,16 +73,34 @@ class CustomMenuBar:
         self._bound = False
 
     def set_definitions(self, definitions: Iterable[MenuDefinition]) -> None:
-        """Replace menu definitions and rebuild if strip already exists."""
+        """Replace the menu definitions and rebuild the strip if it already exists.
+
+        Use this to update the menubar after the root window's sections change
+        (e.g. after a plugin adds a new menu).
+
+        Args:
+            definitions: New ordered menu definitions.
+        """
         self.definitions = tuple(definitions)
         if self.strip is not None and self.strip.winfo_exists():
             self.build()
 
     def build(self) -> None:
-        """Build or rebuild the top menu strip."""
+        """Create or recreate the strip frame and all menu buttons.
+
+        Destroys any existing strip before building. Inserts the strip before
+        the first existing child of ``root`` so it always appears at the top.
+        Binds the global click, Alt-key, and focus handlers on the first call.
+        """
         self.destroy()
         theme = get_theme(self.theme_key)
-        strip = tk.Frame(self.root, bg=theme["bg_surface"], highlightthickness=1, highlightbackground=theme["border"], bd=0)
+        strip = tk.Frame(
+            self.root,
+            bg=theme["bg_surface"],
+            highlightthickness=1,
+            highlightbackground=theme["border"],
+            bd=0,
+        )
         children = [child for child in self.root.winfo_children() if child is not strip]
         if children:
             strip.pack(fill="x", side="top", before=children[0])
@@ -85,7 +131,13 @@ class CustomMenuBar:
         self._refresh_button_states()
 
     def refresh_theme(self, theme_key: str) -> None:
-        """Apply another theme and update visible widgets."""
+        """Apply a new theme to the strip, buttons, and any open popup frames.
+
+        Does nothing if the strip has not been built or has been destroyed.
+
+        Args:
+            theme_key: The theme key to switch to.
+        """
         self.theme_key = theme_key
         if self.strip is None or not self.strip.winfo_exists():
             return
@@ -95,7 +147,7 @@ class CustomMenuBar:
         self._refresh_popup_theme()
 
     def destroy(self) -> None:
-        """Destroy strip and close open popup windows."""
+        """Close all open popups and destroy the strip frame, resetting all state."""
         self._cancel_focus_check()
         self.close_all_popups()
         if self.strip is not None and self.strip.winfo_exists():
@@ -104,7 +156,7 @@ class CustomMenuBar:
         self._buttons = {}
 
     def close_all_popups(self) -> None:
-        """Close all open menu popups."""
+        """Close every open menu popup and clear the active key highlight."""
         for popup in list(self._popup_stack):
             try:
                 if popup.winfo_exists():
@@ -116,7 +168,15 @@ class CustomMenuBar:
         self._refresh_button_states()
 
     def close_popups_from_level(self, level: int) -> None:
-        """Close submenus deeper than a requested level."""
+        """Close all submenus deeper than ``level``.
+
+        Level 0 means the top-level popup from a strip button. Level 1 is the
+        first submenu, and so on. Closing level N destroys levels N, N+1, ...
+
+        Args:
+            level: The popup depth to close from (inclusive). Popups below this
+                level are preserved.
+        """
         stack = list(self._popup_stack)
         while len(stack) > level:
             popup = stack.pop()
@@ -128,7 +188,14 @@ class CustomMenuBar:
         self._popup_stack = stack
 
     def open_top_menu(self, definition: MenuDefinition) -> None:
-        """Open one top-level popup below its button."""
+        """Toggle the top-level popup for one strip button.
+
+        If the same button's popup is already open, this closes it (toggle behavior).
+        Otherwise, opens the popup below the button.
+
+        Args:
+            definition: The menu definition whose popup to open.
+        """
         button = self._buttons.get(definition.key)
         if button is None or not button.winfo_exists():
             return
@@ -139,8 +206,26 @@ class CustomMenuBar:
 
         self.open_popup(button, tuple(definition.items_provider()), 0, definition.key)
 
-    def open_popup(self, anchor_widget: tk.Widget, items: tuple[MenuItem, ...], level: int, top_key: str) -> None:
-        """Render one popup level with command and submenu entries."""
+    def open_popup(
+        self,
+        anchor_widget: tk.Widget,
+        items: tuple[MenuItem, ...],
+        level: int,
+        top_key: str,
+    ) -> None:
+        """Render one popup level as a styled Toplevel window.
+
+        Positions level-0 popups below ``anchor_widget`` (the strip button).
+        Positions level-1+ popups to the right of their anchor row.
+        Closes any deeper levels before opening this one.
+
+        Args:
+            anchor_widget: Widget to anchor the popup position to.
+            items: The items to render in this popup.
+            level: Depth in the popup stack (0 = top-level from strip button).
+            top_key: The ``definition.key`` of the originating strip button.
+                Used to keep the correct strip button highlighted.
+        """
         self.close_popups_from_level(level)
 
         theme = get_theme(self.theme_key)
@@ -219,11 +304,13 @@ class CustomMenuBar:
         self._refresh_button_states()
 
     def _execute_menu_command(self, command: Callable[[], None] | None) -> None:
+        """Close all popups, then invoke the command if it is callable."""
         self.close_all_popups()
         if callable(command):
             command()
 
     def _refresh_button_states(self) -> None:
+        """Re-color all strip buttons to reflect which menu is currently open."""
         if self.strip is None or not self.strip.winfo_exists():
             return
         theme = get_theme(self.theme_key)
@@ -239,6 +326,7 @@ class CustomMenuBar:
             )
 
     def _refresh_popup_theme(self) -> None:
+        """Re-color all open popup frames without closing or rebuilding them."""
         theme = get_theme(self.theme_key)
         for popup in list(self._popup_stack):
             try:
@@ -260,6 +348,7 @@ class CustomMenuBar:
                 continue
 
     def _bind_handlers(self) -> None:
+        """Bind global click, Alt-key, focus, and deactivate handlers (once only)."""
         if self._bound:
             return
 
@@ -274,6 +363,15 @@ class CustomMenuBar:
 
     @staticmethod
     def _underline_index(label: str, mnemonic: str) -> int:
+        """Return the index of the mnemonic character in the label, or -1 if not found.
+
+        Args:
+            label: The button label text to search.
+            mnemonic: Single character to find (case-insensitive).
+
+        Returns:
+            Zero-based index of the first occurrence, or -1.
+        """
         if not label or not mnemonic:
             return -1
         lowered = label.lower()
@@ -281,6 +379,7 @@ class CustomMenuBar:
         return lowered.find(target)
 
     def _on_alt_keypress(self, event) -> str | None:
+        """Handle Alt+key presses and open the matching section's menu if found."""
         key = str(getattr(event, "keysym", "") or getattr(event, "char", "")).lower()
         if not key:
             return None
@@ -290,19 +389,23 @@ class CustomMenuBar:
         return None
 
     def _on_mnemonic(self, definition: MenuDefinition) -> str:
+        """Open the top menu for the matched definition and return "break" to stop propagation."""
         self.open_top_menu(definition)
         return "break"
 
     def _on_deactivate(self, _event=None) -> None:
+        """Close all popups when the window loses focus or is unmapped."""
         if self._popup_stack:
             self.close_all_popups()
 
     def _on_focus_change(self, _event=None) -> None:
+        """Schedule a focus-outside check when any focus event fires with popups open."""
         if not self._popup_stack:
             return
         self._schedule_focus_check()
 
     def _schedule_focus_check(self) -> None:
+        """Schedule ``_close_if_focus_outside_menu()`` to run after idle."""
         self._cancel_focus_check()
         try:
             self._focus_check_after_id = self.root.after_idle(self._close_if_focus_outside_menu)
@@ -310,6 +413,7 @@ class CustomMenuBar:
             self._focus_check_after_id = None
 
     def _cancel_focus_check(self) -> None:
+        """Cancel a pending after_idle focus-check callback."""
         if not self._focus_check_after_id:
             return
         try:
@@ -319,6 +423,7 @@ class CustomMenuBar:
         self._focus_check_after_id = None
 
     def _close_if_focus_outside_menu(self) -> None:
+        """Close all popups if the currently focused widget is not inside the menu."""
         self._focus_check_after_id = None
         if not self._popup_stack:
             return
@@ -331,6 +436,7 @@ class CustomMenuBar:
             self.close_all_popups()
 
     def _on_global_click(self, event) -> None:
+        """Close all popups when the user clicks outside the menu area."""
         if not self._popup_stack:
             return
         if self._is_menu_managed(getattr(event, "widget", None)):
@@ -338,6 +444,17 @@ class CustomMenuBar:
         self.close_all_popups()
 
     def _is_menu_managed(self, widget: tk.Widget | None) -> bool:
+        """Return True if ``widget`` is part of the strip or any open popup.
+
+        Walks the widget hierarchy upward to check whether the widget is a
+        descendant of the strip frame or any popup Toplevel in the current stack.
+
+        Args:
+            widget: The widget to check. None returns False.
+
+        Returns:
+            True if the widget is inside the menu system.
+        """
         if widget is None:
             return False
 

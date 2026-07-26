@@ -27,9 +27,10 @@ from .laufkern import (
     verify_manifest,
     verify_reachability,
 )
-from .runtime import fonts, ui, widgets
+from .runtime import BwBaseWindow, fonts, ui, widgets
 
 __all__ = [
+    "BwBaseWindow",
     "HsmContract",
     "HsmIntentSpec",
     "LaufKernManifest",
