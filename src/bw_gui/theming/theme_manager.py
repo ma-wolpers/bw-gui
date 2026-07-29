@@ -1,270 +1,101 @@
-"""Unified theme manager for Kursplaner and Blattwerk design families."""
+"""Theme manager: color utilities, intensity scaling, ttk style registration.
+
+All theme data (THEMES dict, THEME_ORDER, constants) lives in _theme_data; this
+module owns the runtime API — intensity state, color math, and style configuration.
+
+Typical consumer usage::
+
+    from bw_gui.theming import get_theme, configure_ttk_theme, set_theme_intensity
+
+    class MyApp(BwBaseWindow):
+        def apply_theme(self, theme_key: str) -> None:
+            super().apply_theme(theme_key)
+            configure_ttk_theme(self.tk_root, theme_key)
+            theme = get_theme(theme_key)
+            my_canvas.configure(bg=theme["bg_surface"])
+"""
 
 from __future__ import annotations
 
 import tkinter as tk
 from tkinter import ttk
 
-THEME_CORE_KEYS: tuple[str, ...] = (
-    "bg_main",
-    "bg_surface",
-    "fg_primary",
-    "fg_muted",
-    "accent",
-    "accent_hover",
-    "accent_soft",
-    "danger",
-    "border",
+from ._theme_data import (
+    DEFAULT_THEME,
+    DEFAULT_THEME_INTENSITY,
+    THEME_CONTRACT_KEYS,
+    THEME_CORE_KEYS,
+    THEME_INTENSITY_LEVELS,
+    THEME_ORDER,
+    THEME_TOKEN_ALIASES,
+    THEMES,
 )
 
-THEME_TOKEN_ALIASES: dict[str, str] = {
-    "error": "danger",
-    "error_hover": "danger_hover",
-    "error_soft": "danger_soft",
-    "fg_on_error": "fg_on_danger",
-}
-
-THEME_CONTRACT_KEYS: tuple[str, ...] = (
-    "label",
-    *THEME_CORE_KEYS,
-    "bg_panel",
-    "panel_strong",
-    "secondary",
-    "secondary_soft",
-    "selection_bg",
-    "selection_fg",
-    "success",
-    "success_hover",
-    "success_soft",
-    "warning",
-    "warning_hover",
-    "warning_soft",
-    "danger_hover",
-    "danger_soft",
-    "focus_ring",
-    "button_fg",
-    "fg_on_accent",
-    "fg_on_success",
-    "fg_on_warning",
-    "fg_on_danger",
-    "error",
-    "error_hover",
-    "error_soft",
-    "fg_on_error",
-    "hospitation",
-    "hospitation_hover",
-    "hospitation_soft",
-    "fg_on_hospitation",
-)
-
-THEMES: dict[str, dict[str, str]] = {
-    # Kursplaner baseline family
-    "mono_day": {
-        "label": "Mono Day",
-        "bg_main": "#F2F3F5",
-        "bg_panel": "#E9EBEF",
-        "bg_surface": "#FFFFFF",
-        "panel_strong": "#DDE1E7",
-        "secondary": "#4A5568",
-        "secondary_soft": "#E1E5EC",
-        "fg_primary": "#111827",
-        "fg_muted": "#4B5563",
-        "accent": "#2563EB",
-        "accent_hover": "#1E56CF",
-        "accent_soft": "#D6E3FF",
-        "selection_bg": "#1D4ED8",
-        "selection_fg": "#FFFFFF",
-        "success": "#16A34A",
-        "success_hover": "#15803D",
-        "success_soft": "#D8F0DF",
-        "warning": "#D97706",
-        "warning_hover": "#B95F04",
-        "warning_soft": "#F5E6D2",
-        "danger": "#DC2626",
-        "danger_hover": "#BE2020",
-        "danger_soft": "#F7D9D9",
-        "focus_ring": "#2563EB",
-        "border": "#B9C0CB",
-    },
-    "mono_night": {
-        "label": "Mono Night",
-        "bg_main": "#0F1115",
-        "bg_panel": "#151922",
-        "bg_surface": "#1C2230",
-        "panel_strong": "#252D3D",
-        "secondary": "#64748B",
-        "secondary_soft": "#222A39",
-        "fg_primary": "#E5E7EB",
-        "fg_muted": "#AAB0BD",
-        "accent": "#3B82F6",
-        "accent_hover": "#2F70DF",
-        "accent_soft": "#213450",
-        "selection_bg": "#2563EB",
-        "selection_fg": "#F8FAFC",
-        "success": "#22C55E",
-        "success_hover": "#1FAE54",
-        "success_soft": "#223D31",
-        "warning": "#F59E0B",
-        "warning_hover": "#D6880A",
-        "warning_soft": "#463620",
-        "danger": "#EF4444",
-        "danger_hover": "#D73C3C",
-        "danger_soft": "#4A272C",
-        "focus_ring": "#60A5FA",
-        "border": "#3A4354",
-    },
-    "porcelain": {
-        "label": "Porcelain",
-        "bg_main": "#F8F9FA",
-        "bg_panel": "#F0F2F5",
-        "bg_surface": "#FFFFFF",
-        "panel_strong": "#E3E7ED",
-        "secondary": "#5E6470",
-        "secondary_soft": "#E7EBF1",
-        "fg_primary": "#111827",
-        "fg_muted": "#5B6472",
-        "accent": "#7C3AED",
-        "accent_hover": "#6D32D2",
-        "accent_soft": "#E4DAFA",
-        "selection_bg": "#6D28D9",
-        "selection_fg": "#FFFFFF",
-        "success": "#16A34A",
-        "success_hover": "#15803D",
-        "success_soft": "#DCF0E2",
-        "warning": "#D97706",
-        "warning_hover": "#BF6A05",
-        "warning_soft": "#F6E8D5",
-        "danger": "#DB2777",
-        "danger_hover": "#C0226A",
-        "danger_soft": "#F7DCE9",
-        "focus_ring": "#7C3AED",
-        "border": "#C5CCD8",
-    },
-    "charcoal": {
-        "label": "Charcoal",
-        "bg_main": "#101113",
-        "bg_panel": "#171A1F",
-        "bg_surface": "#1E232B",
-        "panel_strong": "#282E38",
-        "secondary": "#778092",
-        "secondary_soft": "#242A34",
-        "fg_primary": "#E8ECF3",
-        "fg_muted": "#B0B8C6",
-        "accent": "#3B82F6",
-        "accent_hover": "#3170D9",
-        "accent_soft": "#22364F",
-        "selection_bg": "#2563EB",
-        "selection_fg": "#F8FAFC",
-        "success": "#22C55E",
-        "success_hover": "#1FAE54",
-        "success_soft": "#243B30",
-        "warning": "#F59E0B",
-        "warning_hover": "#D8890A",
-        "warning_soft": "#473821",
-        "danger": "#EF4444",
-        "danger_hover": "#D33D3D",
-        "danger_soft": "#4A292D",
-        "focus_ring": "#60A5FA",
-        "border": "#3A4250",
-    },
-    # Blattwerk family
-    "slate_indigo": {
-        "label": "Slate and Indigo",
-        "bg_main": "#EEF1F6",
-        "bg_surface": "#FFFFFF",
-        "fg_primary": "#1F2937",
-        "fg_muted": "#5B6472",
-        "accent": "#4F46E5",
-        "accent_hover": "#4338CA",
-        "accent_soft": "#DDE1FF",
-        "danger": "#A73B3B",
-        "border": "#C7CFDD",
-        "button_fg": "#FFFFFF",
-    },
-    "forest_moss": {
-        "label": "Forest and Moss",
-        "bg_main": "#EEF3EF",
-        "bg_surface": "#FAFCFA",
-        "fg_primary": "#21322A",
-        "fg_muted": "#587265",
-        "accent": "#3E7A5D",
-        "accent_hover": "#33664E",
-        "accent_soft": "#D7E6DD",
-        "danger": "#A14D45",
-        "border": "#BDD1C5",
-        "button_fg": "#FFFFFF",
-    },
-    "sand_terracotta": {
-        "label": "Sand and Terracotta",
-        "bg_main": "#F5EFE6",
-        "bg_surface": "#FFF9F3",
-        "fg_primary": "#3B3129",
-        "fg_muted": "#7A6A5E",
-        "accent": "#B8634F",
-        "accent_hover": "#A45443",
-        "accent_soft": "#EBD8CC",
-        "danger": "#9B4A3B",
-        "border": "#D9C7B8",
-        "button_fg": "#FFFFFF",
-    },
-    "midnight_cyan": {
-        "label": "Midnight and Cyan",
-        "bg_main": "#1E252D",
-        "bg_surface": "#26313C",
-        "fg_primary": "#CCD6E0",
-        "fg_muted": "#9DAAB8",
-        "accent": "#18A7C9",
-        "accent_hover": "#1286A2",
-        "accent_soft": "#2F3E4A",
-        "danger": "#E08A7E",
-        "border": "#435564",
-        "button_fg": "#FFFFFF",
-    },
-    "lavender_graphite": {
-        "label": "Lavender and Graphite",
-        "bg_main": "#F2F1F8",
-        "bg_surface": "#FCFBFF",
-        "fg_primary": "#302D39",
-        "fg_muted": "#666174",
-        "accent": "#6E5BC7",
-        "accent_hover": "#5946B1",
-        "accent_soft": "#E0DAF6",
-        "danger": "#A84A66",
-        "border": "#CBC4E7",
-        "button_fg": "#FFFFFF",
-    },
-    "obsidian_gold": {
-        "label": "Obsidian and Gold",
-        "bg_main": "#1C1D1F",
-        "bg_surface": "#242629",
-        "fg_primary": "#D6CEBF",
-        "fg_muted": "#AAA18F",
-        "accent": "#C9A34A",
-        "accent_hover": "#B28E3E",
-        "accent_soft": "#34312A",
-        "danger": "#D9886B",
-        "border": "#4A4740",
-        "button_fg": "#121212",
-    },
-}
-
-THEME_ORDER = [
-    "mono_day",
-    "porcelain",
-    "mono_night",
-    "charcoal",
-    "slate_indigo",
-    "forest_moss",
-    "sand_terracotta",
-    "midnight_cyan",
-    "lavender_graphite",
-    "obsidian_gold",
+__all__ = [
+    "DEFAULT_THEME",
+    "DEFAULT_THEME_INTENSITY",
+    "THEME_CONTRACT_KEYS",
+    "THEME_CORE_KEYS",
+    "THEME_INTENSITY_LEVELS",
+    "THEME_ORDER",
+    "THEME_TOKEN_ALIASES",
+    "THEMES",
+    "apply_window_theme",
+    "configure_tinted_button_style",
+    "configure_ttk_theme",
+    "contrast_text_color",
+    "get_theme",
+    "get_theme_intensity",
+    "is_dark_color",
+    "mix_hex",
+    "normalize_theme_key",
+    "register_theme",
+    "relative_luminance",
+    "set_theme_intensity",
+    "theme_contract_keys",
 ]
 
-DEFAULT_THEME = "mono_day"
+# ── Intensity state ──────────────────────────────────────────────────────────
 
+_theme_intensity: str = DEFAULT_THEME_INTENSITY
+
+
+def set_theme_intensity(level: str) -> None:
+    """Set the global accent intensity level for the current process.
+
+    Accepts ``"dezent"`` (0.5×), ``"mittel"`` (0.75×), or ``"kräftig"`` (1.0×,
+    the default).  Any unknown value silently resets to the default.
+
+    Intensity affects all subsequent ``get_theme()`` calls: ``"dezent"`` visually
+    mutes accent, success, warning, and danger colors — useful when the UI is dense
+    and full-strength color creates visual noise (e.g. a schedule grid with many
+    color-coded lesson blocks).  ``"kräftig"`` is a no-op; it preserves the raw
+    token values.
+
+    Programs that want intensity control should call this from their settings
+    dialog and then re-apply the current theme to all open windows.
+    """
+    global _theme_intensity
+    _theme_intensity = level if level in THEME_INTENSITY_LEVELS else DEFAULT_THEME_INTENSITY
+
+
+def get_theme_intensity() -> str:
+    """Return the currently active intensity level string.
+
+    One of ``"dezent"``, ``"mittel"``, or ``"kräftig"``.  Useful for initializing
+    a settings widget to the current value on first open.
+    """
+    return _theme_intensity
+
+
+# ── Private color helpers ────────────────────────────────────────────────────
 
 def _hex_to_rgb(color: str) -> tuple[int, int, int]:
+    """Parse a ``"#RRGGBB"`` string into an (R, G, B) int tuple.
+
+    Strips leading ``#`` and whitespace.  Returns ``(0, 0, 0)`` for any input
+    that is not exactly 6 hex digits after stripping.
+    """
     text = color.strip().lstrip("#")
     if len(text) != 6:
         return (0, 0, 0)
@@ -272,24 +103,137 @@ def _hex_to_rgb(color: str) -> tuple[int, int, int]:
 
 
 def _mix(color_a: str, color_b: str, ratio: float) -> str:
+    """Linearly interpolate between two ``"#RRGGBB"`` hex colors.
+
+    ``ratio=0.0`` returns *color_a* unchanged; ``ratio=1.0`` returns *color_b*.
+    Values outside [0, 1] are clamped.  Returns a ``"#RRGGBB"`` string.
+    """
     ax, ay, az = _hex_to_rgb(color_a)
     bx, by, bz = _hex_to_rgb(color_b)
-    weight = max(0.0, min(1.0, ratio))
-    return f"#{round(ax + (bx - ax) * weight):02X}{round(ay + (by - ay) * weight):02X}{round(az + (bz - az) * weight):02X}"
+    w = max(0.0, min(1.0, ratio))
+    return (
+        f"#{round(ax + (bx - ax) * w):02X}"
+        f"{round(ay + (by - ay) * w):02X}"
+        f"{round(az + (bz - az) * w):02X}"
+    )
 
 
 def _is_dark(color: str) -> bool:
-    red, green, blue = _hex_to_rgb(color)
-    luminance = (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255.0
+    """Return True if *color* is perceptually dark using a fast luminance check.
+
+    Uses weighted-average luminance (the W3C fast approximation) against a
+    threshold of 0.45.  Not the full WCAG linearized calculation — use
+    ``relative_luminance()`` when WCAG contrast ratios matter.
+    """
+    r, g, b = _hex_to_rgb(color)
+    luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255.0
     return luminance < 0.45
 
 
+# ── Public color utilities ───────────────────────────────────────────────────
+
+def mix_hex(base: str, target: str, ratio: float) -> str:
+    """Mix two ``"#RRGGBB"`` hex colors and return the result.
+
+    Thin public alias for the internal ``_mix()`` helper.
+
+    Args:
+        base:   Starting color (``ratio=0`` returns this unchanged).
+        target: Ending color (``ratio=1`` returns this unchanged).
+        ratio:  Blend weight in [0, 1]; values outside that range are clamped.
+
+    Returns:
+        A ``"#RRGGBB"`` hex string for the blended color.
+
+    Example — tint ``bg_surface`` with ``accent`` at 20%::
+
+        tinted = mix_hex(theme["bg_surface"], theme["accent"], 0.20)
+    """
+    return _mix(base, target, ratio)
+
+
+def relative_luminance(hex_color: str) -> float:
+    """Compute the WCAG 2.1 relative luminance of a ``"#RRGGBB"`` hex color.
+
+    Returns a value in [0.0, 1.0], where 0.0 is absolute black and 1.0 is
+    absolute white.  Uses the full IEC 61966-2-1 sRGB linearization rather
+    than the fast approximation used by ``_is_dark()``.
+
+    Returns 0.0 for any unparseable input rather than raising.
+    """
+    color = hex_color.strip().lstrip("#")
+    if len(color) != 6:
+        return 0.0
+    try:
+        r = int(color[0:2], 16) / 255.0
+        g = int(color[2:4], 16) / 255.0
+        b = int(color[4:6], 16) / 255.0
+    except ValueError:
+        return 0.0
+
+    def _srgb(c: float) -> float:
+        """Linearise a single sRGB channel component to linear light."""
+        return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
+    return 0.2126 * _srgb(r) + 0.7152 * _srgb(g) + 0.0722 * _srgb(b)
+
+
+def contrast_text_color(bg_hex: str) -> str:
+    """Return the highest-contrast text color (dark or white) for a given background.
+
+    Uses ``relative_luminance()`` against a threshold of 0.38.  Returns
+    ``"#111111"`` for light backgrounds and ``"#FFFFFF"`` for dark ones.
+
+    Useful when computing foreground color for a dynamically-generated button
+    background, e.g. inside ``configure_tinted_button_style()``.
+    """
+    return "#111111" if relative_luminance(bg_hex) >= 0.38 else "#FFFFFF"
+
+
+def is_dark_color(color: str) -> bool:
+    """Return True if *color* is perceptually dark.
+
+    Public alias for ``_is_dark()``.  Use this to decide whether to apply a
+    dark or light window chrome (title bar) via ``apply_window_chrome_theme()``.
+    """
+    return _is_dark(color)
+
+
+# ── Semantic defaults ────────────────────────────────────────────────────────
+
 def _ensure_semantic_defaults(theme: dict[str, str]) -> dict[str, str]:
+    """Fill in any missing semantic tokens from a partial theme dict.
+
+    Blattwerk-family themes (slate_indigo, forest_moss, …) ship only their core
+    palette; the neutral family ships the full set.  This function derives every
+    token listed in ``THEME_CONTRACT_KEYS`` from the available values so that
+    callers can always access any token without ``get()``/``setdefault`` guards.
+
+    Derivation rules (applied only when a key is absent):
+    - ``bg_panel``:       35% mix of bg_main→bg_surface
+    - ``panel_strong``:   25% mix of bg_panel→border
+    - ``secondary``:      35% mix of bg_panel→fg_primary
+    - ``secondary_soft``: 45% mix of bg_panel toward bg_surface
+    - ``accent_hover``:   15% mix of accent toward black
+    - ``selection_bg``:   accent value
+    - ``selection_fg``:   white for dark selection, near-black for light
+    - ``success``:        #16A34A (green)
+    - ``*_hover``:        15% toward black for dark colors, 5% for light colors
+    - ``*_soft``:         25% mix of bg_panel with the semantic color
+    - ``danger_soft``:    22% mix (slightly stronger)
+    - ``focus_ring``:     accent value
+    - ``button_fg`` / ``fg_on_*``:  contrast_text_color of the matching bg
+    - ``hospitation``:    42% blend of accent and warning
+    - alias keys (``error`` → ``danger``, etc.)
+
+    Returns a new dict; the original is not mutated.
+    """
     out = dict(theme)
     out.setdefault("bg_panel", _mix(out.get("bg_main", "#FFFFFF"), out.get("bg_surface", "#FFFFFF"), 0.35))
     out.setdefault("panel_strong", _mix(out["bg_panel"], out.get("border", out["bg_panel"]), 0.25))
     out.setdefault("secondary", _mix(out["bg_panel"], out.get("fg_primary", "#111111"), 0.35))
     out.setdefault("secondary_soft", _mix(out["bg_panel"], out.get("bg_surface", out["bg_panel"]), 0.45))
+    out.setdefault("accent_hover", _mix(out.get("accent", "#2563EB"), "#000000", 0.15))
     out.setdefault("selection_bg", out.get("accent", "#2563EB"))
     out.setdefault("selection_fg", "#FFFFFF" if _is_dark(out["selection_bg"]) else "#111827")
     out.setdefault("success", "#16A34A")
@@ -309,11 +253,7 @@ def _ensure_semantic_defaults(theme: dict[str, str]) -> dict[str, str]:
     out.setdefault("hospitation", _mix(out.get("accent", "#2563EB"), out.get("warning", "#D97706"), 0.42))
     out.setdefault(
         "hospitation_hover",
-        _mix(
-            out["hospitation"],
-            "#000000",
-            0.15 if _is_dark(out["hospitation"]) else 0.05,
-        ),
+        _mix(out["hospitation"], "#000000", 0.15 if _is_dark(out["hospitation"]) else 0.05),
     )
     out.setdefault("hospitation_soft", _mix(out["bg_panel"], out["hospitation"], 0.24))
     out.setdefault("fg_on_hospitation", "#FFFFFF" if _is_dark(out["hospitation"]) else "#111827")
@@ -322,33 +262,243 @@ def _ensure_semantic_defaults(theme: dict[str, str]) -> dict[str, str]:
     return out
 
 
+def _apply_intensity(theme: dict[str, str]) -> dict[str, str]:
+    """Scale accent and semantic colors by the current global intensity level.
+
+    When the level is ``"kräftig"`` (1.0, the default) this is a pure no-op and
+    returns the input dict unchanged.  For ``"mittel"`` (0.75) and ``"dezent"``
+    (0.5) it mutes colors by mixing them toward the panel background:
+
+    - Accent family (accent, accent_hover, accent_soft, selection_bg, focus_ring):
+      blended at ``strength`` (0.5 or 0.75).
+    - Semantic full colors (success, warning, danger and their hovers):
+      blended at ``clamp(0.7 + 0.3 * strength, 1.0)`` — attenuated less aggressively
+      so red/green/amber remain recognizable even at "dezent".
+    - Soft backgrounds (success_soft, warning_soft, danger_soft):
+      blended at ``clamp(0.5 + 0.4 * strength, 1.0)``.
+
+    Returns a new dict; the input is not mutated.
+    """
+    strength = THEME_INTENSITY_LEVELS.get(_theme_intensity, 1.0)
+    if strength >= 1.0:
+        return theme
+    neutral = theme.get("bg_panel", theme.get("bg_main", "#FFFFFF"))
+    adjusted = dict(theme)
+    for key in ("accent", "accent_hover", "accent_soft", "selection_bg", "focus_ring"):
+        if key in adjusted:
+            adjusted[key] = _mix(neutral, adjusted[key], strength)
+    semantic_strength = min(1.0, 0.7 + 0.3 * strength)
+    for key in ("success", "success_hover", "warning", "warning_hover", "danger", "danger_hover"):
+        if key in adjusted:
+            adjusted[key] = _mix(neutral, adjusted[key], semantic_strength)
+    soft_strength = min(1.0, 0.5 + 0.4 * strength)
+    for key in ("success_soft", "warning_soft", "danger_soft"):
+        if key in adjusted:
+            adjusted[key] = _mix(neutral, adjusted[key], soft_strength)
+    return adjusted
+
+
+# ── Public theme API ─────────────────────────────────────────────────────────
+
 def register_theme(theme_key: str, values: dict[str, str], *, append_order: bool = True) -> None:
-    """Register one theme in the shared registry."""
+    """Register a custom theme in the shared registry at runtime.
+
+    Useful for programs that ship an app-specific theme (e.g. a branded color
+    scheme) alongside the built-in bw_gui themes.  After registration the theme
+    appears in ``THEMES``, and — by default — at the end of ``THEME_ORDER`` so
+    it shows up in the View menu.
+
+    Args:
+        theme_key:    Unique snake_case identifier (e.g. ``"my_brand"``).
+        values:       Partial or full token dict.  Missing tokens are filled by
+                      ``_ensure_semantic_defaults()`` each time ``get_theme()`` is
+                      called, so only the core palette is required.
+        append_order: If True (default) and the key is not already in
+                      ``THEME_ORDER``, append it so the View menu includes it.
+    """
     THEMES[theme_key] = dict(values)
     if append_order and theme_key not in THEME_ORDER:
         THEME_ORDER.append(theme_key)
 
 
 def normalize_theme_key(theme_key: str | None = None) -> str:
+    """Return *theme_key* if it exists in ``THEMES``, otherwise ``DEFAULT_THEME``.
+
+    Lets callers pass ``None`` or an unknown string without crashing — the result
+    is always a valid dict key.
+    """
     return theme_key if theme_key in THEMES else DEFAULT_THEME
 
 
 def get_theme(theme_key: str | None = None) -> dict[str, str]:
-    return _ensure_semantic_defaults(THEMES[normalize_theme_key(theme_key)])
+    """Return the fully-resolved theme dict for the given key.
+
+    This is the primary API for reading theme tokens.  It:
+    1. Normalises the key via ``normalize_theme_key()`` (falls back to
+       ``DEFAULT_THEME`` for unknown keys or ``None``).
+    2. Expands the raw palette with ``_ensure_semantic_defaults()`` so every key
+       listed in ``THEME_CONTRACT_KEYS`` is present.
+    3. Applies the current global intensity scaling via ``_apply_intensity()``.
+
+    Returns a new dict; the original palette in ``THEMES`` is never mutated.
+
+    Usage in an ``apply_theme()`` override::
+
+        def apply_theme(self, theme_key: str) -> None:
+            super().apply_theme(theme_key)
+            theme = get_theme(theme_key)
+            self._canvas.configure(bg=theme["bg_surface"])
+    """
+    base = _ensure_semantic_defaults(THEMES[normalize_theme_key(theme_key)])
+    return _apply_intensity(base)
 
 
 def theme_contract_keys() -> tuple[str, ...]:
-    """Return the key set guaranteed by ``get_theme`` for every registered theme."""
+    """Return the tuple of token names guaranteed by ``get_theme()`` for all themes.
+
+    Consumers that iterate over token sets (e.g. to validate a custom theme or
+    build a theme preview widget) should call this rather than hardcoding the list.
+    """
     return THEME_CONTRACT_KEYS
 
 
 def apply_window_theme(window: tk.Misc, theme_key: str | None = None) -> None:
+    """Set the Tk root background to the theme's ``bg_main`` color.
+
+    Primarily for raw ``tk.Tk`` roots that sit outside a ``BwBaseWindow``
+    (e.g. splash screens, secondary top-levels).  The ``BwBaseWindow`` class
+    handles this automatically through ``TkinterAppShell``.
+    """
     theme = get_theme(theme_key)
     window.configure(bg=theme["bg_main"])
 
 
+def configure_tinted_button_style(
+    root: tk.Misc,
+    style_name: str,
+    *,
+    mix_color: str,
+    degree: float = 0.15,
+    theme_key: str | None = None,
+) -> None:
+    """Register a ttk button style with a custom tint color.
+
+    Useful for domain-specific action buttons that need a distinct color separate
+    from the standard accent palette — e.g. lesson-type buttons in a schedule
+    app where each lesson type (regular, test, observation, cancelled) has its
+    own hue, or resource-type toggles in a catalog.
+
+    The background is computed as::
+
+        bg = mix(theme["bg_surface"], mix_color, degree)
+
+    so at degree=0.15 the tint is very subtle; at 0.40 it becomes prominent.
+    Hover and pressed states step degree up by +0.12 and +0.25 respectively.
+    Foreground is auto-selected for contrast via ``contrast_text_color()``.
+
+    Call once per domain button type inside your ``apply_theme()`` override so
+    colors update correctly when the user switches themes.
+
+    Args:
+        root:       Any Tk widget (used to retrieve the ttk.Style instance).
+        style_name: The ttk style name to register, e.g. ``"Action.Lesson.TButton"``.
+        mix_color:  The tint hex color, e.g. ``"#3E7A5D"``.
+        degree:     Blend ratio in [0, 1].  Defaults to 0.15.
+        theme_key:  Active theme; falls back to ``DEFAULT_THEME`` if None or unknown.
+    """
+    theme = get_theme(theme_key)
+    bg = _mix(theme["bg_surface"], mix_color, degree)
+    hover_bg = _mix(theme["bg_surface"], mix_color, min(1.0, degree + 0.12))
+    active_bg = _mix(theme["bg_surface"], mix_color, min(1.0, degree + 0.25))
+    fg = contrast_text_color(bg)
+    hover_fg = contrast_text_color(hover_bg)
+    style = ttk.Style(root)
+    style.configure(
+        style_name,
+        background=bg,
+        foreground=fg,
+        bordercolor=theme["border"],
+        lightcolor=bg,
+        darkcolor=bg,
+        padding=(4, 2),
+        borderwidth=1,
+        relief="flat",
+        focuscolor=theme["focus_ring"],
+    )
+    style.map(
+        style_name,
+        background=[("disabled", theme["bg_panel"]), ("active", hover_bg), ("pressed", active_bg)],
+        foreground=[("disabled", theme["fg_muted"]), ("active", hover_fg), ("pressed", hover_fg)],
+    )
+
+
+# ── TTK baseline (deliberate exception: long by necessity) ───────────────────
+
 def configure_ttk_theme(root: tk.Misc, theme_key: str | None = None) -> None:
-    """Configure a shared ttk style baseline across all apps."""
+    """Configure the shared ttk style baseline for all Blattwerk-family programs.
+
+    Call this **once per theme switch** from inside your ``apply_theme()``
+    implementation (or from the constructor if you are not using ``BwBaseWindow``).
+    It is idempotent: repeated calls simply overwrite the previous style configuration.
+
+    Requires ``style.theme_use("clam")`` — the function sets this automatically;
+    if the clam theme is unavailable (unusual), the call is silently skipped and
+    styles are applied on top of whatever theme is active.
+
+    Styles registered:
+
+    *Frames*
+        ``TFrame`` (bg_main), ``Surface.TFrame`` (bg_surface), ``Panel.TFrame``
+        (panel_strong), ``Toolbar.TFrame`` (panel_strong), ``Settings.Panel.TFrame``
+        (bg_surface), ``Settings.Sidebar.TFrame`` (panel_strong).
+
+    *Control strip*
+        ``ControlStrip.TFrame`` — accent-tinted toolbar strip.
+        ``ControlStripLabel.TLabel`` — Segoe UI Semibold 9 on the strip background.
+        ``ControlStrip.TSeparator`` — accent-tinted divider.
+
+    *Segmented toggle buttons*
+        ``Segmented.TButton`` — inactive toggle (accent-soft tint).
+        ``SegmentedActive.TButton`` — active toggle (full accent bg, bold font).
+
+    *Control strip notebook*
+        ``ControlStrip.TNotebook`` / ``ControlStrip.TNotebook.Tab`` — accent-tinted
+        tabs; selected tab uses a stronger accent mix.
+
+    *Labels*
+        ``TLabel`` (fg_primary), ``Muted.TLabel`` (fg_muted),
+        ``SectionTitle.TLabel``, ``SettingsHint.TLabel``,
+        ``Title.TLabel`` (18pt bold), ``Status.TLabel`` (10pt bold).
+
+    *Buttons*
+        ``TButton`` (secondary_soft bg), ``PrimaryAction.TButton`` (accent bg),
+        ``SecondaryAction.TButton`` (secondary_soft bg),
+        ``NavAction.TButton`` (accent_soft bg, accent fg — standard navigation),
+        ``UtilityAction.TButton`` (secondary_soft bg, fg_primary — muted utility),
+        ``Action.Primary/Secondary/Warn/Danger/Success.TButton``.
+
+    *Entry and Combobox*
+        ``TEntry``, ``TCombobox`` — bg_surface fieldbackground, themed borders.
+
+    *Scrollbars*
+        ``TScrollbar``, ``Horizontal.TScrollbar``, ``Vertical.TScrollbar`` — all
+        configured identically using computed trough/thumb/active colors.
+
+    *Treeview*
+        ``Treeview`` — bg_surface rows, themed selection colors.
+        ``Treeview.Heading`` — panel_strong background, flat relief.
+
+    *Canvas default*
+        ``option_add("*Canvas.Background", bg_surface)`` — sets the default
+        background for any ``tk.Canvas`` created after this call, so bare canvases
+        match the surface color without explicit configuration.
+
+    Args:
+        root:      Any Tk widget (used to create the ttk.Style instance and to
+                   call ``option_add``).
+        theme_key: Active theme key.  Falls back to ``DEFAULT_THEME`` if None or
+                   unknown.
+    """
     theme = get_theme(theme_key)
     style = ttk.Style(root)
     try:
@@ -359,15 +509,105 @@ def configure_ttk_theme(root: tk.Misc, theme_key: str | None = None) -> None:
     border = theme["border"]
     panel_bg = theme.get("panel_strong", theme["bg_panel"])
 
+    root.option_add("*Canvas.Background", theme["bg_surface"])
+    root.option_add("*Canvas.HighlightBackground", panel_bg)
+
     style.configure("TFrame", background=theme["bg_main"])
+    style.configure("Surface.TFrame", background=theme["bg_surface"])
     style.configure("Panel.TFrame", background=panel_bg)
     style.configure("Toolbar.TFrame", background=panel_bg)
     style.configure("Settings.Panel.TFrame", background=theme["bg_surface"])
     style.configure("Settings.Sidebar.TFrame", background=panel_bg)
+
+    strip_bg = _mix(theme["bg_surface"], theme["accent_soft"], 0.22)
+    strip_border = _mix(border, theme["accent"], 0.18)
+    style.configure("ControlStrip.TFrame", background=strip_bg)
+    style.configure(
+        "ControlStripLabel.TLabel",
+        background=strip_bg,
+        foreground=theme["fg_primary"],
+        font=("Segoe UI Semibold", 9),
+    )
+    style.configure("ControlStrip.TSeparator", background=strip_border)
+
+    segmented_bg = _mix(theme["bg_surface"], theme["accent_soft"], 0.35)
+    style.configure(
+        "Segmented.TButton",
+        background=segmented_bg,
+        foreground=theme["fg_primary"],
+        bordercolor=strip_border,
+        lightcolor=strip_border,
+        darkcolor=strip_border,
+        padding=(12, 5),
+        relief="flat",
+        font=("Segoe UI", 9),
+    )
+    style.map(
+        "Segmented.TButton",
+        background=[("active", _mix(theme["accent_soft"], theme["bg_surface"], 0.30)),
+                    ("pressed", _mix(theme["accent_soft"], theme["bg_surface"], 0.30))],
+        foreground=[("active", theme["fg_primary"]), ("pressed", theme["fg_primary"])],
+    )
+    style.configure(
+        "SegmentedActive.TButton",
+        background=theme["accent"],
+        foreground=theme["fg_on_accent"],
+        bordercolor=theme["accent"],
+        lightcolor=theme["accent"],
+        darkcolor=theme["accent"],
+        padding=(12, 5),
+        relief="flat",
+        font=("Segoe UI Semibold", 9),
+    )
+    style.map(
+        "SegmentedActive.TButton",
+        background=[("active", theme["accent_hover"]), ("pressed", theme["accent_hover"])],
+        foreground=[("active", theme["fg_on_accent"]), ("pressed", theme["fg_on_accent"])],
+    )
+
+    tab_bg = _mix(theme["bg_surface"], theme["accent_soft"], 0.15)
+    tab_selected_bg = _mix(theme["accent"], theme["bg_surface"], 0.12)
+    tab_hover_bg = _mix(theme["accent_soft"], theme["bg_surface"], 0.30)
+    style.configure(
+        "ControlStrip.TNotebook",
+        background=strip_bg,
+        bordercolor=strip_border,
+        lightcolor=strip_border,
+        darkcolor=strip_border,
+        tabmargins=(0, 0, 0, 0),
+    )
+    style.configure(
+        "ControlStrip.TNotebook.Tab",
+        background=tab_bg,
+        foreground=theme["fg_muted"],
+        bordercolor=strip_border,
+        lightcolor=strip_border,
+        darkcolor=strip_border,
+        padding=(12, 5),
+        font=("Segoe UI", 9),
+    )
+    style.map(
+        "ControlStrip.TNotebook.Tab",
+        background=[("selected", tab_selected_bg), ("active", tab_hover_bg)],
+        foreground=[("selected", theme["fg_primary"]), ("active", theme["fg_primary"])],
+    )
+
     style.configure("TLabel", background=theme["bg_main"], foreground=theme["fg_primary"])
     style.configure("Muted.TLabel", background=theme["bg_main"], foreground=theme["fg_muted"])
     style.configure("SectionTitle.TLabel", background=theme["bg_main"], foreground=theme["fg_primary"])
     style.configure("SettingsHint.TLabel", background=theme["bg_main"], foreground=theme["fg_muted"])
+    style.configure(
+        "Title.TLabel",
+        background=theme["bg_main"],
+        foreground=theme["fg_primary"],
+        font=("Segoe UI", 18, "bold"),
+    )
+    style.configure(
+        "Status.TLabel",
+        background=theme["bg_main"],
+        foreground=theme["fg_primary"],
+        font=("Segoe UI", 10, "bold"),
+    )
 
     style.configure(
         "TButton",
@@ -385,7 +625,6 @@ def configure_ttk_theme(root: tk.Misc, theme_key: str | None = None) -> None:
         background=[("active", theme["accent_soft"]), ("pressed", theme["accent_soft"])],
         foreground=[("disabled", theme["fg_muted"])],
     )
-
     style.configure(
         "PrimaryAction.TButton",
         background=theme["accent"],
@@ -400,23 +639,64 @@ def configure_ttk_theme(root: tk.Misc, theme_key: str | None = None) -> None:
         background=[("active", theme["accent_hover"]), ("pressed", theme["accent_hover"])],
         foreground=[("disabled", theme["fg_muted"])],
     )
-
     style.configure("SecondaryAction.TButton", background=theme["secondary_soft"], foreground=theme["fg_primary"])
     style.map(
         "SecondaryAction.TButton",
         background=[("active", theme["accent_soft"]), ("pressed", theme["accent_soft"])],
     )
-
-    style.configure("NavAction.TButton", background=_mix(theme["border"], theme["success"], 0.2), foreground=theme["fg_primary"])
-    style.map("NavAction.TButton", background=[("active", _mix(theme["accent_soft"], theme["success"], 0.2))])
-
-    style.configure("UtilityAction.TButton", background=_mix(theme["border"], theme["accent"], 0.14), foreground=theme["fg_primary"])
-    style.map("UtilityAction.TButton", background=[("active", _mix(theme["accent_soft"], theme["accent"], 0.18))])
-
+    style.configure(
+        "NavAction.TButton",
+        background=theme["accent_soft"],
+        foreground=theme["accent"],
+        bordercolor=border,
+        lightcolor=border,
+        darkcolor=border,
+        padding=(8, 4),
+    )
+    style.map(
+        "NavAction.TButton",
+        background=[("active", _mix(theme["accent_soft"], theme["accent"], 0.12)),
+                    ("pressed", _mix(theme["accent_soft"], theme["accent"], 0.12))],
+        foreground=[("active", theme["accent"]), ("pressed", theme["accent"])],
+    )
+    style.configure(
+        "UtilityAction.TButton",
+        background=theme["secondary_soft"],
+        foreground=theme["fg_primary"],
+        bordercolor=border,
+        lightcolor=border,
+        darkcolor=border,
+        padding=(8, 4),
+    )
+    style.map(
+        "UtilityAction.TButton",
+        background=[("active", theme["accent_soft"]), ("pressed", theme["accent_soft"])],
+    )
     style.configure("Action.Primary.TButton", background=theme["accent"], foreground=theme["fg_on_accent"])
+    style.map(
+        "Action.Primary.TButton",
+        background=[("active", theme["accent_hover"]), ("pressed", theme["accent_hover"])],
+    )
     style.configure("Action.Secondary.TButton", background=theme["secondary_soft"], foreground=theme["fg_primary"])
+    style.map(
+        "Action.Secondary.TButton",
+        background=[("active", theme["accent_soft"]), ("pressed", theme["accent_soft"])],
+    )
     style.configure("Action.Warn.TButton", background=theme["warning"], foreground=theme["fg_on_warning"])
+    style.map(
+        "Action.Warn.TButton",
+        background=[("active", theme["warning_hover"]), ("pressed", theme["warning_hover"])],
+    )
     style.configure("Action.Danger.TButton", background=theme["danger"], foreground=theme["fg_on_danger"])
+    style.map(
+        "Action.Danger.TButton",
+        background=[("active", theme["danger_hover"]), ("pressed", theme["danger_hover"])],
+    )
+    style.configure("Action.Success.TButton", background=theme["success"], foreground=theme["fg_on_success"])
+    style.map(
+        "Action.Success.TButton",
+        background=[("active", theme["success_hover"]), ("pressed", theme["success_hover"])],
+    )
 
     style.configure(
         "TEntry",
@@ -425,25 +705,68 @@ def configure_ttk_theme(root: tk.Misc, theme_key: str | None = None) -> None:
         bordercolor=border,
         lightcolor=border,
         darkcolor=border,
+        insertcolor=theme["fg_primary"],
+    )
+    style.configure(
+        "TCombobox",
+        fieldbackground=theme["bg_surface"],
+        foreground=theme["fg_primary"],
+        background=theme["bg_surface"],
+        bordercolor=border,
+        lightcolor=border,
+        darkcolor=border,
+        arrowcolor=theme["fg_primary"],
     )
 
     scroll_trough = _mix(theme["bg_surface"], panel_bg, 0.35)
     scroll_bg = _mix(theme["border"], theme["bg_surface"], 0.46)
     scroll_active = _mix(theme["accent_soft"], theme["bg_surface"], 0.66)
+    for scroll_style in ("TScrollbar", "Horizontal.TScrollbar", "Vertical.TScrollbar"):
+        style.configure(
+            scroll_style,
+            troughcolor=scroll_trough,
+            background=scroll_bg,
+            arrowcolor=theme["fg_primary"],
+            bordercolor=border,
+            lightcolor=border,
+            darkcolor=border,
+            gripcount=0,
+        )
+        style.map(
+            scroll_style,
+            background=[("active", scroll_active), ("pressed", scroll_active)],
+            arrowcolor=[
+                ("active", theme["fg_primary"]),
+                ("pressed", theme["fg_primary"]),
+                ("disabled", theme["fg_muted"]),
+            ],
+        )
+
     style.configure(
-        "TScrollbar",
-        troughcolor=scroll_trough,
-        background=scroll_bg,
-        arrowcolor=theme["fg_primary"],
+        "Treeview",
+        background=theme["bg_surface"],
+        foreground=theme["fg_primary"],
+        fieldbackground=theme["bg_surface"],
         bordercolor=border,
-        lightcolor=border,
-        darkcolor=border,
-        gripcount=0,
+        lightcolor=theme["bg_surface"],
+        darkcolor=theme["bg_surface"],
+        rowheight=24,
     )
     style.map(
-        "TScrollbar",
-        background=[("active", scroll_active), ("pressed", scroll_active)],
-        arrowcolor=[("active", theme["fg_primary"]), ("pressed", theme["fg_primary"]), ("disabled", theme["fg_muted"])],
+        "Treeview",
+        background=[("selected", theme["selection_bg"])],
+        foreground=[("selected", theme["selection_fg"])],
     )
-    style.configure("Horizontal.TScrollbar", troughcolor=scroll_trough, background=scroll_bg)
-    style.configure("Vertical.TScrollbar", troughcolor=scroll_trough, background=scroll_bg)
+    style.configure(
+        "Treeview.Heading",
+        background=panel_bg,
+        foreground=theme["fg_primary"],
+        bordercolor=border,
+        lightcolor=panel_bg,
+        darkcolor=panel_bg,
+        relief="flat",
+    )
+    style.map(
+        "Treeview.Heading",
+        background=[("active", _mix(panel_bg, theme["accent"], 0.08))],
+    )

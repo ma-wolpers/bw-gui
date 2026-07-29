@@ -29,9 +29,10 @@ from typing import Callable
 
 from bw_gui.menu import CustomMenuBar, MenuItem, section_spec
 from bw_gui.menu.standard_menu import build_standard_menu_definitions
-from bw_gui.theming import DEFAULT_THEME, THEME_ORDER, get_theme
+from bw_gui.theming import DEFAULT_THEME, THEME_ORDER, get_theme, is_dark_color
 
 from .app_shell import AppShellConfig, TkinterAppShell
+from .platform import apply_window_chrome_theme
 from .primitives import widgets
 from .root_host import TkRootHost
 
@@ -58,6 +59,21 @@ class BwBaseWindow(TkRootHost):
         theme_key: str = DEFAULT_THEME,
         on_close: Callable[[], bool | None] | None = None,
     ) -> None:
+        """Initialise the window, menu bar, and content frame.
+
+        Calls ``build_menu()`` and ``build_content(frame)`` on the concrete
+        subclass immediately, so subclass state must be set before
+        ``super().__init__(...)`` is called.
+
+        Args:
+            title:      Window title bar text.
+            geometry:   Tk geometry string, e.g. ``"1200x800"``.
+            min_width:  Minimum resizable width in pixels.
+            min_height: Minimum resizable height in pixels.
+            theme_key:  Initial theme; falls back to ``DEFAULT_THEME``.
+            on_close:   Optional callback invoked before the window closes.
+                        Return ``False`` to cancel the close.
+        """
         super().__init__()
 
         self._shell = TkinterAppShell(
@@ -129,6 +145,8 @@ class BwBaseWindow(TkRootHost):
         """Apply *theme_key*.  Override in subclass for widget recoloring, but call super()."""
         self._shell.apply_theme(theme_key)
         self._menu_bar.refresh_theme(theme_key)
+        theme = get_theme(theme_key)
+        apply_window_chrome_theme(self.tk_root, prefer_dark=is_dark_color(theme["bg_main"]))
 
     # ── Public API ───────────────────────────────────────────────────────────
 
@@ -148,7 +166,14 @@ class BwBaseWindow(TkRootHost):
     # ── Internal helpers ─────────────────────────────────────────────────────
 
     def _make_file_provider(self, user_provider):
+        """Wrap *user_provider* with a trailing ``Einstellungen`` command item.
+
+        Returns a zero-argument callable suitable for ``section_spec()``.
+        If the subclass supplied ``file`` section items they appear first,
+        followed by a separator and the settings entry.
+        """
         def items():
+            """Yield the merged file-section menu items."""
             user_items = list(user_provider()) if user_provider is not None else []
             settings_item = MenuItem(type="command", label="Einstellungen", command=self.open_settings)
             if user_items:
@@ -157,7 +182,14 @@ class BwBaseWindow(TkRootHost):
         return items
 
     def _make_view_provider(self, user_provider):
+        """Wrap *user_provider* with the built-in theme radio group appended.
+
+        Returns a zero-argument callable suitable for ``section_spec()``.
+        Subclass view items appear first; the theme radios follow after a
+        separator.
+        """
         def items():
+            """Yield the merged view-section menu items."""
             user_items = list(user_provider()) if user_provider is not None else []
             theme_items = list(self._builtin_theme_items())
             if user_items:
@@ -166,6 +198,11 @@ class BwBaseWindow(TkRootHost):
         return items
 
     def _builtin_theme_items(self) -> tuple[MenuItem, ...]:
+        """Build one radio ``MenuItem`` per registered theme for the View menu.
+
+        Each radio is pre-checked when its key matches the current theme and
+        calls ``apply_theme(key)`` on selection.
+        """
         active = self.theme_key
         result = []
         for key in THEME_ORDER:
