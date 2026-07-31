@@ -3,16 +3,17 @@
 All theme data (THEMES dict, THEME_ORDER, constants) lives in _theme_data; this
 module owns the runtime API — intensity state, color math, and style configuration.
 
-Typical consumer usage::
+``configure_ttk_theme`` sets the globally tracked current theme so all subsequent
+utility calls resolve colors without a ``theme_key`` argument.  Consumer code
+must never call ``get_theme()`` directly or construct color strings manually::
 
-    from bw_gui.theming import get_theme, configure_ttk_theme, set_theme_intensity
+    from bw_gui.theming import configure_ttk_theme, theme_canvas, tinted_color
 
     class MyApp(BwBaseWindow):
         def apply_theme(self, theme_key: str) -> None:
             super().apply_theme(theme_key)
-            configure_ttk_theme(self.tk_root, theme_key)
-            theme = get_theme(theme_key)
-            my_canvas.configure(bg=theme["bg_surface"])
+            configure_ttk_theme(self.tk_root, theme_key)  # sets global current theme
+            theme_canvas(self._canvas)                    # no theme_key needed
 """
 
 from __future__ import annotations
@@ -43,21 +44,23 @@ __all__ = [
     "apply_window_theme",
     "configure_tinted_button_style",
     "configure_ttk_theme",
-    "contrast_text_color",
     "get_theme",
     "get_theme_intensity",
-    "is_dark_color",
-    "mix_hex",
     "normalize_theme_key",
     "register_theme",
-    "relative_luminance",
     "set_theme_intensity",
     "theme_contract_keys",
+    "tinted_color",
+    "tinted_foreground",
 ]
 
 # ── Intensity state ──────────────────────────────────────────────────────────
 
 _theme_intensity: str = DEFAULT_THEME_INTENSITY
+
+# ── Current-theme state ──────────────────────────────────────────────────────
+
+_current_theme_key: str = DEFAULT_THEME
 
 
 def set_theme_intensity(level: str) -> None:
@@ -199,6 +202,78 @@ def is_dark_color(color: str) -> bool:
     return _is_dark(color)
 
 
+def tinted_color(
+    mix_color: str,
+    *,
+    degree: float = 0.15,
+    base_token: str = "auto",
+    theme_key: str | None = None,
+) -> str:
+    """Return a theme-adapted tinted color for any widget background property.
+
+    Generalises ``configure_tinted_button_style`` to a pure color value usable
+    as canvas fill, label ``bg``, cell background, or icon pixel color.  All
+    dark/light adaptation is internal — callers never branch on theme darkness.
+    When *theme_key* is ``None``, the globally tracked current theme (set by the
+    most recent ``configure_ttk_theme`` call) is used automatically.
+
+    Args:
+        mix_color:  ``"#RRGGBB"`` hex literal OR a bw_gui token name (e.g.
+                    ``"success_soft"``, ``"accent"``).  Token names resolve from
+                    the active theme dict.
+        degree:     Tint strength in [0, 1].  0 = pure base color; 1 = pure
+                    *mix_color*.  ``base_token="auto"`` provides dark/light
+                    adaptation by selecting a darker or lighter neutral base.
+        base_token: Theme token used as the neutral mixing base.  ``"auto"``
+                    picks ``bg_panel`` for dark themes and ``bg_surface`` for
+                    light themes.  Override with any token name, e.g.
+                    ``"panel_strong"``.
+        theme_key:  Explicit theme override; ``None`` uses the globally tracked
+                    current theme.
+
+    Returns:
+        ``"#RRGGBB"`` hex string for the tinted color.
+    """
+    theme = get_theme(theme_key)
+    is_dark = _is_dark(theme["bg_main"])
+    if base_token == "auto":
+        base_hex = theme["bg_panel"] if is_dark else theme.get("bg_surface", theme["bg_main"])
+    else:
+        base_hex = theme.get(base_token, theme.get("bg_surface", theme["bg_main"]))
+    resolved_mix = theme.get(mix_color, mix_color) if not mix_color.startswith("#") else mix_color
+    return _mix(base_hex, resolved_mix, degree)
+
+
+def tinted_foreground(
+    mix_color: str,
+    *,
+    degree: float = 0.15,
+    base_token: str = "auto",
+    theme_key: str | None = None,
+) -> str:
+    """Return the highest-contrast text color for a ``tinted_color`` background.
+
+    Computes ``tinted_color(mix_color, degree=degree, base_token=base_token,
+    theme_key=theme_key)`` internally and returns ``"#111111"`` or ``"#FFFFFF"``
+    based on the resulting background luminance.  All arguments are identical to
+    ``tinted_color``.
+
+    Use this to determine icon pixel colors, label foreground colors, and any
+    other text or symbol rendered on top of a ``tinted_color`` background.
+
+    Args:
+        mix_color:  Same as ``tinted_color``.
+        degree:     Same as ``tinted_color``.
+        base_token: Same as ``tinted_color``.
+        theme_key:  Same as ``tinted_color``; ``None`` uses the global current theme.
+
+    Returns:
+        ``"#111111"`` for light tinted backgrounds; ``"#FFFFFF"`` for dark ones.
+    """
+    bg = tinted_color(mix_color, degree=degree, base_token=base_token, theme_key=theme_key)
+    return contrast_text_color(bg)
+
+
 # ── Semantic defaults ────────────────────────────────────────────────────────
 
 def _ensure_semantic_defaults(theme: dict[str, str]) -> dict[str, str]:
@@ -330,6 +405,18 @@ def normalize_theme_key(theme_key: str | None = None) -> str:
     return theme_key if theme_key in THEMES else DEFAULT_THEME
 
 
+def _set_current_theme(key: str | None) -> None:
+    """Record *key* as the globally active theme.
+
+    Called by ``configure_ttk_theme`` on every theme switch so that all
+    subsequent utility calls (``tinted_color``, ``theme_canvas``,
+    ``get_theme()`` with no argument, etc.) automatically resolve the correct
+    active theme without callers forwarding ``theme_key``.
+    """
+    global _current_theme_key
+    _current_theme_key = normalize_theme_key(key)
+
+
 def get_theme(theme_key: str | None = None) -> dict[str, str]:
     """Return the fully-resolved theme dict for the given key.
 
@@ -342,14 +429,13 @@ def get_theme(theme_key: str | None = None) -> dict[str, str]:
 
     Returns a new dict; the original palette in ``THEMES`` is never mutated.
 
-    Usage in an ``apply_theme()`` override::
-
-        def apply_theme(self, theme_key: str) -> None:
-            super().apply_theme(theme_key)
-            theme = get_theme(theme_key)
-            self._canvas.configure(bg=theme["bg_surface"])
+    When *theme_key* is ``None``, returns the globally tracked current theme
+    (set by the most recent ``configure_ttk_theme`` call) rather than the static
+    default.  Consumer code should not need to call this directly — use
+    ``tinted_color`` or the widget utility helpers instead.
     """
-    base = _ensure_semantic_defaults(THEMES[normalize_theme_key(theme_key)])
+    key = _current_theme_key if theme_key is None else theme_key
+    base = _ensure_semantic_defaults(THEMES[normalize_theme_key(key)])
     return _apply_intensity(base)
 
 
@@ -499,6 +585,7 @@ def configure_ttk_theme(root: tk.Misc, theme_key: str | None = None) -> None:
         theme_key: Active theme key.  Falls back to ``DEFAULT_THEME`` if None or
                    unknown.
     """
+    _set_current_theme(theme_key)
     theme = get_theme(theme_key)
     style = ttk.Style(root)
     try:
@@ -770,3 +857,7 @@ def configure_ttk_theme(root: tk.Misc, theme_key: str | None = None) -> None:
         "Treeview.Heading",
         background=[("active", _mix(panel_bg, theme["accent"], 0.08))],
     )
+
+    # Recolor all registered icon buttons for the new theme.
+    from .widget_utils import _reapply_icon_buttons  # late import avoids circular dependency
+    _reapply_icon_buttons()
