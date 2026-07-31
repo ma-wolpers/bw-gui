@@ -22,3 +22,24 @@ Initial adoption steps:
 - Shortcut labels and hover help are centralized.
 - Theme application covers all major widgets.
 - No `THEME_ORDER` or `THEMES` references in program code — theme switching is handled by `BwBaseWindow`'s View menu.
+- **Principle C (theme is ambient):** no `theme_key` forwarded to utility calls.
+  After `configure_ttk_theme(root, key)` runs, all `theme_canvas(w)`,
+  `tinted_color(seed, degree=x)`, etc. resolve the key automatically from
+  the global.  Consumer `apply_theme()` overrides must not pass `theme_key`
+  to any bw-gui utility — that would imply the consumer holds independent
+  theme knowledge, which it does not.
+
+## Checklist: removing a kursplaner-style "extended theme dict"
+
+If your program has a function like `my_theme(key)` that calls `get_theme(key)`
+and adds computed domain colours on top:
+
+1. Delete the function.
+2. Extract any domain hex seeds as module constants (e.g. `MY_SEED = "#7C3AED"`).
+3. Replace `mix_hex(base, seed, degree)` calls in consumer code with
+   `tinted_color(seed, degree=degree)` from `bw_gui.theming`.
+4. Replace `contrast_text_color(bg)` calls with `tinted_foreground(seed, degree=degree)`.
+5. Replace `is_dark_color(bg)` dark/light branches with `tinted_color`'s `base_token`
+   parameter — bw-gui picks the right base automatically.
+6. Verify: `grep -r "get_theme\|mix_hex\|is_dark_color\|contrast_text_color"` in
+   consumer code → zero matches outside the theming-configuration layer.

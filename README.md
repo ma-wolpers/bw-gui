@@ -2,6 +2,29 @@
 
 Shared GUI core for Blattwerk-family apps.
 
+## Architecture
+
+bw-gui is built on four principles that all consumer programs must follow:
+
+**A. bw-gui is the only entity that knows about colours.** Programs never
+construct hex strings, call `get_theme()` for raw values, or maintain their
+own colour variables.
+
+**B. Programs express intent; the framework acts.** A program says "a canvas
+that belongs to the theme" or "an icon button tinted for Hospitation" — bw-gui
+decides what that looks like and applies it.
+
+**C. The theme is ambient.** After `configure_ttk_theme(root, key)` is called,
+all utility calls (`theme_canvas`, `tinted_color`, …) resolve the current theme
+automatically — no `theme_key` argument is passed around.
+
+**D. Composite widgets are the right abstraction.** `icon_button(parent, photo,
+command, color_tint=seed)` creates, colors, and auto-recolors the button on every
+theme switch — the consumer does zero colour work, forever.
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full rationale,
+anti-pattern table, and API guidance.
+
 ## Goals
 
 - One consistent Tkinter and ttk GUI baseline across all target repos.

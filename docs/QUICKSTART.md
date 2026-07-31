@@ -156,7 +156,7 @@ class MyApp(BwBaseWindow):
         btn = widgets.Button(frame, text="Los!", command=self._on_go)
         btn.grid(row=1, column=0, columnspan=2, pady=20)
 
-        # plain tk Canvas (not available in ttk)
+        # plain tk Canvas (not available in ttk) — theme applied in apply_theme()
         self._canvas = ui.Canvas(frame, width=300, height=200)
         self._canvas.grid(row=2, column=0, columnspan=2)
 
@@ -164,6 +164,36 @@ class MyApp(BwBaseWindow):
         name = self._entry.get()
         self._label.configure(text=f"Hallo, {name}!")
 ```
+
+### Theming raw tk widgets (Canvas, Text, Listbox)
+
+ttk widgets pick up colours from the ttk style system automatically.  Raw tk
+widgets need explicit color configuration — call the bw-gui helpers inside
+`apply_theme()`:
+
+```python
+from bw_gui.theming import configure_ttk_theme, theme_canvas, theme_text
+
+class MyApp(BwBaseWindow):
+    def build_content(self, frame):
+        self._canvas = ui.Canvas(frame, width=300, height=200)
+        self._notes  = ui.Text(frame, height=5)
+
+    def apply_theme(self, theme_key: str) -> None:
+        super().apply_theme(theme_key)
+        configure_ttk_theme(self.tk_root, theme_key)  # sets the global current theme
+        theme_canvas(self._canvas)   # no theme_key argument — theme is ambient
+        theme_text(self._notes)      # same
+```
+
+> **Theme is ambient:** `configure_ttk_theme(root, theme_key)` records the
+> active theme globally inside bw-gui.  All subsequent calls to `theme_canvas`,
+> `theme_text`, `tinted_color`, etc. — *without* a `theme_key` argument — read
+> that global automatically.  This means consumer code never needs to forward
+> `theme_key` to anything: set it once in `configure_ttk_theme`, then let
+> every utility pick it up for free.  The `theme_key_provider=lambda: self.theme_key`
+> lambda in `SettingsDialogOrchestrator` reads the theme *at call time* for the
+> same reason — the correct value is always available from the global.
 
 ---
 
