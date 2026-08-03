@@ -59,6 +59,7 @@ __all__ = [
     "canvas_domain_outline",
     "icon_button",
     "recolor_photo",
+    "recolor_photo_token",
     "theme_canvas",
     "theme_text",
     "theme_text_tinted",
@@ -565,6 +566,32 @@ def recolor_photo(
     """
     fg = tinted_foreground(color_tint, degree=degree, base_token=base_token)
     return _recolor_photo(photo, fg)
+
+
+def recolor_photo_token(
+    photo: tk.PhotoImage,
+    token: str = "fg_primary",
+) -> tk.PhotoImage:
+    """Return a recolored copy of *photo* using a theme token's color directly.
+
+    Unlike ``recolor_photo`` (which derives a contrast foreground for a tinted
+    background), this function paints all opaque pixels of *photo* exactly to
+    the hex color of *token* in the currently active theme.  Use it when the
+    semantic intent is "paint this icon in the token's own color" rather than
+    "paint this icon so it contrasts with a tinted background."
+
+    Typical use: disabled icons painted to ``"fg_muted"`` so they appear grey
+    regardless of the tint seed their enabled counterpart uses.
+
+    Args:
+        photo: Base ``tk.PhotoImage`` to recolor.
+        token: Theme contract token whose resolved hex value is used directly
+               as the target pixel color (e.g. ``"fg_muted"``, ``"fg_primary"``).
+
+    Returns:
+        New ``tk.PhotoImage`` with opaque pixels set to the token's color.
+    """
+    return _recolor_photo(photo, get_theme()[token])
 
 
 def icon_button(
