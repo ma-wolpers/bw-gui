@@ -29,7 +29,8 @@ from typing import Callable
 
 from bw_gui.menu import CustomMenuBar, MenuItem, section_spec
 from bw_gui.menu.standard_menu import build_standard_menu_definitions
-from bw_gui.theming import DEFAULT_THEME, THEME_ORDER, get_theme, is_dark_color
+from bw_gui.theming import DEFAULT_THEME, THEME_ORDER
+from bw_gui.theming._theme_manager import get_theme, is_dark_color
 
 from .app_shell import AppShellConfig, TkinterAppShell
 from .platform import apply_window_chrome_theme

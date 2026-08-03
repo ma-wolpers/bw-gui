@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import tkinter as tk
 
-from bw_gui.theming.theme_manager import get_theme
+from bw_gui.theming._theme_manager import get_theme
 
 
 class HoverTooltip:

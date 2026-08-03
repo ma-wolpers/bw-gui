@@ -24,7 +24,7 @@ from __future__ import annotations
 from typing import Callable, Iterable
 import tkinter as tk
 
-from bw_gui.theming.theme_manager import get_theme
+from bw_gui.theming._theme_manager import get_theme
 
 from .menu_types import MenuDefinition, MenuItem  # noqa: F401 — re-exported for callers
 

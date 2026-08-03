@@ -48,7 +48,20 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Callable
 
-from .theme_manager import get_theme, tinted_color, tinted_foreground
+from ._theme_manager import get_theme, tinted_color, tinted_foreground
+
+__all__ = [
+    "canvas_fill",
+    "canvas_tinted_fill",
+    "canvas_text_fill",
+    "canvas_outline_color",
+    "icon_button",
+    "recolor_photo",
+    "theme_canvas",
+    "theme_text",
+    "theme_listbox",
+    "theme_scrollbar",
+]
 
 # Registry of icon buttons for automatic recoloring on every theme switch.
 _icon_button_registry: list[dict] = []

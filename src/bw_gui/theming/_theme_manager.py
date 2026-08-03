@@ -859,5 +859,5 @@ def configure_ttk_theme(root: tk.Misc, theme_key: str | None = None) -> None:
     )
 
     # Recolor all registered icon buttons for the new theme.
-    from .widget_utils import _reapply_icon_buttons  # late import avoids circular dependency
+    from ._widget_utils import _reapply_icon_buttons  # late import avoids circular dependency
     _reapply_icon_buttons()

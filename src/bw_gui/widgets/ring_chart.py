@@ -28,7 +28,7 @@ from __future__ import annotations
 import tkinter as tk
 from dataclasses import dataclass
 
-from ..theming.theme_manager import _is_dark, get_theme
+from ..theming._theme_manager import _is_dark, get_theme
 
 
 @dataclass
