@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from bw_gui.runtime import ui, widgets
+from bw_gui.runtime.platform import center_window_over_parent
 
 
 class ScrollablePopupWindow:
@@ -35,6 +36,9 @@ class ScrollablePopupWindow:
         self.geometry(geometry)
         self.minsize(*minsize)
         self.transient(master)
+        # geometry above is size-only ("WxH"); without this, Tk/Windows places an
+        # un-positioned Toplevel on the primary monitor even when master lives elsewhere.
+        center_window_over_parent(self._popup_window, master)
 
         self.theme_key = theme_key
         self._apply_window_theme = apply_window_theme

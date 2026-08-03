@@ -4,7 +4,9 @@ from dataclasses import dataclass
 from typing import Literal
 
 from bw_gui.runtime import ui, widgets
-from bw_gui.theming import apply_window_theme, configure_ttk_theme, get_theme
+from bw_gui.runtime.platform import center_window_over_parent
+from bw_gui.theming import apply_window_theme, configure_ttk_theme
+from bw_gui.theming._theme_manager import get_theme
 
 FieldType = Literal["bool", "string", "int", "float", "enum"]
 
@@ -143,6 +145,9 @@ class TabbedSettingsDialog:
         self.window.transient(parent)
         self.window.geometry(geometry)
         self.window.minsize(*minsize)
+        # geometry above is size-only ("WxH"); without this, Tk/Windows places an
+        # un-positioned Toplevel on the primary monitor even when parent lives elsewhere.
+        center_window_over_parent(self.window, parent)
         self.window.rowconfigure(0, weight=1)
         self.window.columnconfigure(0, weight=1)
 
