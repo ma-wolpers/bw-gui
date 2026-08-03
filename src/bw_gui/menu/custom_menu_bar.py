@@ -260,6 +260,8 @@ class CustomMenuBar:
             suffix = ""
             if item.type == "radio":
                 prefix = "● " if item.checked else "○ "
+            if item.type == "checkbox":
+                prefix = "☑ " if item.checked else "☐ "
             if item.type == "submenu":
                 suffix = "   ▸"
 

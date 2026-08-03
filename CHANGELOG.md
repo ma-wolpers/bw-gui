@@ -24,6 +24,8 @@ All notable changes to this project will be documented in this file.
 - Shared runtime aliases `bw_gui.runtime.ui` and `bw_gui.runtime.widgets` as a central import path for tkinter/ttk primitives.
 - Shared runtime alias `bw_gui.runtime.fonts` for tkinter font primitives, enabling app modules to avoid direct `tkinter.font` imports.
 - Theme contract documentation in `docs/THEME_CONTRACT.md` including guaranteed token keys, alias mapping, and domain fallback behavior.
+- Shared grid-span layout helper `bw_gui.widgets.grid_span` (`GridSpanSegment`, `compute_contiguous_spans`) for mapping a contiguous run of Tk grid columns to minimal `columnspan` segments.
+- New `checkbox` `MenuItem` type in `bw_gui.menu`, rendered with ☑/☐ prefixes alongside the existing `radio` type.
 
 ### Changed
 - LaufKern completion aggregation now enforces a strict completion gate: `summary.status` becomes `complete` only when all mandatory steps have completed artifacts with non-empty `evidence_ref` values and no trust/checksum/sequence errors are present.

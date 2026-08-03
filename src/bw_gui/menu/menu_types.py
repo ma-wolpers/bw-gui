@@ -8,7 +8,7 @@ from typing import Callable, Iterable
 class MenuItem:
     """One item in a menu popup — action, separator, radio, or submenu."""
 
-    type: str  # "command", "separator", "disabled", "radio", "submenu"
+    type: str  # "command", "separator", "disabled", "radio", "checkbox", "submenu"
     label: str = ""
     command: Callable[[], None] | None = None
     checked: bool = False
