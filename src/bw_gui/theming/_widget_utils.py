@@ -48,13 +48,15 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Callable
 
-from ._theme_manager import get_theme, tinted_color, tinted_foreground
+from ._theme_manager import _is_dark, get_theme, tinted_color, tinted_foreground
 
 __all__ = [
     "canvas_fill",
     "canvas_tinted_fill",
     "canvas_text_fill",
     "canvas_outline_color",
+    "canvas_domain_fill",
+    "canvas_domain_outline",
     "icon_button",
     "recolor_photo",
     "theme_canvas",
@@ -253,6 +255,69 @@ def canvas_outline_color(canvas: tk.Canvas, item_id: int, *, token: str = "borde
         token:   Contract token name for the outline color.
     """
     canvas.itemconfig(item_id, outline=get_theme()[token])
+
+
+def canvas_domain_fill(
+    canvas: tk.Canvas,
+    item_id: int,
+    *,
+    light_color: str,
+    dark_color: str,
+) -> None:
+    """Set a canvas item's fill to the appropriate domain color for the current theme.
+
+    The consumer owns the domain color values and provides both light and dark
+    variants; bw_gui picks the correct one based on whether the active theme is
+    dark or light.  No color value is returned; the consumer never performs its
+    own dark/light check.
+
+    Use for canvas items whose color comes from domain-owned constants (e.g.
+    lesson-type or achievement-category colors) rather than from the bw_gui
+    contract token set::
+
+        canvas_domain_fill(canvas, arc_id,
+                           light_color=CATEGORY_COLORS_LIGHT[cat],
+                           dark_color=CATEGORY_COLORS_DARK[cat])
+
+    Args:
+        canvas:      The canvas the item lives on.
+        item_id:     Integer item handle returned by ``canvas.create_*``.
+        light_color: ``"#RRGGBB"`` hex used when the active theme is light.
+        dark_color:  ``"#RRGGBB"`` hex used when the active theme is dark.
+    """
+    theme = get_theme()
+    canvas.itemconfig(item_id, fill=dark_color if _is_dark(theme["bg_main"]) else light_color)
+
+
+def canvas_domain_outline(
+    canvas: tk.Canvas,
+    item_id: int,
+    *,
+    light_color: str,
+    dark_color: str,
+) -> None:
+    """Set a canvas item's outline to the appropriate domain color for the current theme.
+
+    The consumer owns the domain color values and provides both light and dark
+    variants; bw_gui picks the correct one based on whether the active theme is
+    dark or light.  No color value is returned; the consumer never performs its
+    own dark/light check.
+
+    Use for arc rings or outlined shapes whose stroke color is domain-owned (e.g.
+    a progress arc colored per achievement category)::
+
+        canvas_domain_outline(canvas, arc_id,
+                              light_color=CATEGORY_COLORS_LIGHT[cat],
+                              dark_color=CATEGORY_COLORS_DARK[cat])
+
+    Args:
+        canvas:      The canvas the item lives on.
+        item_id:     Integer item handle returned by ``canvas.create_*``.
+        light_color: ``"#RRGGBB"`` hex used when the active theme is light.
+        dark_color:  ``"#RRGGBB"`` hex used when the active theme is dark.
+    """
+    theme = get_theme()
+    canvas.itemconfig(item_id, outline=dark_color if _is_dark(theme["bg_main"]) else light_color)
 
 
 # ── Icon button composite widget ─────────────────────────────────────────────

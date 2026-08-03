@@ -53,6 +53,8 @@ from ._theme_manager import (
     tinted_foreground,
 )
 from ._widget_utils import (
+    canvas_domain_fill,
+    canvas_domain_outline,
     canvas_fill,
     canvas_outline_color,
     canvas_text_fill,
@@ -88,6 +90,8 @@ __all__ = [
     "canvas_tinted_fill",
     "canvas_text_fill",
     "canvas_outline_color",
+    "canvas_domain_fill",
+    "canvas_domain_outline",
     # Composite widgets
     "icon_button",
     "recolor_photo",
