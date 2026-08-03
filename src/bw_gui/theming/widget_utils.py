@@ -16,10 +16,30 @@ is needed in consumer ``apply_theme()`` overrides::
         theme_canvas(self._map_canvas)
         theme_text(self._notes_editor)
 
+**Canvas drawing primitives** (``canvas_fill``, ``canvas_tinted_fill``,
+``canvas_text_fill``, ``canvas_outline_color``) apply theme colors to individual
+canvas *items* (rectangles, text, ovals …) after they have been created.
+Consumer code passes a token name or tint seed; bw_gui resolves the actual color
+internally so no hex value ever reaches the consumer::
+
+    rect_id = canvas.create_rectangle(x1, y1, x2, y2)
+    canvas_fill(canvas, rect_id, token="bg_panel")
+
+    text_id = canvas.create_text(cx, cy, text="LZK")
+    canvas_text_fill(canvas, text_id, token="fg_primary")
+
+    canvas_tinted_fill(canvas, rect_id, color_tint="warning_soft", degree=0.72,
+                       base_token="panel_strong")
+
 ``icon_button`` is a composite widget factory: it creates a ``ttk.Button``,
 recolors its icon pixels to the appropriate foreground, and registers it for
 automatic recoloring on every future theme switch.  Consumer code provides the
 image, command, and optional color intent — bw_gui handles the rest forever.
+
+``recolor_photo`` returns a recolored ``tk.PhotoImage`` for cases where the
+consumer manages state-based icon switching manually (e.g. a button that shows
+a different icon depending on app state).  The consumer provides the base photo
+and a color-tint seed; bw_gui computes the foreground hex internally.
 """
 
 from __future__ import annotations
@@ -28,7 +48,7 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Callable
 
-from .theme_manager import contrast_text_color, get_theme, tinted_color, tinted_foreground
+from .theme_manager import get_theme, tinted_color, tinted_foreground
 
 # Registry of icon buttons for automatic recoloring on every theme switch.
 _icon_button_registry: list[dict] = []
@@ -139,6 +159,89 @@ def theme_scrollbar(scrollbar: tk.Scrollbar, theme_key: str | None = None) -> No
     )
 
 
+# ── Canvas item drawing primitives ───────────────────────────────────────────
+
+def canvas_fill(canvas: tk.Canvas, item_id: int, *, token: str = "bg_panel") -> None:
+    """Set a canvas item's fill to the current value of a named contract token.
+
+    Reads the globally tracked current theme — no ``theme_key`` argument.
+    The token must be a guaranteed contract key (see ``theme_contract_keys()``).
+    Typical tokens: ``"bg_panel"``, ``"bg_surface"``, ``"panel_strong"``,
+    ``"selection_bg"``, ``"accent"``, ``"warning_soft"``.
+
+    Call during canvas repaints / theme-switch redraws so colors stay consistent
+    with the active theme without the consumer ever seeing a hex value.
+
+    Args:
+        canvas:  The canvas the item lives on.
+        item_id: Integer item handle returned by ``canvas.create_*``.
+        token:   Contract token name for the fill color.
+    """
+    canvas.itemconfig(item_id, fill=get_theme()[token])
+
+
+def canvas_tinted_fill(
+    canvas: tk.Canvas,
+    item_id: int,
+    *,
+    color_tint: str,
+    degree: float = 0.5,
+    base_token: str = "bg_panel",
+) -> None:
+    """Set a canvas item's fill to a tinted color derived from *color_tint*.
+
+    Identical semantics to ``tinted_color(color_tint, degree=degree,
+    base_token=base_token)`` but applies the result directly to the canvas item.
+    No color value is returned; the consumer never sees hex.
+
+    Use for domain-typed cells whose background is a tinted shade, e.g. an
+    Ausfall cell tinted toward ``"warning_soft"`` or a Hospitation cell tinted
+    toward a domain seed::
+
+        canvas_tinted_fill(canvas, rect, color_tint="warning_soft",
+                           degree=0.72, base_token="panel_strong")
+        canvas_tinted_fill(canvas, rect, color_tint=HOSPITATION_SEED,
+                           degree=0.38, base_token="panel_strong")
+
+    Args:
+        canvas:     The canvas the item lives on.
+        item_id:    Integer item handle returned by ``canvas.create_*``.
+        color_tint: ``"#RRGGBB"`` hex literal or bw_gui token name used as the
+                    tint seed (same as the first argument to ``tinted_color``).
+        degree:     Tint strength [0, 1].
+        base_token: Contract token used as the neutral base for blending.
+    """
+    canvas.itemconfig(item_id, fill=tinted_color(color_tint, degree=degree, base_token=base_token))
+
+
+def canvas_text_fill(canvas: tk.Canvas, item_id: int, *, token: str = "fg_primary") -> None:
+    """Set a canvas text item's fill to the current value of a named contract token.
+
+    Reads the globally tracked current theme — no ``theme_key`` argument.
+    Typical tokens: ``"fg_primary"``, ``"fg_muted"``, ``"selection_fg"``.
+
+    Args:
+        canvas:  The canvas the text item lives on.
+        item_id: Integer item handle returned by ``canvas.create_text``.
+        token:   Contract token name for the text fill color.
+    """
+    canvas.itemconfig(item_id, fill=get_theme()[token])
+
+
+def canvas_outline_color(canvas: tk.Canvas, item_id: int, *, token: str = "border") -> None:
+    """Set a canvas item's outline to the current value of a named contract token.
+
+    Reads the globally tracked current theme — no ``theme_key`` argument.
+    Typical tokens: ``"border"``, ``"accent"``, ``"focus_ring"``.
+
+    Args:
+        canvas:  The canvas the item lives on.
+        item_id: Integer item handle returned by ``canvas.create_*``.
+        token:   Contract token name for the outline color.
+    """
+    canvas.itemconfig(item_id, outline=get_theme()[token])
+
+
 # ── Icon button composite widget ─────────────────────────────────────────────
 
 def _recolor_photo(base: tk.PhotoImage, fg_hex: str) -> tk.PhotoImage:
@@ -185,14 +288,51 @@ def _reapply_icon_buttons() -> None:
     for entry in _icon_button_registry:
         color_tint = entry["color_tint"]
         if color_tint is None:
-            continue
-        fg = tinted_foreground(color_tint, degree=entry["degree"], base_token=entry["base_token"])
+            fg = get_theme()["fg_primary"]
+        else:
+            fg = tinted_foreground(color_tint, degree=entry["degree"], base_token=entry["base_token"])
         new_photo = _recolor_photo(entry["base_photo"], fg)
         entry["current_photo"] = new_photo
         try:
             entry["button"].configure(image=new_photo)
         except tk.TclError:
             pass
+
+
+def recolor_photo(
+    photo: tk.PhotoImage,
+    color_tint: str,
+    *,
+    degree: float = 0.35,
+    base_token: str = "auto",
+) -> tk.PhotoImage:
+    """Return a recolored copy of *photo* using the current theme's tinted foreground.
+
+    Computes the appropriate foreground color for *color_tint* internally via
+    ``tinted_foreground`` and recolors all opaque pixels of *photo* to that
+    color.  No hex value is exposed to the consumer — only the resulting image
+    is returned.
+
+    Intended for cases where the consumer manages state-based icon switching
+    manually (e.g. a toolbar button whose icon changes depending on app state).
+    For static icon buttons, prefer ``icon_button`` which handles everything
+    automatically.
+
+    The returned image uses the colors of the currently active theme; call this
+    again (and update the button's ``image`` option) after every theme switch.
+
+    Args:
+        photo:      Base ``tk.PhotoImage`` to recolor.
+        color_tint: ``"#RRGGBB"`` hex or bw_gui token name used as the tint
+                    seed — the same first argument as ``tinted_foreground``.
+        degree:     Tint strength forwarded to ``tinted_foreground``.
+        base_token: Base token forwarded to ``tinted_foreground``.
+
+    Returns:
+        New ``tk.PhotoImage`` with opaque pixels set to the computed foreground.
+    """
+    fg = tinted_foreground(color_tint, degree=degree, base_token=base_token)
+    return _recolor_photo(photo, fg)
 
 
 def icon_button(
@@ -223,10 +363,11 @@ def icon_button(
                       original is preserved in the registry; bw_gui creates a
                       recolored copy for each theme.
         command:      Callable invoked on button press.
-        color_tint:   Optional ``"#RRGGBB"`` hex or bw_gui token name.  When
-                      provided, icon pixels are colored to the foreground that
-                      best contrasts the corresponding ``tinted_color``
-                      background.  ``None`` leaves pixels unchanged.
+        color_tint:   Optional ``"#RRGGBB"`` hex or bw_gui token name used as
+                      the tint seed.  Icon pixels are colored to the foreground
+                      that best contrasts the corresponding ``tinted_color``
+                      background.  ``None`` recolors to ``fg_primary`` so the
+                      icon follows the active theme even for neutral actions.
         degree:       Tint strength used when computing the icon foreground;
                       passed to ``tinted_foreground`` internally.  Defaults to
                       0.35 so icon tints are visually distinct.
@@ -240,9 +381,9 @@ def icon_button(
     """
     if color_tint is not None:
         fg = tinted_foreground(color_tint, degree=degree, base_token=base_token)
-        colored = _recolor_photo(photo_image, fg)
     else:
-        colored = photo_image
+        fg = get_theme()["fg_primary"]
+    colored = _recolor_photo(photo_image, fg)
 
     btn = ttk.Button(parent, image=colored, command=command, **button_kwargs)
     _icon_button_registry.append({
