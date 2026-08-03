@@ -61,6 +61,10 @@ __all__ = [
     "recolor_photo",
     "theme_canvas",
     "theme_text",
+    "theme_text_tinted",
+    "theme_label_token",
+    "theme_label_tinted",
+    "theme_widget_border",
     "theme_listbox",
     "theme_scrollbar",
 ]
@@ -92,7 +96,13 @@ def theme_canvas(canvas: tk.Canvas, theme_key: str | None = None) -> None:
     )
 
 
-def theme_text(text: tk.Text, theme_key: str | None = None) -> None:
+def theme_text(
+    text: tk.Text,
+    theme_key: str | None = None,
+    *,
+    bg_token: str = "bg_surface",
+    fg_token: str = "fg_primary",
+) -> None:
     """Apply theme colors to a ``tk.Text`` widget.
 
     Configures background, foreground, insert cursor, text selection, border,
@@ -104,15 +114,27 @@ def theme_text(text: tk.Text, theme_key: str | None = None) -> None:
     areas, document editors, notes fields).  When ``theme_key`` is omitted or
     ``None``, the globally tracked current theme is used automatically.
 
+    The optional ``bg_token`` and ``fg_token`` parameters let callers override
+    the background and foreground contract token without seeing hex values::
+
+        theme_text(cell)                                 # bg_surface / fg_primary
+        theme_text(cell, bg_token="bg_panel",
+                         fg_token="fg_muted")            # disabled/read-only cell
+        theme_text(cell, bg_token="warning_soft")        # unresolved-link cell
+
     Args:
         text:      The text widget to configure.
         theme_key: Explicit theme override; omit to use the global current theme.
+        bg_token:  Contract token for the background color.  Defaults to
+                   ``"bg_surface"``.
+        fg_token:  Contract token for the foreground / cursor color.  Defaults to
+                   ``"fg_primary"``.
     """
     theme = get_theme(theme_key)
     text.configure(
-        bg=theme["bg_surface"],
-        fg=theme["fg_primary"],
-        insertbackground=theme["fg_primary"],
+        bg=theme[bg_token],
+        fg=theme[fg_token],
+        insertbackground=theme[fg_token],
         selectbackground=theme["selection_bg"],
         selectforeground=theme["selection_fg"],
         highlightthickness=1,
@@ -172,6 +194,138 @@ def theme_scrollbar(scrollbar: tk.Scrollbar, theme_key: str | None = None) -> No
         highlightthickness=0,
         borderwidth=0,
     )
+
+
+def theme_text_tinted(
+    text: tk.Text,
+    color_tint: str,
+    *,
+    degree: float = 0.5,
+    base_token: str = "bg_panel",
+    fg_token: str = "fg_primary",
+) -> None:
+    """Apply a tinted background to a ``tk.Text`` widget for domain-typed display states.
+
+    Computes the background color internally via ``tinted_color``; no hex value
+    is returned to the consumer.  The consumer expresses *what* the cell
+    represents (tint seed + degree + base), bw_gui decides *what color* that
+    produces for the active theme.
+
+    Use for column-typed cells that need a tinted background different from the
+    standard ``bg_surface`` — e.g. ausfall cells (``warning_soft`` tint),
+    hospitation cells (domain-seed tint), LZK cells (``success_soft`` tint)::
+
+        theme_text_tinted(cell, "warning_soft",   degree=0.72,
+                          base_token="panel_strong", fg_token="fg_muted")
+        theme_text_tinted(cell, HOSPITATION_SEED, degree=0.38,
+                          base_token="panel_strong")
+
+    Args:
+        text:       The ``tk.Text`` widget to configure.
+        color_tint: Tint seed — contract token name or ``"#RRGGBB"`` hex —
+                    forwarded to ``tinted_color``.
+        degree:     Tint strength [0, 1].
+        base_token: Base contract token for the tinted_color blend.
+        fg_token:   Contract token for the text foreground and cursor color.
+    """
+    theme = get_theme()
+    bg = tinted_color(color_tint, degree=degree, base_token=base_token)
+    fg = theme[fg_token]
+    text.configure(
+        bg=bg,
+        fg=fg,
+        insertbackground=fg,
+        selectbackground=theme["selection_bg"],
+        selectforeground=theme["selection_fg"],
+    )
+
+
+def theme_label_token(
+    label: tk.Label,
+    *,
+    bg_token: str = "panel_strong",
+    fg_token: str = "fg_primary",
+) -> None:
+    """Apply token-based background and foreground colors to a ``tk.Label`` widget.
+
+    Use when the label's background should come from a standard contract token
+    (e.g. ``"panel_strong"``, ``"bg_surface"``, ``"warning_soft"``,
+    ``"selection_bg"``).  bw_gui resolves the hex value internally; no color
+    string ever reaches the consumer::
+
+        theme_label_token(corner_label)                           # panel_strong / fg_primary
+        theme_label_token(label, bg_token="selection_bg",
+                                 fg_token="selection_fg")         # selected header
+
+    Args:
+        label:    The ``tk.Label`` widget to configure.
+        bg_token: Contract token for the label background.
+        fg_token: Contract token for the label foreground.
+    """
+    theme = get_theme()
+    label.configure(bg=theme[bg_token], fg=theme[fg_token])
+
+
+def theme_label_tinted(
+    label: tk.Label,
+    color_tint: str,
+    *,
+    degree: float = 0.5,
+    base_token: str = "bg_panel",
+    fg_token: str = "fg_primary",
+) -> None:
+    """Apply a tinted background to a ``tk.Label`` for domain-typed column headers.
+
+    Computes the background color internally via ``tinted_color``; the consumer
+    expresses intent (tint seed + degree + base) while bw_gui resolves the hex.
+
+    Use for column headers whose background reflects the column type — e.g. an
+    ausfall header tinted toward ``"warning_soft"``, a hospitation header tinted
+    toward the domain seed::
+
+        theme_label_tinted(header, "warning_soft",   degree=0.72,
+                           base_token="panel_strong", fg_token="fg_muted")
+        theme_label_tinted(header, HOSPITATION_SEED, degree=0.38,
+                           base_token="panel_strong")
+
+    Args:
+        label:      The ``tk.Label`` widget to configure.
+        color_tint: Tint seed forwarded to ``tinted_color``.
+        degree:     Tint strength [0, 1].
+        base_token: Base contract token for the tinted_color blend.
+        fg_token:   Contract token for the label foreground.
+    """
+    theme = get_theme()
+    bg = tinted_color(color_tint, degree=degree, base_token=base_token)
+    label.configure(bg=bg, fg=theme[fg_token])
+
+
+def theme_widget_border(
+    widget: tk.Misc,
+    *,
+    color_token: str = "border",
+    thickness: int = 1,
+) -> None:
+    """Apply a themed highlight border to any ``tk`` widget.
+
+    Sets ``highlightbackground`` and ``highlightcolor`` to the named contract
+    token color.  Use for selection indicators, UB-column accent borders, or any
+    widget border whose color should follow the active theme.  Supports
+    ``tk.Text``, ``tk.Label``, ``tk.Canvas``, and any other widget that accepts
+    the highlight options::
+
+        theme_widget_border(cell, color_token="selection_bg", thickness=2)
+        theme_widget_border(cell, color_token="accent",       thickness=2)
+        theme_widget_border(cell)                              # border / 1px
+
+    Args:
+        widget:      Any Tk widget that accepts ``highlightbackground``.
+        color_token: Contract token for the border color.
+        thickness:   Highlight border thickness in pixels.
+    """
+    theme = get_theme()
+    color = theme[color_token]
+    widget.configure(highlightthickness=thickness, highlightbackground=color, highlightcolor=color)
 
 
 # ── Canvas item drawing primitives ───────────────────────────────────────────

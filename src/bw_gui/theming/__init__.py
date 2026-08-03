@@ -62,9 +62,13 @@ from ._widget_utils import (
     icon_button,
     recolor_photo,
     theme_canvas,
+    theme_label_tinted,
+    theme_label_token,
     theme_listbox,
     theme_scrollbar,
     theme_text,
+    theme_text_tinted,
+    theme_widget_border,
 )
 
 __all__ = [
@@ -83,6 +87,10 @@ __all__ = [
     # Raw tk widget theming
     "theme_canvas",
     "theme_text",
+    "theme_text_tinted",
+    "theme_label_token",
+    "theme_label_tinted",
+    "theme_widget_border",
     "theme_listbox",
     "theme_scrollbar",
     # Canvas item drawing primitives
