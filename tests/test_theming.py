@@ -1,11 +1,10 @@
 from bw_gui.theming import (
     DEFAULT_THEME,
     THEME_ORDER,
-    THEMES,
-    get_theme,
     normalize_theme_key,
     theme_contract_keys,
 )
+from bw_gui.theming._theme_manager import THEMES, get_theme
 
 
 def test_default_theme_is_valid_member():
