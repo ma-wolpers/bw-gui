@@ -26,6 +26,17 @@ All notable changes to this project will be documented in this file.
 - Theme contract documentation in `docs/THEME_CONTRACT.md` including guaranteed token keys, alias mapping, and domain fallback behavior.
 - Shared grid-span layout helper `bw_gui.widgets.grid_span` (`GridSpanSegment`, `compute_contiguous_spans`) for mapping a contiguous run of Tk grid columns to minimal `columnspan` segments.
 - New `checkbox` `MenuItem` type in `bw_gui.menu`, rendered with ☑/☐ prefixes alongside the existing `radio` type.
+- `BwBaseWindow`: neue Basisklasse fuer Standard-App-Fenster mit integriertem Theme-Management, zentraler Menu-Leiste und `BwBaseWindowConfig` fuer einheitliche Fenster-Initialisierung.
+- `TkinterAppShell`: Shell-Helfer zum einmaligen Aufspannen des Tk-Root-Fensters mit zentraler Identity- und Lifecycle-Konfiguration.
+- Neue Theming-Hilfsfunktionen: `tinted_color`, `tinted_foreground` und `recolor_photo_token` fuer konsistente Farbberechnung auf Basis zentraler Token-Werte.
+- `get_theme(None)` gibt jetzt das gerade aktive Theme zurueck (ambient lookup) ohne explizite Namensangabe.
+- `icon_button`: neuer Widget-Baustein fuer beschriftungslose Icon-Schaltflaechen mit konsistenter Hover- und Theme-Anbindung.
+- Neue Canvas-Zeichenprimitive: `recolor_photo`, `canvas_domain_fill`, `canvas_domain_outline` fuer domain-faerbbare Canvas-Grafikbausteine.
+- `ring_chart`: neues Widget fuer einfache Ring-/Donut-Diagramme mit Theme-Anbindung.
+- `MenuItem`- und `MenuDefinition`-Typen fuer typsichere deklarative Menu-Spezifikationen.
+
+### Fixed
+- Popups und Tooltips wurden bisher immer auf dem primaeren Monitor positioniert, auch wenn das App-Fenster auf einem anderen Monitor lief. Die Positionierung berechnet jetzt den zustaendigen Monitor anhand der aktuellen Fensterposition und platziert Popups korrekt auf dem richtigen Bildschirm.
 
 ### Changed
 - LaufKern completion aggregation now enforces a strict completion gate: `summary.status` becomes `complete` only when all mandatory steps have completed artifacts with non-empty `evidence_ref` values and no trust/checksum/sequence errors are present.
