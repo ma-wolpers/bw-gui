@@ -62,6 +62,7 @@ from ._widget_utils import (
     icon_button,
     recolor_photo,
     recolor_photo_token,
+    retain_icon_override,
     theme_canvas,
     theme_label_tinted,
     theme_label_token,
@@ -105,6 +106,7 @@ __all__ = [
     "icon_button",
     "recolor_photo",
     "recolor_photo_token",
+    "retain_icon_override",
     # Constants
     "DEFAULT_THEME",
     "DEFAULT_THEME_INTENSITY",

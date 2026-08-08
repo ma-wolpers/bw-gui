@@ -654,3 +654,37 @@ def icon_button(
         "current_photo": colored,
     })
     return btn
+
+
+def retain_icon_override(button: ttk.Button, photo: tk.PhotoImage) -> bool:
+    """Apply a manually recolored override image to a registered icon button.
+
+    Consumers that need to swap an ``icon_button()``-created button to a
+    one-off icon (e.g. a disabled/dimmed variant, or a state-swapped
+    alternate icon) via ``recolor_photo``/``recolor_photo_token`` must keep a
+    Python reference to the resulting ``PhotoImage`` — ``ttk.Button.configure
+    (image=...)`` only stores the Tcl image name, so an unreferenced image is
+    garbage-collected and the button silently goes blank. This function
+    stores *photo* on the button's existing ``_icon_button_registry`` entry
+    (under ``"override_photo"``) purely as a keep-alive slot, then applies it.
+
+    The registry entry is not otherwise read back for the override — the
+    consumer is expected to call this again on every state re-evaluation
+    (e.g. after a theme switch, once ``configure_ttk_theme`` has reset the
+    button to its base icon).
+
+    Args:
+        button: A ``ttk.Button`` previously created via ``icon_button()``.
+        photo:  The recolored override image to apply.
+
+    Returns:
+        ``True`` if *button* was found in the registry and the override was
+        applied; ``False`` if *button* was never created via ``icon_button()``
+        (nothing is applied in that case — the caller likely has a bug).
+    """
+    for entry in _icon_button_registry:
+        if entry["button"] is button:
+            entry["override_photo"] = photo
+            button.configure(image=photo)
+            return True
+    return False
