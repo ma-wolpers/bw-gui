@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from bw_gui.dialogs import FileDialogService, MessageDialogService, TextPromptDialogService
 from bw_gui.dialogs import service as dialog_service
+from bw_gui.dialogs.service import _EscapeSafeQueryString
 
 
 class _FakeModalParent:
@@ -34,10 +35,11 @@ def test_message_dialog_uses_modal_runner_with_parent(monkeypatch):
 def test_text_prompt_uses_default_root_when_parent_missing(monkeypatch):
     parent = _FakeModalParent()
 
-    def fake_askstring(title, prompt, **kwargs):
-        return f"{title}:{prompt}"
+    class _FakeQueryString:
+        def __init__(self, title, prompt, **kwargs):
+            self.result = f"{title}:{prompt}"
 
-    monkeypatch.setattr(dialog_service.simpledialog, "askstring", fake_askstring)
+    monkeypatch.setattr(dialog_service, "_EscapeSafeQueryString", _FakeQueryString)
     monkeypatch.setattr(dialog_service.tk, "_default_root", parent)
 
     service = TextPromptDialogService()
@@ -84,3 +86,17 @@ def test_message_dialog_askretrycancel_normalizes_bool(monkeypatch):
     result = service.askretrycancel("Pfadpruefung", "Nochmal?")
 
     assert result is False
+
+
+def test_escape_safe_query_string_cancel_returns_break():
+    """cancel() must return "break" so Escape stops at the dialog instead of leaking
+    to whatever bind_all("<Escape>") handler sits on the window(s) behind it."""
+    calls = {"destroy": 0}
+    dialog = _EscapeSafeQueryString.__new__(_EscapeSafeQueryString)
+    dialog.parent = None
+    dialog.destroy = lambda: calls.__setitem__("destroy", calls["destroy"] + 1)
+
+    result = dialog.cancel()
+
+    assert result == "break"
+    assert calls["destroy"] == 1

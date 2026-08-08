@@ -149,22 +149,14 @@ class ScrollablePopupWindow:
         self.destroy()
         return "break"
 
-    @staticmethod
-    def _is_editable_widget(widget) -> bool:
-        if widget is None:
-            return False
-        editable_widget_types = (ui.Entry, ui.Text, ui.Spinbox, widgets.Entry, widgets.Combobox)
-        return isinstance(widget, editable_widget_types)
-
     def _handle_escape_request(self) -> str:
-        focused = self.focus_get()
-        editable_check = getattr(type(self), "_is_editable_widget", ScrollablePopupWindow._is_editable_widget)
-        if self._is_descendant_of_popup(focused) and editable_check(focused):
-            try:
-                self.focus_force()
-            except ui.TclError:
-                return "break"
-            return "break"
+        """Close the popup on Escape, unconditionally.
+
+        Previously this refocused instead of closing when an editable widget had
+        focus, via ``self.focus_force()`` on the already-focused popup window — which
+        does not actually change which widget holds keyboard focus, so it had no
+        observable effect and Escape appeared to do nothing while typing.
+        """
         return self._request_close()
 
     def _on_escape_close(self, _event=None):

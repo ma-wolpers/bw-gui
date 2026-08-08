@@ -36,6 +36,8 @@ All notable changes to this project will be documented in this file.
 - `MenuItem`- und `MenuDefinition`-Typen fuer typsichere deklarative Menu-Spezifikationen.
 
 ### Fixed
+- `ScrollablePopupWindow`: Escape schließt das Popup jetzt immer, unabhängig vom Fokus. Vorher wurde bei fokussiertem Eingabefeld (Entry/Text/Spinbox/Combobox) nur erneut `focus_force()` auf das ohnehin schon fokussierte Popup-Fenster aufgerufen — das hatte keine sichtbare Wirkung, Escape schien beim Tippen wirkungslos.
+- `TextPromptDialogService.askstring(...)`: Escape im Textprompt-Dialog stoppt jetzt zuverlässig am Dialog, statt bis zu darunterliegenden Fenstern weiterzulaufen (z. B. einem globalen `bind_all("<Escape>")`-Handler der aufrufenden App). Ursache war der eingebaute `tkinter.simpledialog.Dialog.cancel`, der `None` statt `"break"` zurückgab.
 - Popups und Tooltips wurden bisher immer auf dem primaeren Monitor positioniert, auch wenn das App-Fenster auf einem anderen Monitor lief. Die Positionierung berechnet jetzt den zustaendigen Monitor anhand der aktuellen Fensterposition und platziert Popups korrekt auf dem richtigen Bildschirm.
 
 ### Changed

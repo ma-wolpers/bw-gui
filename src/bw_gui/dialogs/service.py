@@ -4,10 +4,25 @@ from collections.abc import Callable
 from typing import Any
 
 import tkinter as tk
-from tkinter import filedialog, messagebox, simpledialog
+from tkinter import filedialog, messagebox
+from tkinter import simpledialog as _tk_simpledialog
 
 
 ModalCallback = Callable[[], Any]
+
+
+class _EscapeSafeQueryString(_tk_simpledialog._QueryString):
+    """Wie ``simpledialog._QueryString``, aber ``cancel()`` stoppt die Ereigniskette.
+
+    Der Stdlib-``Dialog.cancel`` gibt ``None`` statt ``"break"`` zurueck, wodurch ein
+    Escape-Tastendruck nicht am Dialog-Toplevel stoppt, sondern bis zu darunterliegenden
+    Fenstern (z. B. einem globalen ``bind_all("<Escape>")``-Handler) weiterlaeuft.
+    """
+
+    def cancel(self, event=None):
+        """Close the dialog like the base class, additionally stopping event propagation."""
+        super().cancel(event)
+        return "break"
 
 
 def _resolve_parent(parent: object | None) -> object | None:
@@ -56,7 +71,12 @@ class TextPromptDialogService:
 
     def askstring(self, title: str, prompt: str, **kwargs: Any) -> str | None:
         parent = kwargs.get("parent")
-        return _run_modal(parent, title, lambda: simpledialog.askstring(title, prompt, **kwargs))
+
+        def _show() -> str | None:
+            dialog = _EscapeSafeQueryString(title, prompt, **kwargs)
+            return dialog.result
+
+        return _run_modal(parent, title, _show)
 
 
 class FileDialogService:
