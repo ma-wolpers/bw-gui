@@ -69,7 +69,12 @@ def test_request_close_respects_confirmation_callback():
     class _ClosePopup:
         def __init__(self):
             self.destroy_calls = 0
+            self.withdraw_calls = 0
+            self._closing = False
             self._request_close_confirmation = lambda: False
+
+        def withdraw(self):
+            self.withdraw_calls += 1
 
         def destroy(self):
             self.destroy_calls += 1
@@ -80,6 +85,52 @@ def test_request_close_respects_confirmation_callback():
 
     assert result == "break"
     assert popup.destroy_calls == 0
+    assert popup.withdraw_calls == 0
+    assert popup._closing is False
+
+
+def test_request_close_withdraws_before_destroying():
+    class _ClosePopup:
+        def __init__(self):
+            self.calls: list[str] = []
+            self._closing = False
+            self._request_close_confirmation = None
+
+        def withdraw(self):
+            self.calls.append("withdraw")
+
+        def destroy(self):
+            self.calls.append("destroy")
+
+    popup = _ClosePopup()
+
+    result = ScrollablePopupWindow._request_close(popup)
+
+    assert result == "break"
+    assert popup.calls == ["withdraw", "destroy"]
+    assert popup._closing is True
+
+
+def test_request_close_is_idempotent():
+    class _ClosePopup:
+        def __init__(self):
+            self.destroy_calls = 0
+            self._closing = False
+            self._request_close_confirmation = None
+
+        def withdraw(self):
+            pass
+
+        def destroy(self):
+            self.destroy_calls += 1
+
+    popup = _ClosePopup()
+
+    ScrollablePopupWindow._request_close(popup)
+    result = ScrollablePopupWindow._request_close(popup)
+
+    assert result == "break"
+    assert popup.destroy_calls == 1
 
 
 def test_scrollable_popup_str_delegates_to_popup_window_path():

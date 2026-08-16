@@ -44,6 +44,7 @@ class ScrollablePopupWindow:
         self._apply_window_theme = apply_window_theme
         self._configure_ttk_theme = configure_ttk_theme
         self._request_close_confirmation = request_close_confirmation
+        self._closing = False
 
         container = widgets.Frame(self)
         container.pack(fill="both", expand=True)
@@ -142,10 +143,27 @@ class ScrollablePopupWindow:
         ScrollablePopupWindow._cleanup_open_popups()
 
     def _request_close(self) -> str:
+        """Close the popup, idempotently.
+
+        Reachable from multiple paths (window-close protocol, Escape) that
+        could in principle fire in quick succession before the first
+        ``destroy()`` has fully run — the ``_closing`` guard makes a second
+        call a no-op instead of risking a ``TclError`` on an already-torn-down
+        widget. ``withdraw()`` hides the window immediately, before
+        ``destroy()`` tears down its (possibly deeply nested/scrollable)
+        child widget tree, so no intermediate teardown layout is visible.
+        """
+        if self._closing:
+            return "break"
         if self._request_close_confirmation is not None:
             should_close = bool(self._request_close_confirmation())
             if not should_close:
                 return "break"
+        self._closing = True
+        try:
+            self.withdraw()
+        except ui.TclError:
+            pass
         self.destroy()
         return "break"
 
