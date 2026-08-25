@@ -32,6 +32,12 @@ class SettingsFieldSpec:
         hint:         Optional hint text shown below the entry widget.
         live_apply:   When ``True``, the dialog fires ``on_live_apply`` on every
                       keystroke / toggle, enabling real-time previewing.
+        visible_when: ``(controlling_field_key, required_value)``. When set,
+                      this field is only rendered while the field named
+                      ``controlling_field_key`` currently holds
+                      ``required_value`` — e.g. a "fixed cutoff time" field
+                      that only appears once a sibling mode field is switched
+                      to ``"fixed"``. ``None`` (default) means always visible.
     """
 
     key: str
@@ -43,6 +49,7 @@ class SettingsFieldSpec:
     max_value: float | None = None
     hint: str = ""
     live_apply: bool = False
+    visible_when: tuple[str, object] | None = None
 
     def __post_init__(self) -> None:
         if self.field_type == "enum" and not self.enum_values:
@@ -77,6 +84,14 @@ class SettingsDialogSpec:
     def __post_init__(self) -> None:
         if not self.sections:
             raise ValueError("SettingsDialogSpec requires at least one section")
+        all_keys = {field.key for section in self.sections for field in section.fields}
+        for section in self.sections:
+            for field in section.fields:
+                if field.visible_when is not None and field.visible_when[0] not in all_keys:
+                    raise ValueError(
+                        f"SettingsFieldSpec '{field.key}' has visible_when referencing "
+                        f"unknown field '{field.visible_when[0]}'"
+                    )
 
 
 def _parse_bool(value: object) -> bool:

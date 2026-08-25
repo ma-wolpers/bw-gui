@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- `SettingsFieldSpec.visible_when` for conditional field visibility in the tabbed settings dialog: a field only renders while a named sibling field currently holds a given value (e.g. a fixed-cutoff-time field that only appears once a mode field is switched to "fixed"). Validated against unknown field references, wired via the existing section-rerender-on-change mechanism (no separate show/hide widget bookkeeping).
 - New centralized settings flow helper `bw_gui.dialogs.SettingsDialogOrchestrator` to wire theme/spec/value providers and commit handlers behind one reusable open call.
 - Standardized menu-definition builder in `bw_gui.menu.standard_menu` (`section_spec`, `build_standard_menu_definitions`) for consistent core menu ordering with app-specific extension sections.
 - New `bw_gui.laufkern` core package with manifest validation, route reachability checks, step/reason-code standards, and completion-tracking aggregation for LaufKern-based app integration.

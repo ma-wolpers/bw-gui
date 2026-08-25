@@ -74,3 +74,51 @@ def test_enum_field_requires_values():
 def test_dialog_spec_requires_sections():
     with pytest.raises(ValueError):
         SettingsDialogSpec(sections=())
+
+
+def test_visible_when_defaults_to_none():
+    field = SettingsFieldSpec(key="plain", label="Plain")
+    assert field.visible_when is None
+
+
+def test_dialog_spec_rejects_visible_when_referencing_unknown_field():
+    with pytest.raises(ValueError):
+        SettingsDialogSpec(
+            sections=(
+                SettingsSectionSpec(
+                    key="general",
+                    label="General",
+                    fields=(
+                        SettingsFieldSpec(
+                            key="cutoff_hour",
+                            label="Cutoff Hour",
+                            field_type="int",
+                            visible_when=("mode", "fixed"),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+
+def test_dialog_spec_accepts_visible_when_referencing_known_field():
+    spec = SettingsDialogSpec(
+        sections=(
+            SettingsSectionSpec(
+                key="general",
+                label="General",
+                fields=(
+                    SettingsFieldSpec(key="mode", label="Mode", field_type="enum", enum_values=("auto", "fixed"), default="auto"),
+                    SettingsFieldSpec(
+                        key="cutoff_hour",
+                        label="Cutoff Hour",
+                        field_type="int",
+                        visible_when=("mode", "fixed"),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    dependent = spec.sections[0].fields[1]
+    assert dependent.visible_when == ("mode", "fixed")

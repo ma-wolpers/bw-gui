@@ -181,7 +181,7 @@ class TabbedSettingsDialog:
         )
 
     def _initialize_fields(self, values: dict[str, object]) -> None:
-        """Create tk Variables for all fields and wire live-apply traces."""
+        """Create tk Variables for all fields and wire live-apply + visibility traces."""
         normalized = coerce_settings_payload(values, self.spec)
         for section in self.spec.sections:
             for field in section.fields:
@@ -193,6 +193,26 @@ class TabbedSettingsDialog:
                 self._field_vars[field.key] = var
                 if field.live_apply and self._on_live_apply is not None:
                     var.trace_add("write", self._on_live_change)
+
+        controlling_keys = {
+            field.visible_when[0]
+            for section in self.spec.sections
+            for field in section.fields
+            if field.visible_when is not None
+        }
+        for key in controlling_keys:
+            self._field_vars[key].trace_add("write", self._on_visibility_controlling_change)
+
+    def _on_visibility_controlling_change(self, *_args) -> None:
+        """Re-render the active section so `visible_when` fields re-evaluate."""
+        self._select_section(self._active_section_key)
+
+    def _field_is_visible(self, field: SettingsFieldSpec) -> bool:
+        """Return True if `field.visible_when` is unset or currently satisfied."""
+        if field.visible_when is None:
+            return True
+        controlling_key, required_value = field.visible_when
+        return self._field_vars[controlling_key].get() == required_value
 
     def _on_section_select(self, _event=None) -> None:
         """Handle listbox selection event and navigate to the chosen section."""
@@ -240,6 +260,9 @@ class TabbedSettingsDialog:
         Returns:
             Row index after the rendered field (accounting for hint rows).
         """
+        if not self._field_is_visible(field):
+            return row_index
+
         label = widgets.Label(self.content_frame, text=field.label)
         label.grid(row=row_index, column=0, sticky="w", padx=(0, 12), pady=5)
 
