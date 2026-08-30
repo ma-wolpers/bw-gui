@@ -594,6 +594,38 @@ def recolor_photo_token(
     return _recolor_photo(photo, get_theme()[token])
 
 
+def recolor_photo_domain(
+    photo: tk.PhotoImage,
+    *,
+    light_color: str,
+    dark_color: str,
+) -> tk.PhotoImage:
+    """Return a recolored copy of *photo* using a domain-owned color pair, theme-aware.
+
+    Mirrors ``canvas_domain_fill``/``canvas_domain_outline`` for ``PhotoImage``
+    icons: the consumer owns both color variants (e.g. a lesson-type or
+    achievement-category color), bw_gui picks the correct one for the active
+    theme, and paints all opaque pixels to it via the same ``_recolor_photo``
+    helper ``recolor_photo``/``recolor_photo_token`` use internally — no
+    duplicated pixel-/alpha-handling. Use this instead of ``recolor_photo_token``
+    when the target color is not a bw_gui contract token but a value the
+    consumer defines itself::
+
+        recolor_photo_domain(icon, light_color=CATEGORY_COLORS_LIGHT[cat],
+                              dark_color=CATEGORY_COLORS_DARK[cat])
+
+    Args:
+        photo:       Base ``tk.PhotoImage`` to recolor.
+        light_color: ``"#RRGGBB"`` hex used when the active theme is light.
+        dark_color:  ``"#RRGGBB"`` hex used when the active theme is dark.
+
+    Returns:
+        New ``tk.PhotoImage`` with opaque pixels set to the theme-appropriate color.
+    """
+    theme = get_theme()
+    return _recolor_photo(photo, dark_color if _is_dark(theme["bg_main"]) else light_color)
+
+
 def icon_button(
     parent: tk.Misc,
     photo_image: tk.PhotoImage,

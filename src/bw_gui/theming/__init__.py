@@ -61,6 +61,7 @@ from ._widget_utils import (
     canvas_tinted_fill,
     icon_button,
     recolor_photo,
+    recolor_photo_domain,
     recolor_photo_token,
     retain_icon_override,
     theme_canvas,
@@ -105,6 +106,7 @@ __all__ = [
     # Composite widgets
     "icon_button",
     "recolor_photo",
+    "recolor_photo_domain",
     "recolor_photo_token",
     "retain_icon_override",
     # Constants

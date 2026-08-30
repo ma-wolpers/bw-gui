@@ -2,9 +2,11 @@ from bw_gui.theming import (
     DEFAULT_THEME,
     THEME_ORDER,
     normalize_theme_key,
+    recolor_photo_domain,
     theme_contract_keys,
 )
 from bw_gui.theming._theme_manager import THEMES, get_theme
+import bw_gui.theming._widget_utils as widget_utils
 
 
 def test_default_theme_is_valid_member():
@@ -55,6 +57,40 @@ def test_every_registered_theme_exposes_theme_contract_keys():
         theme = get_theme(theme_key)
         missing = contract.difference(theme)
         assert not missing, f"theme '{theme_key}' missing keys: {sorted(missing)}"
+
+
+def test_recolor_photo_domain_picks_light_or_dark_color_for_active_theme(monkeypatch):
+    """`recolor_photo_domain` must route to the domain color pair based on the
+    ambient theme's brightness (same decision `canvas_domain_fill`/
+    `canvas_domain_outline` make), and reuse `_recolor_photo` -- no separate
+    pixel-recoloring path. Stubs `_recolor_photo` instead of using a real
+    `tk.PhotoImage`, matching this test suite's convention of not creating
+    live Tk widgets."""
+    from bw_gui.theming._theme_manager import _set_current_theme
+
+    captured: list[tuple[object, str]] = []
+
+    def _fake_recolor_photo(photo, fg_hex):
+        captured.append((photo, fg_hex))
+        return "recolored"
+
+    monkeypatch.setattr(widget_utils, "_recolor_photo", _fake_recolor_photo)
+
+    sentinel_photo = object()
+    try:
+        _set_current_theme("mono_day")
+        result_light = recolor_photo_domain(sentinel_photo, light_color="#111111", dark_color="#EEEEEE")
+        _set_current_theme("mono_night")
+        result_dark = recolor_photo_domain(sentinel_photo, light_color="#111111", dark_color="#EEEEEE")
+    finally:
+        _set_current_theme(DEFAULT_THEME)
+
+    assert result_light == "recolored"
+    assert result_dark == "recolored"
+    assert captured == [
+        (sentinel_photo, "#111111"),
+        (sentinel_photo, "#EEEEEE"),
+    ]
 
 
 def test_alias_and_domain_tokens_are_resolved_for_all_themes():
