@@ -133,6 +133,14 @@ def test_request_close_is_idempotent():
     assert popup.destroy_calls == 1
 
 
+def test_apply_theme_does_not_crash_when_not_scrollable():
+    """Regression: `scrollable=False` popups have no `self._canvas` -- `apply_theme()` must
+    skip the canvas-chrome step instead of raising `AttributeError`."""
+    popup = SimpleNamespace(_apply_window_theme=None, _configure_ttk_theme=None, theme_key=None, _canvas=None)
+
+    ScrollablePopupWindow.apply_theme(popup)  # must not raise
+
+
 def test_scrollable_popup_str_delegates_to_popup_window_path():
     class _FakePopupWindow:
         def __str__(self):
