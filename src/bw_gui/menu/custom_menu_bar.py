@@ -8,6 +8,11 @@ This replaces the native ``tk.Menu`` / ``root.config(menu=...)`` approach entire
 allows the menubar to be fully themed (colors, fonts, borders) using the same token
 system as the rest of the application.
 
+Any ``MenuItem`` may also carry a ``description`` — see ``MenuItem`` for the exact
+contract. On hover it opens a non-interactive, submenu-positioned flyout
+(``_show_item_description``), living in the same ``_popup_stack`` as every other
+popup level.
+
 Typical usage::
 
     from bw_gui.menu.custom_menu_bar import CustomMenuBar, MenuItem, MenuDefinition
@@ -27,6 +32,19 @@ import tkinter as tk
 from bw_gui.theming._theme_manager import get_theme
 
 from .menu_types import MenuDefinition, MenuItem  # noqa: F401 — re-exported for callers
+
+
+def _is_description_slot_replaceable(popup_stack: list, target_level: int) -> bool:
+    """Pure decision (no Tk needed): may a description flyout occupy ``target_level``?
+
+    Yes if nothing is open there yet, or if what's open there is itself a
+    previously shown description flyout (tagged ``_bw_menu_description_flyout``).
+    No if a real, click-opened submenu occupies that level — hovering a sibling row
+    must never tear down a submenu the user explicitly opened.
+    """
+    if len(popup_stack) <= target_level:
+        return True
+    return bool(getattr(popup_stack[target_level], "_bw_menu_description_flyout", False))
 
 
 class CustomMenuBar:
@@ -255,6 +273,24 @@ class CustomMenuBar:
                 separator.pack(fill="x", padx=8, pady=4)
                 continue
 
+            if item.type == "description":
+                description_label = tk.Label(
+                    body,
+                    text=item.label,
+                    anchor="w",
+                    justify="left",
+                    bg=theme["bg_surface"],
+                    fg=theme["fg_muted"],
+                    padx=10,
+                    pady=6,
+                    wraplength=280,
+                    font=("Segoe UI", 9),
+                )
+                setattr(description_label, "_bw_menu_row", True)
+                setattr(description_label, "_bw_menu_base_fg", theme["fg_muted"])
+                description_label.pack(fill="x")
+                continue
+
             fg = theme["fg_muted"] if item.type == "disabled" else theme["fg_primary"]
             prefix = ""
             suffix = ""
@@ -292,6 +328,15 @@ class CustomMenuBar:
             row.bind("<Enter>", _hover_on)
             row.bind("<Leave>", _hover_off)
 
+            if item.description:
+                row.bind(
+                    "<Enter>",
+                    lambda _event, r=row, desc=item.description, lvl=level, tk_=top_key: (
+                        self._show_item_description(r, desc, lvl, tk_)
+                    ),
+                    add="+",
+                )
+
             if item.type == "submenu":
                 submenu_items = item.items
                 row.bind(
@@ -304,6 +349,34 @@ class CustomMenuBar:
         self._popup_stack.append(popup)
         self._active_key = top_key
         self._refresh_button_states()
+
+    def _show_item_description(
+        self, anchor_row: tk.Widget, description: str, level: int, top_key: str
+    ) -> None:
+        """Shows or replaces the non-interactive description flyout for a hovered row.
+
+        Renders at ``level + 1`` — the same popup level a click-opened submenu of
+        ``anchor_row`` would occupy — never as an extra level of its own. Reuses
+        ``open_popup`` itself (with a single synthetic ``type="description"`` item)
+        so the flyout gets the exact same positioning, theming, and popup-stack
+        lifecycle as every other popup level; it is tagged via
+        ``_bw_menu_description_flyout`` right after creation so later calls can tell
+        it apart from a real, click-opened submenu.
+
+        If a real submenu is already open at ``level + 1`` (the user clicked into
+        it), this does nothing — hovering a sibling row must never close a submenu
+        the user explicitly opened. If a description flyout is already open there
+        (from a previously hovered sibling), ``open_popup``'s own
+        ``close_popups_from_level`` call replaces it immediately in the same step —
+        no intermediate state where both are visible, no delay.
+        """
+        target_level = level + 1
+        if not _is_description_slot_replaceable(self._popup_stack, target_level):
+            return
+
+        self.open_popup(anchor_row, (MenuItem(type="description", label=description),), target_level, top_key)
+        if self._popup_stack:
+            setattr(self._popup_stack[-1], "_bw_menu_description_flyout", True)
 
     def _execute_menu_command(self, command: Callable[[], None] | None) -> None:
         """Close all popups, then invoke the command if it is callable."""
