@@ -33,6 +33,7 @@ Typical usage::
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from typing import Callable, Iterable
 import tkinter as tk
 
@@ -95,6 +96,7 @@ class CustomMenuBar:
         self._popup_stack: list[tk.Toplevel] = []
         self._active_key: str | None = None
         self._focus_check_after_id: str | None = None
+        self._focus_watchdog_suspend_depth = 0
         self._bound = False
 
     def set_definitions(self, definitions: Iterable[MenuDefinition]) -> None:
@@ -180,6 +182,36 @@ class CustomMenuBar:
         self.strip = None
         self._buttons = {}
 
+    @contextmanager
+    def _focus_watchdog_suspended(self):
+        """Reentrant context manager: suspends the click-away watchdog for internal focus juggling.
+
+        A single logical operation here (opening/replacing a popup, showing a
+        description flyout, going back a level) can call `.focus_set()` more
+        than once as it moves focus between this menu's own popups -- e.g.
+        `close_popups_from_level` reclaiming it for `root` before destroying a
+        focused popup (Windows destroy-while-focused hazard), followed by
+        landing it on whichever popup should end up with it. Each individual
+        hop looks, from `_close_if_focus_outside_menu`'s point of view,
+        identical to the user genuinely clicking away to dismiss the menu --
+        without suspension it would (and did: reported immediately after
+        shipping keyboard navigation) snap the menu shut mid-hop, before the
+        user could even pick a different row.
+
+        Reentrant via a depth counter so a wrapped method calling another
+        wrapped method (e.g. `_show_item_description` calling `open_popup`)
+        composes correctly: the watchdog stays suspended for the outermost
+        call's whole duration, and is re-armed with one fresh check against
+        the truly final focus state only once every nested call has returned.
+        """
+        self._focus_watchdog_suspend_depth += 1
+        try:
+            yield
+        finally:
+            self._focus_watchdog_suspend_depth -= 1
+            if self._focus_watchdog_suspend_depth == 0 and self._popup_stack:
+                self._schedule_focus_check()
+
     def close_all_popups(self) -> None:
         """Close every open menu popup and clear the active key highlight."""
         self.close_popups_from_level(0)
@@ -262,6 +294,11 @@ class CustomMenuBar:
         row — a description flyout (see ``_show_item_description``) has none, so
         it is silently skipped and never steals keyboard focus.
 
+        Runs under ``_focus_watchdog_suspended`` — see its docstring: closing a
+        previous popup here to make room, then focusing the new one, is exactly
+        the kind of internal focus juggling the click-away watchdog must not
+        mistake for the user clicking elsewhere.
+
         Args:
             anchor_widget: Widget to anchor the popup position to.
             items: The items to render in this popup.
@@ -269,6 +306,17 @@ class CustomMenuBar:
             top_key: The ``definition.key`` of the originating strip button.
                 Used to keep the correct strip button highlighted.
         """
+        with self._focus_watchdog_suspended():
+            self._open_popup_impl(anchor_widget, items, level, top_key)
+
+    def _open_popup_impl(
+        self,
+        anchor_widget: tk.Widget,
+        items: tuple[MenuItem, ...],
+        level: int,
+        top_key: str,
+    ) -> None:
+        """The actual body of ``open_popup``, run inside its watchdog-suspended block."""
         self.close_popups_from_level(level)
 
         theme = get_theme(self.theme_key)
@@ -473,18 +521,20 @@ class CustomMenuBar:
         Left/Escape key event); `close_popups_from_level` reclaims focus for
         `root` before destroying it (Windows destroy-while-focused hazard,
         see its docstring), so refocusing the parent popup afterward here is
-        a normal, safe transfer between two still-live widgets.
+        a normal, safe transfer between two still-live widgets. Runs under
+        `_focus_watchdog_suspended` for the same reason `open_popup` does.
         """
-        level = getattr(popup, "_bw_menu_level", 0)
-        if level <= 0:
-            self.close_all_popups()
-            return
-        self.close_popups_from_level(level)
-        if self._popup_stack:
-            try:
-                self._popup_stack[-1].focus_set()
-            except tk.TclError:
-                pass
+        with self._focus_watchdog_suspended():
+            level = getattr(popup, "_bw_menu_level", 0)
+            if level <= 0:
+                self.close_all_popups()
+                return
+            self.close_popups_from_level(level)
+            if self._popup_stack:
+                try:
+                    self._popup_stack[-1].focus_set()
+                except tk.TclError:
+                    pass
 
     def _show_item_description(
         self, anchor_row: tk.Widget, description: str, level: int, top_key: str
@@ -505,18 +555,40 @@ class CustomMenuBar:
         (from a previously hovered sibling), ``open_popup``'s own
         ``close_popups_from_level`` call replaces it immediately in the same step —
         no intermediate state where both are visible, no delay.
-        """
-        target_level = level + 1
-        if not _is_description_slot_replaceable(self._popup_stack, target_level):
-            return
 
-        self.open_popup(anchor_row, (MenuItem(type="description", label=description),), target_level, top_key)
-        if self._popup_stack:
-            setattr(self._popup_stack[-1], "_bw_menu_description_flyout", True)
+        Restores keyboard focus to the popup that contains ``anchor_row`` (at
+        ``level``) once the flyout is built: `open_popup`'s `close_popups_from_level`
+        call reclaims focus for `root` before destroying the previous flyout (see its
+        docstring), and a description flyout never claims focus back for itself since
+        it must stay fully non-interactive — left alone, focus would stay stranded on
+        `root`, which the global click-outside watchdog (`_close_if_focus_outside_menu`)
+        would then misread as "clicked outside the menu" and close everything. This
+        runs on every hover/keyboard move over a described row, so leaving it stranded
+        would close the menu almost immediately after opening it. Runs under
+        `_focus_watchdog_suspended` (composes correctly with the nested call to
+        `open_popup`, itself also suspended — see that context manager's docstring)
+        so the watchdog only ever sees this operation's truly final focus state,
+        never one of its internal hand-offs.
+        """
+        with self._focus_watchdog_suspended():
+            target_level = level + 1
+            if not _is_description_slot_replaceable(self._popup_stack, target_level):
+                return
+
+            self.open_popup(anchor_row, (MenuItem(type="description", label=description),), target_level, top_key)
+            if self._popup_stack:
+                setattr(self._popup_stack[-1], "_bw_menu_description_flyout", True)
+
+            if 0 <= level < len(self._popup_stack):
+                try:
+                    self._popup_stack[level].focus_set()
+                except tk.TclError:
+                    pass
 
     def _execute_menu_command(self, command: Callable[[], None] | None) -> None:
         """Close all popups, then invoke the command if it is callable."""
-        self.close_all_popups()
+        with self._focus_watchdog_suspended():
+            self.close_all_popups()
         if callable(command):
             command()
 
@@ -634,9 +706,18 @@ class CustomMenuBar:
         self._focus_check_after_id = None
 
     def _close_if_focus_outside_menu(self) -> None:
-        """Close all popups if the currently focused widget is not inside the menu."""
+        """Close all popups if the currently focused widget is not inside the menu.
+
+        Skips the check entirely while `_focus_watchdog_suspend_depth` is nonzero
+        (see `_focus_watchdog_suspended`): an internal focus hop between this
+        menu's own popups is in progress, and a reading taken mid-hop can look
+        "outside" the menu without the user having clicked away at all. Whichever
+        operation is holding the suspension re-arms this check itself once it
+        finishes, against the operation's actual final focus state -- this only
+        ever runs against a settled state, real or user-caused.
+        """
         self._focus_check_after_id = None
-        if not self._popup_stack:
+        if not self._popup_stack or self._focus_watchdog_suspend_depth:
             return
         try:
             focused = self.root.focus_displayof()
