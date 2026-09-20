@@ -182,13 +182,7 @@ class CustomMenuBar:
 
     def close_all_popups(self) -> None:
         """Close every open menu popup and clear the active key highlight."""
-        for popup in list(self._popup_stack):
-            try:
-                if popup.winfo_exists():
-                    popup.destroy()
-            except tk.TclError:
-                pass
-        self._popup_stack = []
+        self.close_popups_from_level(0)
         self._active_key = None
         self._refresh_button_states()
 
@@ -198,11 +192,30 @@ class CustomMenuBar:
         Level 0 means the top-level popup from a strip button. Level 1 is the
         first submenu, and so on. Closing level N destroys levels N, N+1, ...
 
+        If anything will actually be destroyed, keyboard focus is reclaimed
+        for ``root`` *first*: whichever popup here currently holds keyboard
+        focus (see ``open_popup``'s ``focus_set()``) is destroyed below, and
+        destroying a Toplevel that still holds keyboard focus is unsafe on
+        Windows -- it can leave the *whole application's* keyboard input
+        stuck (no editor cursor, no typing anywhere) until the user switches
+        window focus away and back. This single chokepoint covers every
+        caller (mouse-click submenu replacement, `_on_menu_back_key`,
+        `close_all_popups`, a hovered description flyout replacing a sibling)
+        without each needing to reason about it separately. A caller that
+        wants focus to land somewhere more specific afterward (the parent
+        popup on Left/Escape, a freshly built popup at the end of
+        `open_popup`) sets that itself right after calling this.
+
         Args:
             level: The popup depth to close from (inclusive). Popups below this
                 level are preserved.
         """
         stack = list(self._popup_stack)
+        if len(stack) > level:
+            try:
+                self.root.focus_set()
+            except tk.TclError:
+                pass
         while len(stack) > level:
             popup = stack.pop()
             try:
@@ -454,14 +467,24 @@ class CustomMenuBar:
             self._activate_keyboard_active_row(popup)
 
     def _on_menu_back_key(self, popup: tk.Toplevel) -> None:
-        """Left/Escape closes back to the parent popup, or closes everything at the top level."""
+        """Left/Escape closes back to the parent popup, or closes everything at the top level.
+
+        ``popup`` currently holds keyboard focus (it just received the
+        Left/Escape key event); `close_popups_from_level` reclaims focus for
+        `root` before destroying it (Windows destroy-while-focused hazard,
+        see its docstring), so refocusing the parent popup afterward here is
+        a normal, safe transfer between two still-live widgets.
+        """
         level = getattr(popup, "_bw_menu_level", 0)
         if level <= 0:
             self.close_all_popups()
             return
         self.close_popups_from_level(level)
         if self._popup_stack:
-            self._popup_stack[-1].focus_set()
+            try:
+                self._popup_stack[-1].focus_set()
+            except tk.TclError:
+                pass
 
     def _show_item_description(
         self, anchor_row: tk.Widget, description: str, level: int, top_key: str
