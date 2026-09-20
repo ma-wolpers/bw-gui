@@ -86,6 +86,12 @@ Geometry contract:
 - Content taller than the viewport -> the mousewheel scrolls it; content
   shorter than or equal to the viewport -> the mousewheel handler is a
   no-op.
+- The scrollbar itself is shown *only* while content actually overflows
+  the viewport, and hidden the instant it no longer does - not a bar that
+  sits there permanently regardless of whether it is needed. This is
+  re-evaluated on every content- or canvas-size change, so it reacts to a
+  growing/shrinking panel, a `PanedWindow` splitter drag, or a window
+  resize alike.
 
 **Mousewheel dispatch** is centralized, not per-instance: exactly one
 `bind_all("<MouseWheel>")` per Tk interpreter (not per `Toplevel` - several

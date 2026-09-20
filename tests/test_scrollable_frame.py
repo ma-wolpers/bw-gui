@@ -169,6 +169,110 @@ def test_mousewheel_over_child_widget_of_content_scrolls_owning_instance(root):
     assert after > before
 
 
+def test_scrollbar_hidden_when_content_fits_viewport(root):
+    frame = ScrollableFrame(root)
+    frame.pack(fill="both", expand=True)
+    _add_rows(frame, 2)
+    root.update()
+
+    assert not frame._v_scroll.winfo_ismapped()
+
+
+def test_scrollbar_appears_when_content_grows_to_overflow(root):
+    frame = ScrollableFrame(root)
+    frame.pack(fill="both", expand=True)
+    _add_rows(frame, 2)
+    root.update()
+    assert not frame._v_scroll.winfo_ismapped()
+
+    _add_rows(frame, 40)
+    root.update()
+
+    assert frame._v_scroll.winfo_ismapped()
+
+
+def test_scrollbar_disappears_and_resets_view_when_content_shrinks_back(root):
+    frame = ScrollableFrame(root)
+    frame.pack(fill="both", expand=True)
+    rows = [widgets.Label(frame.content, text=f"row {i}", padding=(0, 8)) for i in range(40)]
+    for row in rows:
+        row.pack(fill="x")
+    root.update()
+    assert frame._v_scroll.winfo_ismapped()
+
+    frame.canvas.event_generate("<MouseWheel>", delta=-120)
+    root.update()
+    assert frame.canvas.yview()[0] > 0.0
+
+    for row in rows[2:]:
+        row.destroy()
+    root.update()
+
+    assert not frame._v_scroll.winfo_ismapped()
+    assert frame.canvas.yview() == (0.0, 1.0)
+
+
+def test_scrollbar_visibility_reacts_to_viewport_resize(root):
+    """Shrinking/growing the window (not the content) must flip visibility too."""
+    frame = ScrollableFrame(root)
+    frame.pack(fill="both", expand=True)
+    _add_rows(frame, 2)
+    root.update()
+    assert not frame._v_scroll.winfo_ismapped(), "2 short rows should fit the default 150px-tall test window"
+
+    root.geometry("300x60+0+0")
+    root.update()
+    assert frame._v_scroll.winfo_ismapped(), "shrinking the viewport below content height must reveal the scrollbar"
+
+    root.geometry("300x600+0+0")
+    root.update()
+    assert not frame._v_scroll.winfo_ismapped(), "growing the viewport back past content height must hide it again"
+
+
+def test_mousewheel_dispatch_is_not_registered_twice_after_all_instances_die_and_a_new_one_is_created(root):
+    """Regression: `bind_all` must stay registered exactly once per interpreter, forever.
+
+    Destroying every `ScrollableFrame` under an interpreter used to delete
+    its whole registry entry; the next instance created afterwards then
+    saw an empty registry and re-registered `bind_all`, stacking a second,
+    independent handler onto the same "all" bindtag - one physical wheel
+    click would then scroll by two units instead of one (or, since
+    `_dispatch_mousewheel` would then run the same resolution twice for
+    one event, produce some other observably-wrong scroll amount). Only
+    ever one instance is alive/packed at a time here - packing a second
+    `fill="both", expand=True` widget into `root` *alongside* a still-live
+    first one would squeeze the second to zero size instead of testing
+    the actual regression, so each instance is fully destroyed before the
+    next is created and packed.
+    """
+    first = ScrollableFrame(root)
+    first.pack(fill="both", expand=True)
+    _add_rows(first, 40)
+    root.update()
+
+    before1 = first.canvas.yview()[0]
+    first.canvas.event_generate("<MouseWheel>", delta=-120)
+    root.update()
+    step_before_recreate = first.canvas.yview()[0] - before1
+    first.destroy()
+    root.update()
+
+    second = ScrollableFrame(root)
+    second.pack(fill="both", expand=True)
+    _add_rows(second, 40)
+    root.update()
+
+    before2 = second.canvas.yview()[0]
+    second.canvas.event_generate("<MouseWheel>", delta=-120)
+    root.update()
+    step_after_recreate = second.canvas.yview()[0] - before2
+
+    assert step_after_recreate == pytest.approx(step_before_recreate), (
+        "one wheel click scrolled by a different amount after the only live instance was destroyed "
+        "and a new one created - bind_all was likely registered more than once for the same interpreter"
+    )
+
+
 def test_refresh_chrome_keeps_canvas_borderless(root):
     """`refresh_chrome()` is what `ScrollablePopupWindow.apply_theme()` calls after a theme switch."""
     frame = ScrollableFrame(root)

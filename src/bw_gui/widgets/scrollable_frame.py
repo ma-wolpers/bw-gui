@@ -35,6 +35,13 @@ class ScrollableFrame(widgets.Frame):
       content shorter than or equal to the viewport -> the mousewheel
       handler is a no-op (never scrolls into empty space, never swallows
       an event that should reach something else).
+    - The vertical scrollbar itself is shown *only* while content is
+      actually taller than the viewport, and hidden the instant it no
+      longer is (`_update_scrollbar_visibility`, re-evaluated on every
+      content- or canvas-size change) - never a permanently-visible bar
+      that sits there unneeded. When it hides because content shrank back
+      below the viewport height, the view snaps back to the top rather
+      than staying scrolled into what is now empty space.
 
     Vertical-only by design: a repo-wide audit (`docs/SCROLLABILITY_CONTRACT.md`,
     "Audit-Ergebnis") found no consumer anywhere (bw-gui, korrektor,
@@ -61,7 +68,12 @@ class ScrollableFrame(widgets.Frame):
     `Tk()` application share one interpreter and therefore one "all"
     bindtag, so keying by a specific `Toplevel` would under- or
     over-register), lazily bound by whichever `ScrollableFrame` happens to
-    be constructed first under that interpreter. `_dispatch_mousewheel`
+    be constructed first under that interpreter - and bound at most once
+    for that interpreter's entire lifetime (see `_register_for_mousewheel_dispatch`'s
+    docstring for why the registration must outlive any single instance,
+    including "every instance under this interpreter was destroyed, then
+    a new one was created later", e.g. closing and reopening every popup).
+    `_dispatch_mousewheel`
     walks the actual event-target widget's `.master` chain (same
     finite-step-capped walk pattern as `DragDropController._resolve_drop_callback`)
     to find which registered instance's `canvas` it belongs to, so a wheel
@@ -81,7 +93,9 @@ class ScrollableFrame(widgets.Frame):
         self.canvas.configure(yscrollcommand=self._v_scroll.set)
 
         self.canvas.grid(row=0, column=0, sticky="nsew")
-        self._v_scroll.grid(row=0, column=1, sticky="ns")
+        # Scrollbar is not gridded yet - _update_scrollbar_visibility()
+        # grids/hides it on demand, starting from the first <Configure>.
+        self._v_scroll_visible = False
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
 
@@ -105,8 +119,27 @@ class ScrollableFrame(widgets.Frame):
         self.canvas.configure(highlightthickness=0)
 
     def _register_for_mousewheel_dispatch(self) -> None:
-        by_canvas = ScrollableFrame._registry_by_interpreter.setdefault(self.tk, {})
-        if not by_canvas:
+        """Register this instance, binding `<MouseWheel>` for the interpreter at most once, ever.
+
+        `bind_all` must be registered exactly once per interpreter for
+        that interpreter's whole lifetime - not once per period during
+        which at least one instance happens to be alive. The interpreter
+        key is only ever *added* to `_registry_by_interpreter` here, never
+        removed by `_on_destroy` (even once its per-canvas dict becomes
+        empty): if it were removed, the next `ScrollableFrame` created
+        under the same interpreter after all previous ones had been
+        destroyed would see an empty/missing entry and re-run
+        `bind_all(..., add="+")`, stacking a second, independent handler
+        registration onto the same interpreter-wide "all" bindtag - every
+        subsequent wheel event would then fire `_dispatch_mousewheel`
+        (and therefore scroll) once per accumulated registration instead
+        of once. `_on_destroy` only ever removes this instance's own
+        `canvas` entry, keeping the (possibly now-empty) per-interpreter
+        dict itself in place as the "already bound" marker.
+        """
+        by_canvas = ScrollableFrame._registry_by_interpreter.get(self.tk)
+        if by_canvas is None:
+            by_canvas = ScrollableFrame._registry_by_interpreter[self.tk] = {}
             self.bind_all("<MouseWheel>", ScrollableFrame._dispatch_mousewheel, add="+")
         by_canvas[self.canvas] = self
 
@@ -115,14 +148,37 @@ class ScrollableFrame(widgets.Frame):
         if by_canvas is None:
             return
         by_canvas.pop(self.canvas, None)
-        if not by_canvas:
-            del ScrollableFrame._registry_by_interpreter[self.tk]
 
     def _on_content_configure(self, _event=None) -> None:
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        self._update_scrollbar_visibility()
 
     def _on_canvas_configure(self, event) -> None:
         self.canvas.itemconfigure(self._content_window, width=max(1, int(event.width)))
+        self._update_scrollbar_visibility()
+
+    def _update_scrollbar_visibility(self) -> None:
+        """Show the scrollbar only while content actually overflows the viewport, hide it otherwise.
+
+        Re-run on every content- or canvas-size change (both can flip
+        whether an overflow exists): a growing `.content` can start
+        needing it, a widening `PanedWindow` pane or a shrinking content
+        can stop needing it. Uses `grid`/`grid_remove` (not `grid_forget`)
+        so the column's grid options survive being hidden. When hiding
+        because content no longer overflows, also snaps the view back to
+        the top - otherwise a since-shrunk `.content` could stay scrolled
+        into what is now empty space with no visible scrollbar to fix it.
+        """
+        bbox = self.canvas.bbox("all")
+        content_height = (bbox[3] - bbox[1]) if bbox else 0
+        needs_scroll = content_height > self.canvas.winfo_height()
+        if needs_scroll and not self._v_scroll_visible:
+            self._v_scroll.grid(row=0, column=1, sticky="ns")
+            self._v_scroll_visible = True
+        elif not needs_scroll and self._v_scroll_visible:
+            self._v_scroll.grid_remove()
+            self._v_scroll_visible = False
+            self.canvas.yview_moveto(0)
 
     def _on_mousewheel(self, event) -> str | None:
         bbox = self.canvas.bbox("all")
