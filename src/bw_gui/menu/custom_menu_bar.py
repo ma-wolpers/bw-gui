@@ -13,6 +13,13 @@ contract. On hover it opens a non-interactive, submenu-positioned flyout
 (``_show_item_description``), living in the same ``_popup_stack`` as every other
 popup level.
 
+Every popup with at least one navigable row is keyboard-operable once open: Up/Down
+move the highlighted row (wrapping), Enter/Return activates it (opens a submenu or
+runs its command), Right opens a highlighted submenu, and Left/Escape closes back to
+the parent popup (or closes everything at the top level). The first row is
+highlighted and the popup takes keyboard focus as soon as it opens, from a mouse
+click or from keyboard activation alike.
+
 Typical usage::
 
     from bw_gui.menu.custom_menu_bar import CustomMenuBar, MenuItem, MenuDefinition
@@ -237,6 +244,11 @@ class CustomMenuBar:
         Positions level-1+ popups to the right of their anchor row.
         Closes any deeper levels before opening this one.
 
+        Also wires up keyboard navigation for the new popup (Up/Down/Enter/Right/
+        Left/Escape) and gives it focus, provided it has at least one navigable
+        row — a description flyout (see ``_show_item_description``) has none, so
+        it is silently skipped and never steals keyboard focus.
+
         Args:
             anchor_widget: Widget to anchor the popup position to.
             items: The items to render in this popup.
@@ -265,6 +277,8 @@ class CustomMenuBar:
             y_pos = anchor_widget.winfo_rooty()
         popup.geometry(f"+{int(x_pos)}+{int(y_pos)}")
         popup.lift()
+
+        navigable_rows: list[tuple[tk.Widget, MenuItem]] = []
 
         for item in items:
             if item.type == "separator":
@@ -319,8 +333,12 @@ class CustomMenuBar:
             if item.type == "disabled":
                 continue
 
-            def _hover_on(_event, widget=row):
+            row_index = len(navigable_rows)
+            navigable_rows.append((row, item))
+
+            def _hover_on(_event, widget=row, popup_ref=popup, idx=row_index):
                 widget.configure(bg=theme["accent_soft"], fg=theme["fg_primary"])
+                setattr(popup_ref, "_bw_menu_active_index", idx)
 
             def _hover_off(_event, widget=row, base_fg=fg):
                 widget.configure(bg=theme["bg_surface"], fg=base_fg)
@@ -346,9 +364,104 @@ class CustomMenuBar:
             else:
                 row.bind("<Button-1>", lambda _event, cmd=item.command: self._execute_menu_command(cmd))
 
+        setattr(popup, "_bw_menu_navigable_rows", navigable_rows)
+        setattr(popup, "_bw_menu_active_index", -1)
+        setattr(popup, "_bw_menu_level", level)
+        setattr(popup, "_bw_menu_top_key", top_key)
+
+        # `popup` must already be on `_popup_stack` at its correct index before
+        # `_set_keyboard_active_index` runs below: highlighting row 0 may itself
+        # trigger a description flyout (`_show_item_description`), which opens a
+        # *nested* popup one level deeper via a re-entrant `open_popup` call. That
+        # nested call relies on `_popup_stack[level]` already being this popup --
+        # appending afterwards would let the deeper flyout land before it in the
+        # stack, breaking the level == stack-index invariant every other method here
+        # (`close_popups_from_level`, `_is_menu_managed`, ...) relies on.
         self._popup_stack.append(popup)
         self._active_key = top_key
         self._refresh_button_states()
+
+        if navigable_rows:
+            popup.bind("<Down>", lambda _event, p=popup: self._move_keyboard_active_row(p, 1))
+            popup.bind("<Up>", lambda _event, p=popup: self._move_keyboard_active_row(p, -1))
+            popup.bind("<Return>", lambda _event, p=popup: self._activate_keyboard_active_row(p))
+            popup.bind("<KP_Enter>", lambda _event, p=popup: self._activate_keyboard_active_row(p))
+            popup.bind("<Right>", lambda _event, p=popup: self._on_menu_right_key(p))
+            popup.bind("<Left>", lambda _event, p=popup: self._on_menu_back_key(p))
+            popup.bind("<Escape>", lambda _event, p=popup: self._on_menu_back_key(p))
+            popup.focus_set()
+            self._set_keyboard_active_index(popup, 0)
+
+    def _set_keyboard_active_index(self, popup: tk.Toplevel, index: int) -> None:
+        """Moves the keyboard-highlighted row of ``popup`` to ``index`` (wraps around).
+
+        Un-highlights the previously active row (if any) via its stored
+        ``_bw_menu_base_fg``, highlights the new one the same way mouse hover
+        does, and — like mouse hover — triggers the row's description flyout
+        (`_show_item_description`) when it has one, so keyboard and mouse
+        navigation feel identical.
+        """
+        rows = getattr(popup, "_bw_menu_navigable_rows", [])
+        if not rows:
+            return
+
+        theme = get_theme(self.theme_key)
+        previous_index = getattr(popup, "_bw_menu_active_index", -1)
+        if 0 <= previous_index < len(rows):
+            previous_row, _previous_item = rows[previous_index]
+            base_fg = getattr(previous_row, "_bw_menu_base_fg", theme["fg_primary"])
+            previous_row.configure(bg=theme["bg_surface"], fg=base_fg)
+
+        index = index % len(rows)
+        row, item = rows[index]
+        row.configure(bg=theme["accent_soft"], fg=theme["fg_primary"])
+        setattr(popup, "_bw_menu_active_index", index)
+
+        if item.description:
+            level = getattr(popup, "_bw_menu_level", 0)
+            top_key = getattr(popup, "_bw_menu_top_key", "")
+            self._show_item_description(row, item.description, level, top_key)
+
+    def _move_keyboard_active_row(self, popup: tk.Toplevel, delta: int) -> None:
+        """Moves the keyboard-highlighted row by ``delta`` (Up/Down), wrapping at the ends."""
+        rows = getattr(popup, "_bw_menu_navigable_rows", [])
+        if not rows:
+            return
+        current_index = getattr(popup, "_bw_menu_active_index", 0)
+        if not (0 <= current_index < len(rows)):
+            current_index = 0
+        self._set_keyboard_active_index(popup, current_index + delta)
+
+    def _activate_keyboard_active_row(self, popup: tk.Toplevel) -> None:
+        """Activates the keyboard-highlighted row (Enter): opens a submenu, or runs a command."""
+        rows = getattr(popup, "_bw_menu_navigable_rows", [])
+        index = getattr(popup, "_bw_menu_active_index", -1)
+        if not (0 <= index < len(rows)):
+            return
+        row, item = rows[index]
+        if item.type == "submenu":
+            level = getattr(popup, "_bw_menu_level", 0)
+            top_key = getattr(popup, "_bw_menu_top_key", "")
+            self.open_popup(row, item.items, level + 1, top_key)
+        else:
+            self._execute_menu_command(item.command)
+
+    def _on_menu_right_key(self, popup: tk.Toplevel) -> None:
+        """Right opens the highlighted row's submenu (no-op on a leaf row)."""
+        rows = getattr(popup, "_bw_menu_navigable_rows", [])
+        index = getattr(popup, "_bw_menu_active_index", -1)
+        if 0 <= index < len(rows) and rows[index][1].type == "submenu":
+            self._activate_keyboard_active_row(popup)
+
+    def _on_menu_back_key(self, popup: tk.Toplevel) -> None:
+        """Left/Escape closes back to the parent popup, or closes everything at the top level."""
+        level = getattr(popup, "_bw_menu_level", 0)
+        if level <= 0:
+            self.close_all_popups()
+            return
+        self.close_popups_from_level(level)
+        if self._popup_stack:
+            self._popup_stack[-1].focus_set()
 
     def _show_item_description(
         self, anchor_row: tk.Widget, description: str, level: int, top_key: str
