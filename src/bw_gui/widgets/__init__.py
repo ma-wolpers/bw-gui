@@ -7,6 +7,7 @@ from .grid_span import GridSpanSegment, compute_contiguous_spans
 from .hover_tooltip import HoverTooltip
 from .regex_entry_field import RegexEntryField
 from .ring_chart import RingSegment, draw_ring_chart
+from .scrollable_frame import ScrollableFrame
 from .wrapped_text_field import WrappedTextField
 
 __all__ = [
@@ -20,6 +21,7 @@ __all__ = [
     "ParagraphEvent",
     "RegexEntryField",
     "RingSegment",
+    "ScrollableFrame",
     "TextRun",
     "WrappedTextField",
     "compute_contiguous_spans",
