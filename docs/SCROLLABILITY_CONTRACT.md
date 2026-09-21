@@ -104,7 +104,8 @@ instances - nested or side-by-side - never clobber each other's binding,
 and a wheel event over a *child* widget inside `.content` (a button, an
 entry, not just bare canvas background) still resolves correctly.
 
-Vertical-only by design - see "Horizontal scrolling" below.
+Vertical by default; `orient="horizontal"` exists for single-row strips - see
+"Horizontal scrolling" below.
 
 ## `ScrollablePopupWindow`
 
@@ -117,32 +118,46 @@ Exceptions above).
 
 ## Horizontal scrolling
 
-A repo-wide audit (bw-gui, korrektor, blattwerk, namenfit, Kursplaner) for
-`xview`/`xscrollcommand`/horizontal-scroll usage before this contract was
-written found:
+`ScrollableFrame(parent, orient="horizontal")` is the horizontal counterpart,
+meant for a **single-row strip whose natural width can outgrow its space**
+(first consumer: Blattwerk's document tab strip). It is not a general
+two-axis panel.
 
-- **No consumer anywhere relies on `ScrollablePopupWindow`'s previous
-  horizontal scrollbar** (`_h_scroll`). It was already functionally dead
-  there: `_on_canvas_configure` always forced content width to match
-  canvas width, so there was never anything to scroll horizontally. It has
-  been removed; `ScrollableFrame` is vertical-only.
+- `.content` always keeps its own natural width and is never squeezed. The
+  Canvas *requests exactly that width*, so a strip that fits shrink-wraps
+  (the rest of the row shows the frame's own ttk background), and a strip
+  that does not fit is clipped to whatever the parent grants and becomes
+  scrollable. Natural width is deliberate: forcing the content width would
+  suppress `<Configure>` when children are added or removed, and growth or
+  shrinkage of the strip would go unnoticed.
+- The Canvas height follows the content's requested height.
+- The horizontal scrollbar sits below the strip, is shown only while the
+  strip overflows, and snaps the view back to the start when it hides.
+- The mousewheel scrolls horizontally while the strip overflows (a no-op
+  otherwise), through the same single per-interpreter dispatcher.
+- `see_x_range(left, right)` scrolls only as far as needed to bring a
+  sub-range (coordinates in `.content` space, e.g. a selected tab) into
+  view. Call it after pending geometry has settled (`after_idle`).
+- Pack the frame *after* any widget that must always stay visible (e.g. a
+  close button packed `side="right"`): `pack` allocates space in call order,
+  so the frame is the one that gets squeezed.
+
+Audit background (before `ScrollableFrame` existed; bw-gui, korrektor,
+blattwerk, namenfit, Kursplaner):
+
+- **No consumer relied on `ScrollablePopupWindow`'s previous horizontal
+  scrollbar** (`_h_scroll`). It was already functionally dead there:
+  `_on_canvas_configure` always forced content width to match canvas width,
+  so there was never anything to scroll horizontally. It has been removed.
 - **Kursplaner has its own, separate, actively-used horizontal-scroll
   architecture** for its spreadsheet-like grid `Canvas`
   (`kursplaner/adapters/gui/grid_viewport_sync.py`, guarded by its own
-  `tests/test_horizontal_scroll_architecture_guard.py`). This is unrelated
-  to `ScrollablePopupWindow`/`ScrollableFrame` - a different widget shape
-  entirely (a data grid, not a popup or a simple content panel) - and is
-  untouched by this contract.
+  `tests/test_horizontal_scroll_architecture_guard.py`). A different widget
+  shape entirely (a data grid) - untouched by this contract.
 - **Kursplaner *does* use `ScrollablePopupWindow` productively**, across
-  roughly a dozen dialogs (`kursplaner/adapters/gui/popup_window.py`
-  subclasses it directly). None of them reference its internal
+  roughly a dozen dialogs. None of them reference its internal
   Canvas/Scrollbar attributes - only the public `.content`/`scrollable`/
-  theme-hook contract, which this refactor preserves exactly.
-
-Should a real horizontal-scroll need for `ScrollableFrame`/
-`ScrollablePopupWindow` specifically (not a bespoke widget like Kursplaner's
-grid) appear later, it belongs in `ScrollableFrame` once, not duplicated
-across the two classes again.
+  theme-hook contract.
 
 ## What not to do
 

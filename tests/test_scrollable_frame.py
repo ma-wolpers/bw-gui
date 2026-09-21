@@ -175,7 +175,7 @@ def test_scrollbar_hidden_when_content_fits_viewport(root):
     _add_rows(frame, 2)
     root.update()
 
-    assert not frame._v_scroll.winfo_ismapped()
+    assert not frame._scrollbar.winfo_ismapped()
 
 
 def test_scrollbar_appears_when_content_grows_to_overflow(root):
@@ -183,12 +183,12 @@ def test_scrollbar_appears_when_content_grows_to_overflow(root):
     frame.pack(fill="both", expand=True)
     _add_rows(frame, 2)
     root.update()
-    assert not frame._v_scroll.winfo_ismapped()
+    assert not frame._scrollbar.winfo_ismapped()
 
     _add_rows(frame, 40)
     root.update()
 
-    assert frame._v_scroll.winfo_ismapped()
+    assert frame._scrollbar.winfo_ismapped()
 
 
 def test_scrollbar_disappears_and_resets_view_when_content_shrinks_back(root):
@@ -198,7 +198,7 @@ def test_scrollbar_disappears_and_resets_view_when_content_shrinks_back(root):
     for row in rows:
         row.pack(fill="x")
     root.update()
-    assert frame._v_scroll.winfo_ismapped()
+    assert frame._scrollbar.winfo_ismapped()
 
     frame.canvas.event_generate("<MouseWheel>", delta=-120)
     root.update()
@@ -208,7 +208,7 @@ def test_scrollbar_disappears_and_resets_view_when_content_shrinks_back(root):
         row.destroy()
     root.update()
 
-    assert not frame._v_scroll.winfo_ismapped()
+    assert not frame._scrollbar.winfo_ismapped()
     assert frame.canvas.yview() == (0.0, 1.0)
 
 
@@ -218,15 +218,15 @@ def test_scrollbar_visibility_reacts_to_viewport_resize(root):
     frame.pack(fill="both", expand=True)
     _add_rows(frame, 2)
     root.update()
-    assert not frame._v_scroll.winfo_ismapped(), "2 short rows should fit the default 150px-tall test window"
+    assert not frame._scrollbar.winfo_ismapped(), "2 short rows should fit the default 150px-tall test window"
 
     root.geometry("300x60+0+0")
     root.update()
-    assert frame._v_scroll.winfo_ismapped(), "shrinking the viewport below content height must reveal the scrollbar"
+    assert frame._scrollbar.winfo_ismapped(), "shrinking the viewport below content height must reveal the scrollbar"
 
     root.geometry("300x600+0+0")
     root.update()
-    assert not frame._v_scroll.winfo_ismapped(), "growing the viewport back past content height must hide it again"
+    assert not frame._scrollbar.winfo_ismapped(), "growing the viewport back past content height must hide it again"
 
 
 def test_mousewheel_dispatch_is_not_registered_twice_after_all_instances_die_and_a_new_one_is_created(root):
@@ -281,3 +281,88 @@ def test_refresh_chrome_keeps_canvas_borderless(root):
     frame.refresh_chrome()
 
     assert int(frame.canvas["highlightthickness"]) == 0
+
+
+def _add_columns(frame: ScrollableFrame, count: int) -> list:
+    labels = [widgets.Label(frame.content, text=f"tab {i:02d} xxxxxxxx", padding=(8, 4)) for i in range(count)]
+    for label in labels:
+        label.pack(side="left")
+    return labels
+
+
+def test_horizontal_rejects_unknown_orient(root):
+    with pytest.raises(ValueError):
+        ScrollableFrame(root, orient="diagonal")
+
+
+def test_horizontal_content_keeps_requested_width_and_scrollbar_appears_on_overflow(root):
+    frame = ScrollableFrame(root, orient="horizontal")
+    frame.pack(fill="x")
+    _add_columns(frame, 12)
+    root.update()
+
+    assert frame.content.winfo_width() == frame.content.winfo_reqwidth() > frame.canvas.winfo_width()
+    assert frame._scrollbar.winfo_ismapped()
+    assert int(frame.canvas["height"]) == frame.content.winfo_reqheight()
+
+
+def test_horizontal_frame_shrink_wraps_content_and_hides_scrollbar_when_it_fits(root):
+    frame = ScrollableFrame(root, orient="horizontal")
+    frame.pack(fill="x")
+    _add_columns(frame, 2)
+    root.update()
+
+    assert frame.canvas.winfo_width() == frame.content.winfo_reqwidth() < frame.winfo_width()
+    assert not frame._scrollbar.winfo_ismapped()
+
+
+def test_horizontal_mousewheel_scrolls_x_only_while_overflowing(root):
+    frame = ScrollableFrame(root, orient="horizontal")
+    frame.pack(fill="x")
+    labels = _add_columns(frame, 12)
+    root.update()
+
+    before = frame.canvas.xview()[0]
+    frame.canvas.event_generate("<MouseWheel>", delta=-120)
+    root.update()
+    assert frame.canvas.xview()[0] > before
+
+    for label in labels[2:]:
+        label.destroy()
+    root.update()
+    assert frame.canvas.xview() == (0.0, 1.0)
+    frame.canvas.event_generate("<MouseWheel>", delta=-120)
+    root.update()
+    assert frame.canvas.xview() == (0.0, 1.0)
+
+
+def test_horizontal_see_x_range_scrolls_only_when_needed(root):
+    frame = ScrollableFrame(root, orient="horizontal")
+    frame.pack(fill="x")
+    labels = _add_columns(frame, 12)
+    root.update()
+
+    last = labels[-1]
+    left, right = last.winfo_x(), last.winfo_x() + last.winfo_width()
+    assert right > frame.canvas.winfo_width()
+
+    frame.see_x_range(left, right)
+    root.update()
+    view_left = frame.canvas.canvasx(0)
+    assert view_left + frame.canvas.winfo_width() >= right - 1
+
+    settled = frame.canvas.xview()[0]
+    frame.see_x_range(left, right)
+    root.update()
+    assert frame.canvas.xview()[0] == settled
+
+    first = labels[0]
+    frame.see_x_range(first.winfo_x(), first.winfo_x() + first.winfo_width())
+    root.update()
+    assert frame.canvas.canvasx(0) <= first.winfo_x()
+
+
+def test_see_x_range_is_rejected_for_vertical_orientation(root):
+    frame = ScrollableFrame(root)
+    with pytest.raises(RuntimeError):
+        frame.see_x_range(0, 10)

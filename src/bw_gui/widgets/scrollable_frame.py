@@ -43,20 +43,24 @@ class ScrollableFrame(widgets.Frame):
       below the viewport height, the view snaps back to the top rather
       than staying scrolled into what is now empty space.
 
-    Vertical-only by design: a repo-wide audit (`docs/SCROLLABILITY_CONTRACT.md`,
-    "Audit-Ergebnis") found no consumer anywhere (bw-gui, korrektor,
-    blattwerk, namenfit, Kursplaner) that relies on `ScrollablePopupWindow`'s
-    previous horizontal `Canvas.xview`/`_h_scroll` capability - it was
-    already functionally dead there (`_on_canvas_configure` always forced
-    content width to match canvas width, leaving nothing to scroll
-    horizontally). Kursplaner's own, extensive horizontal-scroll machinery
-    (`grid_viewport_sync.py`, guarded by its own
-    `tests/test_horizontal_scroll_architecture_guard.py`) is a separate,
-    bespoke mechanism for its spreadsheet-like grid `Canvas` and is
-    entirely unrelated to `ScrollablePopupWindow`/`ScrollableFrame` - this
-    class does not need to (and does not) replicate it. Should a real
-    horizontal-scroll consumer for *this* primitive appear later, it
-    belongs here once, not duplicated across classes again.
+    Orientation: vertical by default. ``orient="horizontal"`` builds the
+    horizontal counterpart for a *single-row strip* whose natural width can
+    outgrow the viewport (e.g. a document tab strip): the Canvas height
+    follows the content's requested height, `.content` always keeps its own
+    natural width (never squeezed), and the Canvas *requests exactly that
+    width*: the frame shrink-wraps a strip that fits (the rest of the row
+    shows the frame's own ttk background) and is clipped to whatever the
+    parent grants otherwise. Natural width is deliberate - a forced content
+    width would suppress `<Configure>` when children are added/removed, so
+    growth/shrinkage of the strip would go unnoticed. The scrollbar sits
+    below and is shown only while the strip overflows, and the mousewheel
+    scrolls horizontally. `see_x_range` scrolls a sub-range (a newly
+    selected tab) into view. A repo-wide audit
+    (`docs/SCROLLABILITY_CONTRACT.md`, "Audit-Ergebnis") found no consumer
+    that relied on the previous, functionally dead horizontal scrollbar of
+    `ScrollablePopupWindow`; Kursplaner's spreadsheet-grid horizontal scroll
+    (`grid_viewport_sync.py`) is a separate, bespoke mechanism unrelated to
+    this class.
 
     Mousewheel dispatch: multiple `ScrollableFrame` instances can be
     visible at once (nested, or simply several panels on screen), and a
@@ -85,17 +89,35 @@ class ScrollableFrame(widgets.Frame):
 
     _registry_by_interpreter: dict[object, dict[ui.Misc, "ScrollableFrame"]] = {}
 
-    def __init__(self, master, **frame_kwargs) -> None:
+    def __init__(self, master, *, orient: str = "vertical", **frame_kwargs) -> None:
+        """Build the viewport.
+
+        Args:
+            master: Parent widget.
+            orient: ``"vertical"`` (default; content fills the width, scrolls
+                in height) or ``"horizontal"`` (content keeps at least its
+                requested width, scrolls in width; see the class docstring).
+            **frame_kwargs: Forwarded to the underlying ``ttk.Frame``.
+        """
+        if orient not in ("vertical", "horizontal"):
+            raise ValueError(f"orient must be 'vertical' or 'horizontal', got {orient!r}")
         super().__init__(master, **frame_kwargs)
+        self._horizontal = orient == "horizontal"
 
         self.canvas = ui.Canvas(self, highlightthickness=0, borderwidth=0)
-        self._v_scroll = widgets.Scrollbar(self, orient="vertical", command=self.canvas.yview)
-        self.canvas.configure(yscrollcommand=self._v_scroll.set)
+        if self._horizontal:
+            self._scrollbar = widgets.Scrollbar(self, orient="horizontal", command=self.canvas.xview)
+            self.canvas.configure(xscrollcommand=self._scrollbar.set)
+            self._scrollbar_grid = {"row": 1, "column": 0, "sticky": "ew"}
+        else:
+            self._scrollbar = widgets.Scrollbar(self, orient="vertical", command=self.canvas.yview)
+            self.canvas.configure(yscrollcommand=self._scrollbar.set)
+            self._scrollbar_grid = {"row": 0, "column": 1, "sticky": "ns"}
 
-        self.canvas.grid(row=0, column=0, sticky="nsew")
+        self.canvas.grid(row=0, column=0, sticky="nsw" if self._horizontal else "nsew")
         # Scrollbar is not gridded yet - _update_scrollbar_visibility()
         # grids/hides it on demand, starting from the first <Configure>.
-        self._v_scroll_visible = False
+        self._scrollbar_visible = False
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
 
@@ -150,12 +172,24 @@ class ScrollableFrame(widgets.Frame):
         by_canvas.pop(self.canvas, None)
 
     def _on_content_configure(self, _event=None) -> None:
+        if self._horizontal:
+            self.canvas.configure(width=self.content.winfo_reqwidth(), height=self.content.winfo_reqheight())
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
         self._update_scrollbar_visibility()
 
     def _on_canvas_configure(self, event) -> None:
-        self.canvas.itemconfigure(self._content_window, width=max(1, int(event.width)))
+        if not self._horizontal:
+            self.canvas.itemconfigure(self._content_window, width=max(1, int(event.width)))
         self._update_scrollbar_visibility()
+
+    def _overflows(self) -> bool:
+        """Return True while content is larger than the viewport along the scroll axis."""
+        bbox = self.canvas.bbox("all")
+        if not bbox:
+            return False
+        if self._horizontal:
+            return (bbox[2] - bbox[0]) > self.canvas.winfo_width()
+        return (bbox[3] - bbox[1]) > self.canvas.winfo_height()
 
     def _update_scrollbar_visibility(self) -> None:
         """Show the scrollbar only while content actually overflows the viewport, hide it otherwise.
@@ -164,31 +198,51 @@ class ScrollableFrame(widgets.Frame):
         whether an overflow exists): a growing `.content` can start
         needing it, a widening `PanedWindow` pane or a shrinking content
         can stop needing it. Uses `grid`/`grid_remove` (not `grid_forget`)
-        so the column's grid options survive being hidden. When hiding
+        so the scrollbar's grid options survive being hidden. When hiding
         because content no longer overflows, also snaps the view back to
-        the top - otherwise a since-shrunk `.content` could stay scrolled
+        the start - otherwise a since-shrunk `.content` could stay scrolled
         into what is now empty space with no visible scrollbar to fix it.
         """
+        needs_scroll = self._overflows()
+        if needs_scroll and not self._scrollbar_visible:
+            self._scrollbar.grid(**self._scrollbar_grid)
+            self._scrollbar_visible = True
+        elif not needs_scroll and self._scrollbar_visible:
+            self._scrollbar.grid_remove()
+            self._scrollbar_visible = False
+            (self.canvas.xview_moveto if self._horizontal else self.canvas.yview_moveto)(0)
+
+    def see_x_range(self, left: int, right: int) -> None:
+        """Scroll horizontally, only as far as needed, so ``[left, right]`` is visible.
+
+        Horizontal orientation only. Coordinates are in `.content` space
+        (for a widget packed at the content's left edge, its own
+        ``winfo_x()`` plus offsets within it). A no-op while nothing
+        overflows or when the range is already fully visible. Intended for
+        bringing a newly selected tab into view; call it after the pending
+        geometry has settled (e.g. via ``after_idle``).
+        """
+        if not self._horizontal:
+            raise RuntimeError("see_x_range is only available for orient='horizontal'")
         bbox = self.canvas.bbox("all")
-        content_height = (bbox[3] - bbox[1]) if bbox else 0
-        needs_scroll = content_height > self.canvas.winfo_height()
-        if needs_scroll and not self._v_scroll_visible:
-            self._v_scroll.grid(row=0, column=1, sticky="ns")
-            self._v_scroll_visible = True
-        elif not needs_scroll and self._v_scroll_visible:
-            self._v_scroll.grid_remove()
-            self._v_scroll_visible = False
-            self.canvas.yview_moveto(0)
+        if not bbox or not self._overflows():
+            return
+        total = bbox[2] - bbox[0]
+        viewport = self.canvas.winfo_width()
+        view_left = self.canvas.canvasx(0)
+        if left < view_left:
+            target = left
+        elif right > view_left + viewport:
+            target = right - viewport
+        else:
+            return
+        self.canvas.xview_moveto(max(0, target) / total)
 
     def _on_mousewheel(self, event) -> str | None:
-        bbox = self.canvas.bbox("all")
-        if not bbox:
-            return None
-        content_height = bbox[3] - bbox[1]
-        if content_height <= self.canvas.winfo_height():
+        if not self._overflows():
             return None
         step = -1 if event.delta > 0 else 1
-        self.canvas.yview_scroll(step, "units")
+        (self.canvas.xview_scroll if self._horizontal else self.canvas.yview_scroll)(step, "units")
         return "break"
 
     @classmethod
