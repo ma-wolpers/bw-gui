@@ -42,6 +42,12 @@ class AppShellConfig:
         theme_key: Optional initial theme key. If provided, theme is applied
             immediately during construction. If None, no theme is applied and
             the window uses the default Tk appearance.
+        start_maximized: If True (default), the window opens maximized
+            (``root.state("zoomed")``) after ``geometry`` has been applied.
+            ``geometry`` still matters: it is the size the window returns to
+            when the user un-maximizes it. An app that restores its own
+            remembered window size afterwards must call ``root.state("normal")``
+            before ``root.geometry(...)``, otherwise the maximized state wins.
     """
 
     title: str
@@ -49,6 +55,7 @@ class AppShellConfig:
     min_width: int
     min_height: int
     theme_key: str | None = None
+    start_maximized: bool = True
 
 
 class TkinterAppShell:
@@ -94,6 +101,8 @@ class TkinterAppShell:
         self.root.title(config.title)
         self.root.geometry(config.geometry)
         self.root.minsize(config.min_width, config.min_height)
+        if config.start_maximized:
+            self.root.state("zoomed")
         self.root.protocol("WM_DELETE_WINDOW", self._handle_close)
 
         if config.theme_key:

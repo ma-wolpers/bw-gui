@@ -59,6 +59,7 @@ class BwBaseWindow(TkRootHost):
         min_height: int = 400,
         theme_key: str = DEFAULT_THEME,
         on_close: Callable[[], bool | None] | None = None,
+        start_maximized: bool = True,
     ) -> None:
         """Initialise the window, menu bar, and content frame.
 
@@ -74,6 +75,9 @@ class BwBaseWindow(TkRootHost):
             theme_key:  Initial theme; falls back to ``DEFAULT_THEME``.
             on_close:   Optional callback invoked before the window closes.
                         Return ``False`` to cancel the close.
+            start_maximized: Open the main window maximized (default).
+                ``geometry`` remains the size used after un-maximizing.
+                Pass ``False`` for a window that must open at ``geometry``.
         """
         super().__init__()
 
@@ -85,6 +89,7 @@ class BwBaseWindow(TkRootHost):
                 min_width=min_width,
                 min_height=min_height,
                 theme_key=theme_key,
+                start_maximized=start_maximized,
             ),
             on_close=on_close,
         )

@@ -248,6 +248,11 @@ if __name__ == "__main__":
     ).run()
 ```
 
+The main window opens **maximized** by default. `geometry` is then only the size the
+window returns to when the user un-maximizes it. Pass `start_maximized=False` to open at
+`geometry` instead. An app that restores its own remembered window size must call
+`root.state("normal")` before `root.geometry(...)`, otherwise the maximized state wins.
+
 See also:
 - [MENUBAR.md](MENUBAR.md) — menu sections, item types, submenus
 - [THEMING.md](THEMING.md) — themes, tokens, custom themes

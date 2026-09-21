@@ -7,8 +7,12 @@ class _FakeRoot:
         self.title_value = None
         self.geometry_value = None
         self.min_size = None
+        self.state_value = None
         self.protocol_callbacks = {}
         self.destroy_calls = 0
+
+    def state(self, value):
+        self.state_value = value
 
     def title(self, value):
         self.title_value = value
@@ -41,6 +45,26 @@ def test_shell_applies_window_setup_and_registers_close_callback():
     assert root.geometry_value == "1000x800"
     assert root.min_size == (720, 540)
     assert "WM_DELETE_WINDOW" in root.protocol_callbacks
+
+
+def test_shell_maximizes_window_by_default_after_applying_geometry():
+    root = _FakeRoot()
+
+    TkinterAppShell(root, AppShellConfig(title="Demo", geometry="1000x800", min_width=720, min_height=540))
+
+    assert root.state_value == "zoomed"
+    assert root.geometry_value == "1000x800"
+
+
+def test_shell_keeps_normal_state_when_start_maximized_is_disabled():
+    root = _FakeRoot()
+    config = AppShellConfig(
+        title="Demo", geometry="1000x800", min_width=720, min_height=540, start_maximized=False
+    )
+
+    TkinterAppShell(root, config)
+
+    assert root.state_value is None
 
 
 def test_shell_close_handler_can_block_window_destroy():
