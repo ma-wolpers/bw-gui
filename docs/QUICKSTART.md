@@ -257,6 +257,7 @@ See also:
 - [MENUBAR.md](MENUBAR.md) — menu sections, item types, submenus
 - [THEMING.md](THEMING.md) — themes, tokens, custom themes
 - [DIALOGS.md](DIALOGS.md) — popups, message boxes, settings dialog
-- [KEYBINDINGS.md](KEYBINDINGS.md) — keyboard shortcuts
+- [KEYBINDING_CONTRACT.md](KEYBINDING_CONTRACT.md) — keyboard shortcuts, modifiers, `WindowShortcutBinder`.
+  Apps never test `event.state` bits or parse sequence strings themselves.
 - [WIDGETS.md](WIDGETS.md) — HoverTooltip, WrappedTextField
 - [LAUFKERN.md](LAUFKERN.md) — shortcut reachability verification

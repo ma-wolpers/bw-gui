@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Keybinding contract for modifiers and sequences** (`docs/KEYBINDING_CONTRACT.md`):
+  - `bw_gui.contracts.key_modifiers`: `TkBackend`, `backend_for_platform`, `backend_for_windowing_system`, `KeyModifiers`, `UNKNOWN_MODIFIERS`, `modifiers_from_state`, `modifiers_from_event`.
+  - `bw_gui.contracts.key_sequence`: `parse_sequence`, `declared_modifiers`, `binding_signature`.
+  - `bw_gui.contracts.keybinding_conflicts`: `find_conflicts`, `definitions_overlap`.
+  - These are the single place that interprets Tk's `event.state` bits and keyboard sequence syntax. Consumer apps no longer need (or may have) their own bitmask checks.
+- `WindowShortcutBinder`: new generic `mode_provider` parameter (base UI mode, default `UI_MODE_GLOBAL`), new `backend` parameter (auto-detected via `tk windowingsystem`), and `allow_modifiers` on `bind()`.
+- `KeybindingRegistry.find_conflicts(backend)`: semantic conflict detection (same `binding_signature` plus overlapping runtime applicability across mode, offline, dialog, text-input and modifier state).
+- Opt-in live test `tests/live/test_live_keyboard.py` (`BW_GUI_LIVE_KEYBOARD=1`, win32) that verifies the modifier masks against real key strokes.
+
+### Fixed
+- `KeyBindingDefinition.allow_modifiers` is now actually enforced by `evaluate_runtime` (it was documented but ignored). Contexts carrying modifier information (`WindowShortcutBinder`) block shortcuts while an undeclared Control/Alt/Command is held. An undecodable state is blocked fail-closed. Shift, NumLock and CapsLock never block. Contexts without modifier information (`modifiers=None`) behave as before. See `docs/KEYBINDING_AUDIT.md` for the consumer audit (only Namenfit changes: Ctrl/Alt + Return/Space/BackSpace/Escape no longer fire its shortcuts).
+- `WindowShortcutBinder` no longer silently overwrites a binding when a second one with the same (or semantically equal, e.g. `<Control-,>`/`<Control-comma>`) sequence is registered. Each signature is bound once and multiplexed by runtime scope, and overlapping duplicates raise `ValueError` at bind time.
+
+### Changed
+- `KeybindingRegistry.conflicts()` is deprecated in favour of `find_conflicts()`, because it compares raw sequence strings.
+
 ### Changed
 - `BwBaseWindow` (and `AppShellConfig`) now open the main window **maximized by default** (`start_maximized: bool = True`, applied as `root.state("zoomed")` right after `geometry`/`minsize`). `geometry` remains the size the window returns to when un-maximized. Pass `start_maximized=False` for the previous behavior. Affects every app built on `BwBaseWindow` (Blattwerk, Kursplaner, Korrektor, Namenfit); dialogs/popups (`ScrollablePopupWindow`) are unaffected. Apps that restore a remembered window size must call `root.state("normal")` before `root.geometry(...)`.
 

@@ -1,12 +1,12 @@
-# bw-gui Architecture — The Four Principles
+# bw-gui Architecture — The Five Principles
 
-These four principles govern every design decision in bw-gui and every use of it
+These five principles govern every design decision in bw-gui and every use of it
 by consumer programs.  All current code was written against them; all future
 changes should be evaluated against them.
 
 ---
 
-## The Four Principles
+## The Five Principles
 
 ### A — bw-gui is the only entity that knows about colours
 
@@ -57,6 +57,15 @@ optional `color_tint`; bw-gui handles pixel recoloring, registration, and
 automatic re-recoloring on every future theme switch.  The consumer does zero
 color work, forever.
 
+### E — bw-gui is the only entity that knows Tk's keyboard semantics
+
+Consumer programs never interpret `event.state` bits, never parse or compare Tk
+sequence strings and never decide themselves whether a held modifier blocks a
+shortcut. Those rules differ per Tk backend (the Windows NumLock bit is Alt's bit
+on X11) and live in the keybinding contract. See
+[KEYBINDING_CONTRACT.md](KEYBINDING_CONTRACT.md). If an app needs Tk knowledge the
+contract does not offer, the contract is extended; no local helper is written.
+
 ---
 
 ## Anti-Patterns
@@ -72,6 +81,8 @@ refactor them.
 | `style.lookup("MyStyle.TButton", "background")` to read a colour | A | read from theme contract instead |
 | `configure_ttk_theme(root, theme_key)` where `theme_key` comes from a non-framework caller | C | only the framework calls this; consumers call `apply_theme()` |
 | `icon_photo = recolor(base_photo, fg_hex)` in consumer code | D | `icon_button(parent, base_photo, command, color_tint=seed)` |
+| `if event.state & 0x0008:` ("Alt held") in consumer code | E | `WindowShortcutBinder` gating or `modifiers_from_event(event)` |
+| `self.bind_all("<KeyPress-a>", ...)` for an app shortcut | E | `WindowShortcutBinder.bind("a", ...)` |
 
 ---
 
