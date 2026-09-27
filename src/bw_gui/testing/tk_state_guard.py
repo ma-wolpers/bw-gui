@@ -41,7 +41,8 @@ def _is_state_access(node: ast.AST) -> bool:
 
 def raw_state_bitmask_lines(path: Path) -> list[int]:
     """Line numbers in *path* that evaluate ``state & ...``."""
-    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    # utf-8-sig: some consumer files start with a BOM, which ast.parse rejects.
+    tree = ast.parse(path.read_text(encoding="utf-8-sig"), filename=str(path))
     lines: list[int] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitAnd):

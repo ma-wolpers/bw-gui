@@ -26,3 +26,9 @@ def test_find_offenders_reports_paths_relative_to_repo(tmp_path):
     (app / "ok.py").write_text("x = 1 & 2\n", encoding="utf-8")
     (app / "bad.py").write_text("y = e.state & 4\n", encoding="utf-8")
     assert find_offenders(app) == {str(Path("app") / "bad.py"): [1]}
+
+
+def test_files_with_utf8_bom_are_parsed(tmp_path):
+    sample = tmp_path / "bom.py"
+    sample.write_bytes("﻿y = e.state & 4\n".encode("utf-8"))
+    assert raw_state_bitmask_lines(sample) == [1]
