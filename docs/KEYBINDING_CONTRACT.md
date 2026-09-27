@@ -204,6 +204,8 @@ compares raw strings and is deprecated.
 
 ## Rule for apps
 
+This rule is enforced by `bw_gui.testing.tk_state_guard.find_offenders(repo / "app")` in every consumer's test suite.
+
 - **No raw `event.state`:** never write `event.state & <mask>` or
   `getattr(event, "state") & ...`. Use the binder, or `modifiers_from_event()` where a
   handler genuinely needs the modifier state (for example Ctrl+click semantics).
