@@ -27,6 +27,13 @@ def test_semantically_equal_sequences_share_a_signature(first, second):
     assert binding_signature(first, TkBackend.WIN32) == binding_signature(second, TkBackend.WIN32)
 
 
+@pytest.mark.parametrize(("sequence", "tokens"), [("<KeyPress-M>", ()), ("<M>", ()), ("<Control-M>", ("Control",))])
+def test_last_field_is_the_keysym_even_if_it_spells_a_modifier_alias(sequence, tokens):
+    # Tk reads "<M>" as keysym M, not as the Meta alias "M" (verified with Tk 8.6.15).
+    parsed = parse_sequence(sequence)
+    assert (parsed.modifier_tokens, parsed.keysym) == (tokens, "M")
+
+
 def test_keysym_case_and_shift_distinguish_signatures():
     assert binding_signature("<KeyPress-a>", TkBackend.WIN32) != binding_signature("<KeyPress-A>", TkBackend.WIN32)
     assert binding_signature("<Control-a>", TkBackend.WIN32) != binding_signature("<Control-Shift-a>", TkBackend.WIN32)
@@ -45,6 +52,9 @@ def test_keysym_case_and_shift_distinguish_signatures():
         "<Double-a>",
         "<Any-KeyPress-a>",
         "<Lock-a>",
+        "<Lock>",
+        "<Key-M1>",
+        "<Control-Shift>",
         "<Control-x><Control-s>",
         "ab",
         "",

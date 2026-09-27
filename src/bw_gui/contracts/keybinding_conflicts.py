@@ -56,6 +56,12 @@ def _candidate_contexts(
     declared: KeyModifiers,
     backend: TkBackend,
 ) -> Iterator[KeybindingRuntimeContext]:
+    """Yield every runtime context the dispatcher can produce for this signature.
+
+    Enumerates base mode (all built-in modes, both definitions' modes and one
+    "other" mode) x offline x dialog x text-input x modifier variant, deriving the
+    active mode exactly like the binder does (:func:`derive_active_mode`).
+    """
     base_modes = set(_BUILTIN_MODES) | set(first.modes) | set(second.modes) | {_OTHER_MODE}
     for base_mode, offline, dialog_open, text_input, modifiers in product(
         sorted(base_modes), (False, True), (False, True), (False, True), _modifier_variants(declared)

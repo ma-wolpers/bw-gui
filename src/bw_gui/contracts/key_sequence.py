@@ -139,6 +139,12 @@ class BindingSignature:
 
 
 def _keysym_for_detail(detail: str) -> str:
+    """Return the Tk keysym name for a sequence detail.
+
+    Single printable punctuation characters are mapped to their keysym names
+    (``","`` -> ``"comma"``) so that ``<Control-,>`` and ``<Control-comma>`` compare
+    equal; letters, digits and multi-character keysyms are returned unchanged.
+    """
     if len(detail) == 1:
         return _CHAR_KEYSYMS.get(detail, detail)
     return detail
@@ -172,8 +178,15 @@ def parse_sequence(sequence: str) -> ParsedSequence:
     if not parts or any(part == "" for part in parts):
         raise ValueError(f"Malformed key sequence {sequence!r}")
 
+    # Like Tk, the last field is always the key detail: "<M>" / "<Control-M>" mean the
+    # keysym "M", not the Meta alias "M". Multi-letter modifier names and event types
+    # are no keysyms (Tk: 'bad event type or keysym'), so they cannot be a detail.
     *prefix, detail = parts
-    if detail in _KEYPRESS_TYPES or detail in _MODIFIER_ALIASES or detail in _UNSUPPORTED_TOKENS:
+    if (
+        detail in _KEYPRESS_TYPES
+        or detail in _UNSUPPORTED_TOKENS
+        or (detail in _MODIFIER_ALIASES and len(detail) > 1)
+    ):
         raise ValueError(f"Key sequence {sequence!r} has no key detail (keysym)")
 
     tokens: set[str] = set()
@@ -214,6 +227,7 @@ def declared_modifiers(parsed: ParsedSequence, backend: TkBackend | None = None)
 
 @lru_cache(maxsize=1024)
 def _binding_signature_cached(sequence: str, backend: TkBackend) -> BindingSignature:
+    """Cached core of :func:`binding_signature` (keyed on a resolved backend, not ``None``)."""
     parsed = parse_sequence(sequence)
     return BindingSignature(parsed.event_type, parsed.keysym, declared_modifiers(parsed, backend))
 

@@ -26,6 +26,7 @@ class ForegroundLost(RuntimeError):
 
 
 def _key(vk: int, up: bool = False, extended: bool = False) -> None:
+    """Send one real key-down (or key-up) event for virtual key *vk* via ``keybd_event``."""
     flags = (KEYEVENTF_KEYUP if up else 0) | (KEYEVENTF_EXTENDEDKEY if extended else 0)
     _user32.keybd_event(vk, 0, flags, 0)
 
@@ -59,6 +60,7 @@ def probe_states(combos: dict[str, tuple[tuple[int, bool], ...]], key_vk: int, *
         time.sleep(0.3); root.update()
 
         def guard() -> None:
+            """Abort before sending keys unless the probe window is in the foreground."""
             if _user32.GetForegroundWindow() != hwnd:
                 raise ForegroundLost("probe window lost foreground; aborting before sending keys")
 

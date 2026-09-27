@@ -139,14 +139,17 @@ class UnknownModifiers:
     _instance: "UnknownModifiers | None" = None
 
     def __new__(cls) -> "UnknownModifiers":
+        """Return the single shared instance, so identity checks (``is``) are reliable."""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
 
     def __repr__(self) -> str:
+        """Readable name in logs and test output."""
         return "UNKNOWN_MODIFIERS"
 
     def __bool__(self) -> bool:
+        """Refuse truthiness: ``if modifiers:`` would silently mean "no modifiers"."""
         raise TypeError("UNKNOWN_MODIFIERS has no truth value; compare with 'is UNKNOWN_MODIFIERS'")
 
 
