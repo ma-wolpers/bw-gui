@@ -12,6 +12,8 @@ All notable changes to this project will be documented in this file.
   - These are the single place that interprets Tk's `event.state` bits and keyboard sequence syntax. Consumer apps no longer need (or may have) their own bitmask checks.
 - `WindowShortcutBinder`: new generic `mode_provider` parameter (base UI mode, default `UI_MODE_GLOBAL`), new `backend` parameter (auto-detected via `tk windowingsystem`), and `allow_modifiers` on `bind()`.
 - `KeybindingRegistry.find_conflicts(backend)`: semantic conflict detection (same `binding_signature` plus overlapping runtime applicability across mode, offline, dialog, text-input and modifier state).
+- `bw_gui.testing.background_windows`: pytest plugin for consumer repos. Import `pytest_configure`/`pytest_unconfigure` in `tests/conftest.py`. Tk test windows then hand the OS foreground straight back to the window that was active when the session started, so a developer typing in their editor while the suite runs no longer loses keystrokes to test windows. It is a no-op outside Windows and disabled with `TK_FOCUS_TESTS=1`.
+- Headless `WindowShortcutBinder` tests (window test double, no focus needed). The real-Tk key-routing tests take the keyboard focus, so they are opt-in via `TK_FOCUS_TESTS=1`.
 - Opt-in live test `tests/live/test_live_keyboard.py` (`BW_GUI_LIVE_KEYBOARD=1`, win32) that verifies the modifier masks against real key strokes.
 
 ### Fixed

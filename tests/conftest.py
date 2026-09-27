@@ -17,6 +17,10 @@ from __future__ import annotations
 
 import pytest
 
+# Tk test windows hand the OS foreground straight back to the developer's window
+# (no stolen keystrokes while the suite runs); disabled with TK_FOCUS_TESTS=1.
+from bw_gui.testing.background_windows import pytest_configure, pytest_unconfigure  # noqa: F401
+
 from bw_gui.runtime import ui
 
 

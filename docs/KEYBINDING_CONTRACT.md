@@ -210,3 +210,16 @@ compares raw strings and is deprecated.
 - **No local sequence helpers:** never parse, normalise or compare sequence strings
   yourself.
 - **No `bind_all` for shortcuts.**
+
+## Testing
+
+- **Headless:** `tests/test_shortcut_binder_headless.py` uses a window test double. It
+  covers gating, multiplexing and return values without opening windows.
+- **Real Tk key routing (opt-in):** tests that route real synthetic key events need
+  the OS keyboard focus. They are opt-in via `TK_FOCUS_TESTS=1` and should be run while
+  nobody is typing.
+- **Consumer repos:** import the `bw_gui.testing.background_windows` hooks in
+  `tests/conftest.py`. Every mapped Tk test window then immediately returns the OS
+  foreground to the developer's window.
+- **Live keyboard (opt-in):** `BW_GUI_LIVE_KEYBOARD=1 pytest -m live_keyboard
+  tests/live` re-measures the win32 masks with real key strokes.
