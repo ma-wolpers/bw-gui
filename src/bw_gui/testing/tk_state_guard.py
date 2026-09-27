@@ -25,9 +25,12 @@ RULE = (
 )
 
 
-def _is_state_access(node: ast.AST) -> bool:
-    """True for ``x.state``, ``int(x.state)`` and ``getattr(x, "state"[, default])``."""
+def _is_state_access(node: ast.AST, aliases: frozenset[str] = frozenset()) -> bool:
+    """True for ``x.state``, ``getattr(x, "state"[, default])``, ``int(...)`` of those,
+    and plain names in *aliases* (local variables assigned from such an access)."""
     if isinstance(node, ast.Attribute) and node.attr == "state":
+        return True
+    if isinstance(node, ast.Name) and node.id in aliases:
         return True
     if isinstance(node, ast.Call):
         func = node.func
@@ -35,20 +38,55 @@ def _is_state_access(node: ast.AST) -> bool:
             name = node.args[1]
             return isinstance(name, ast.Constant) and name.value == "state"
         if isinstance(func, ast.Name) and func.id == "int" and node.args:
-            return _is_state_access(node.args[0])
+            return _is_state_access(node.args[0], aliases)
     return False
 
 
+def _state_aliases(scope: ast.AST) -> frozenset[str]:
+    """Names assigned from a state access anywhere inside *scope*.
+
+    Catches the indirect form ``state = getattr(event, "state", 0)`` followed by
+    ``state & 0x0004`` (the pattern that hid in several consumer apps).
+    """
+    names: set[str] = set()
+    for node in ast.walk(scope):
+        if isinstance(node, ast.Assign) and _is_state_access(node.value):
+            names.update(target.id for target in node.targets if isinstance(target, ast.Name))
+        elif (
+            isinstance(node, ast.AnnAssign)
+            and node.value is not None
+            and isinstance(node.target, ast.Name)
+            and _is_state_access(node.value)
+        ):
+            names.add(node.target.id)
+    return frozenset(names)
+
+
 def raw_state_bitmask_lines(path: Path) -> list[int]:
-    """Line numbers in *path* that evaluate ``state & ...``."""
+    """Line numbers in *path* that evaluate ``state & ...`` (directly or via a local alias).
+
+    Aliases are tracked per function (including nested functions); module-level code
+    is checked with aliases from module-level statements only.
+    """
     # utf-8-sig: some consumer files start with a BOM, which ast.parse rejects.
     tree = ast.parse(path.read_text(encoding="utf-8-sig"), filename=str(path))
-    lines: list[int] = []
-    for node in ast.walk(tree):
-        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitAnd):
-            if _is_state_access(node.left) or _is_state_access(node.right):
-                lines.append(node.lineno)
-    return lines
+    scopes: list[tuple[ast.AST, frozenset[str]]] = [
+        (node, _state_aliases(node))
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda))
+    ]
+    module_level = ast.Module(
+        body=[stmt for stmt in tree.body if not isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))],
+        type_ignores=[],
+    )
+    scopes.append((tree, _state_aliases(module_level)))
+    lines: set[int] = set()
+    for scope, aliases in scopes:
+        for node in ast.walk(scope):
+            if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitAnd):
+                if _is_state_access(node.left, aliases) or _is_state_access(node.right, aliases):
+                    lines.add(node.lineno)
+    return sorted(lines)
 
 
 def find_offenders(app_root: Path) -> dict[str, list[int]]:

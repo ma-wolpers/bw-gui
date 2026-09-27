@@ -32,3 +32,23 @@ def test_files_with_utf8_bom_are_parsed(tmp_path):
     sample = tmp_path / "bom.py"
     sample.write_bytes("﻿y = e.state & 4\n".encode("utf-8"))
     assert raw_state_bitmask_lines(sample) == [1]
+
+
+def test_indirect_state_variable_is_detected_per_function(tmp_path):
+    sample = tmp_path / "alias.py"
+    sample.write_text(
+        "def wheel(event):
+"
+        "    state = getattr(event, 'state', 0)
+"
+        "    shift = bool(state & 0x0001)
+"
+        "
+"
+        "def unrelated(state):
+"
+        "    return state & 0x0001
+",
+        encoding="utf-8",
+    )
+    assert raw_state_bitmask_lines(sample) == [3]
