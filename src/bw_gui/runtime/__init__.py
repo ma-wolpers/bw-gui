@@ -4,7 +4,7 @@ from .app_shell import AppShellConfig, TkinterAppShell
 from .base_window import BwBaseWindow
 from .primitives import fonts, ui, widgets
 from .root_host import TkRootHost
-from .shortcuts import WindowShortcutBinder
+from .shortcuts import WindowShortcutBinder, detect_backend
 
 __all__ = [
     "BwBaseWindow",
@@ -15,4 +15,5 @@ __all__ = [
     "AppShellConfig",
     "TkinterAppShell",
     "WindowShortcutBinder",
+    "detect_backend",
 ]

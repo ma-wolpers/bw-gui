@@ -11,6 +11,19 @@ from .hsm import (
     build_ui_hsm_contract,
 )
 from .button import ButtonDefinition, ButtonRegistry
+from .key_modifiers import (
+    NO_MODIFIERS,
+    UNKNOWN_MODIFIERS,
+    KeyModifiers,
+    TkBackend,
+    UnknownModifiers,
+    backend_for_platform,
+    backend_for_windowing_system,
+    modifiers_from_event,
+    modifiers_from_state,
+)
+from .key_sequence import BindingSignature, ParsedSequence, binding_signature, declared_modifiers, parse_sequence
+from .keybinding_conflicts import definitions_overlap, find_conflicts
 from .keybinding import (
     UI_MODE_DIALOG,
     UI_MODE_EDITOR,
@@ -20,6 +33,8 @@ from .keybinding import (
     KeyBindingDefinition,
     KeybindingRegistry,
     KeybindingRuntimeContext,
+    derive_active_mode,
+    evaluate_binding,
 )
 from .popup import (
     POPUP_KIND_MODAL,
@@ -45,6 +60,24 @@ __all__ = [
     "KeyBindingDefinition",
     "KeybindingRegistry",
     "KeybindingRuntimeContext",
+    "derive_active_mode",
+    "evaluate_binding",
+    "NO_MODIFIERS",
+    "UNKNOWN_MODIFIERS",
+    "KeyModifiers",
+    "TkBackend",
+    "UnknownModifiers",
+    "backend_for_platform",
+    "backend_for_windowing_system",
+    "modifiers_from_event",
+    "modifiers_from_state",
+    "BindingSignature",
+    "ParsedSequence",
+    "binding_signature",
+    "declared_modifiers",
+    "parse_sequence",
+    "definitions_overlap",
+    "find_conflicts",
     "POPUP_KIND_MODAL",
     "POPUP_KIND_NON_MODAL",
     "PopupPolicy",

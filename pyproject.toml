@@ -20,6 +20,9 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = [
+  "live_keyboard: sends real key strokes (win32, opt-in via BW_GUI_LIVE_KEYBOARD=1)",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/bw_gui"]
