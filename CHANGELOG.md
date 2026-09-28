@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Checkbox and Switch** (`bw_gui.widgets.Checkbox`, `bw_gui.widgets.Switch`; contract in `docs/TOGGLE_CONTRACT.md`). These are the only binary controls from now on. They are modern, themed indicators (a rounded box with a check mark or dash, and a pill switch with a knob) and follow the effect-timing contract:
+  - **Checkbox** means staged selection that takes effect only on a submit action. Its optional `on_select` may change local presentation state only.
+  - **Switch** means immediate effect. Its `on_change` is required.
+  - Both pass the *requested* bool to their callback, and only on user interaction. A programmatic `variable.set`/`set_mixed` never fires the callback.
+  - Both support an optional **mixed** state (`set_mixed`, `mixed_click_target`).
+  - Both roll back the value and the mixed flag if the callback raises.
+  - Indicators adapt to all themes, including a contrast guard that keeps at least 3:1 at every theme intensity, and to display scaling from 100 % to 200 %.
+- Menus: `MenuItem(type="switch")` and the new fields `mixed`, `on_toggle(requested)` and `mixed_click_target`. Binary menu entries show the same indicators as the widgets. For native `tk.Menu`s, `add_menu_switch`/`add_menu_checkbox` replace `add_checkbutton` with the same semantics.
 - **Keybinding contract for modifiers and sequences** (`docs/KEYBINDING_CONTRACT.md`):
   - `bw_gui.contracts.key_modifiers`: `TkBackend`, `backend_for_platform`, `backend_for_windowing_system`, `KeyModifiers`, `UNKNOWN_MODIFIERS`, `modifiers_from_state`, `modifiers_from_event`.
   - `bw_gui.contracts.key_sequence`: `parse_sequence`, `declared_modifiers`, `binding_signature`.
@@ -22,6 +30,9 @@ All notable changes to this project will be documented in this file.
 - `WindowShortcutBinder` no longer silently overwrites a binding when a second one with the same (or semantically equal, e.g. `<Control-,>`/`<Control-comma>`) sequence is registered. Each signature is bound once and multiplexed by runtime scope, and overlapping duplicates raise `ValueError` at bind time.
 
 ### Changed
+- Settings dialog: bool fields with `live_apply` (and an `on_live_apply` callback) are now **Switches** that take effect at once. All other bool fields are **Checkboxes** that take effect on Apply/Save. The label is now part of the toggle and is clickable.
+- Settings dialog: **Cancel keeps live-applied values**. Staged values are still discarded. If a live value changed, `on_commit` receives the last committed configuration with the current live values, so the saved configuration matches what is in effect. Programmatic changes to a live bool field no longer trigger `on_live_apply`.
+- Custom menu bar: checkbox entries show the themed indicator instead of ☑/☐.
 - `KeybindingRegistry.conflicts()` is deprecated in favour of `find_conflicts()`, because it compares raw sequence strings.
 
 ### Changed

@@ -268,3 +268,29 @@ Menu entries receive the requested bool like the widgets and support `mixed`.
 `bw_gui.testing.checkbutton_guard` scans consumer app sources (not bw-gui itself) and
 reports raw Tk/ttk checkbuttons and native menu checkbuttons. The exact set of detected
 and deliberately undetected forms is documented in the guard's module docstring.
+
+## Implementation notes (maintainers)
+
+- **Assets**: `tools/build_toggle_assets.py` (stdlib only, signed-distance-field
+  coverage) writes one role-mask PNG per control × shape × density to
+  `src/bw_gui/assets/toggles/`. Channels are coverage maps, not colours:
+  R = fill, G = outline, B = mark/knob, A = focus ring. Re-run the script after
+  changing indicator geometry and commit the output.
+- **Theming** (`theming/_toggle_assets.py`): decodes the masks with the private
+  stdlib codec (`theming/_png_codec.py`, 8-bit RGBA only), colours each role from
+  the theme (with the contrast guard) and composites to straight-alpha RGBA.
+  Data contract: PNG bytes → base64 → `PhotoImage(format="png", data=...)`
+  (verified on Tk 8.6.15). Cache key: control, image key, density, resolved colours.
+  This renderer serves the toggle primitives and their menu glyphs only.
+- **Lifecycle** (`theming/_toggle_styles.py`, called from `configure_ttk_theme`):
+  one unsized `PhotoImage` per control × image key and interpreter, kept alive in
+  a registry and reconfigured **in place** on every theme/density change (ttk
+  elements reference images by name, so elements are never recreated). Elements are
+  created once per *actually active* ttk theme (`style.element_names()` check).
+  ttk does not re-measure widgets when an image changes size in place; the
+  subsequent `style.configure` on the toggle styles fires `<<ThemeChanged>>`, which
+  does - keep that order.
+- **Click sequence** lives once in `bw_gui._toggle_flow.ToggleFlow`, shared by the
+  widgets and the native-menu helpers.
+- **Known limitation**: the gap between indicator and label is element padding,
+  fixed when the element is created (density at that time).

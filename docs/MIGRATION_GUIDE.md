@@ -29,6 +29,33 @@ Initial adoption steps:
   to any bw-gui utility — that would imply the consumer holds independent
   theme knowledge, which it does not.
 
+## Replacing Checkbuttons with Checkbox / Switch
+
+First classify each site by asking **when does its business effect happen?**
+(`docs/TOGGLE_CONTRACT.md`, "Classifying a control"). If it happens only on a submit
+action, use a Checkbox; if it happens immediately, use a Switch.
+
+| Before | After |
+|---|---|
+| `widgets.Checkbutton(f, text=t, variable=v)`, value read on OK/Export | `Checkbox(f, text=t, variable=v)` |
+| `widgets.Checkbutton(f, text=t, variable=v, command=apply)` (effect at once) | `Switch(f, text=t, variable=v, on_change=lambda on: apply())` |
+| effect hung on `v.trace_add("write", ...)` | move it into `on_change`; traces now only observe UI state |
+| `command=` that only ticks other boxes / enables controls | `Checkbox(..., on_select=...)` |
+| `cb.state(["alternate"])` / `cb.state(["!alternate"])` | `cb.set_mixed(True)` / `cb.set_mixed(False)` |
+| callback reads the (already flipped) variable or domain state to guess intent | use the `requested` argument |
+| `IntVar`/`StringVar` with `onvalue`/`offvalue` | `BooleanVar` (convert at the domain boundary) |
+| `MenuItem(type="checkbox", checked=c, command=toggle)` (acts on click) | `MenuItem(type="switch", checked=c, on_toggle=lambda on: ...)` |
+| `menu.add_checkbutton(label=l, variable=v, command=apply)` | `add_menu_switch(menu, label=l, variable=v, on_change=lambda on: apply())` |
+
+Checklist:
+
+- No `Checkbutton(...)`/`add_checkbutton(...)` left in app code (enforced later by
+  `bw_gui.testing.checkbutton_guard`).
+- Every Switch's effect works without any submit button, and no Checkbox's value
+  takes effect before submit.
+- Settings dialogs: `on_commit` is your configuration-commit interface. It is now
+  also called on Cancel when a live value changed.
+
 ## Checklist: removing a kursplaner-style "extended theme dict"
 
 If your program has a function like `my_theme(key)` that calls `get_theme(key)`

@@ -27,6 +27,10 @@ In addition, Blattwerk, Korrektor, Kursplaner and aiza build their own
 `KeybindingRuntimeContext` and wrap `bind` themselves, which duplicates the binder
 (see `KEYBINDING_AUDIT.md`). They get no modifier gating until they migrate.
 
+Binary controls (`Checkbutton`, `add_checkbutton`) are covered separately by the
+toggle contract (`TOGGLE_CONTRACT.md`): all consumers migrate to
+`Checkbox`/`Switch`, enforced by `bw_gui.testing.checkbutton_guard`.
+
 ## Proposed contracts (follow-up)
 
 | Gap | Proposed bw-gui contract |

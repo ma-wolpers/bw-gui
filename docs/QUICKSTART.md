@@ -165,6 +165,30 @@ class MyApp(BwBaseWindow):
         self._label.configure(text=f"Hallo, {name}!")
 ```
 
+### Checkboxes and switches
+
+Never use `widgets.Checkbutton`. Pick by **when the effect happens**
+(`docs/TOGGLE_CONTRACT.md`):
+
+```python
+from bw_gui.widgets import Checkbox, Switch
+
+# Switch: takes effect immediately, never needs an OK/Apply button.
+self._grid_var = ui.BooleanVar(value=False)
+Switch(frame, text="Raster anzeigen", variable=self._grid_var,
+       on_change=lambda on: self._canvas_view.set_grid_visible(on))
+
+# Checkbox: only a selection; read it when the user submits.
+self._solutions_var = ui.BooleanVar(value=True)
+Checkbox(frame, text="Lösungen beilegen", variable=self._solutions_var)
+widgets.Button(frame, text="Exportieren",
+               command=lambda: self._export(solutions=self._solutions_var.get()))
+```
+
+The callback gets the *requested* value and fires only when the user clicks.
+`variable.set(...)` only updates the display. For "some, not all" states, call
+`set_mixed(True)`, derived from your own data.
+
 ### Theming raw tk widgets (Canvas, Text, Listbox)
 
 ttk widgets pick up colours from the ttk style system automatically.  Raw tk
