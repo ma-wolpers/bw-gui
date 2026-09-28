@@ -172,6 +172,19 @@ def test_scaling_reconfigures_same_objects(themed_root, factor: float, expected_
     assert photo.width() == expected_width
 
 
+def test_toggle_styles_inherit_tcheckbutton_padding(themed_root) -> None:
+    """Apps tune TCheckbutton padding for UI density; theme switches must not override it."""
+    style = widgets.Style(themed_root)
+    original = style.lookup("TCheckbutton", "padding")
+    try:
+        style.configure("TCheckbutton", padding=(9, 4))
+        configure_ttk_theme(themed_root, DEFAULT_THEME)
+        for style_name in ("Checkbox.TCheckbutton", "Switch.TCheckbutton"):
+            assert str(style.lookup(style_name, "padding")) == str(style.lookup("TCheckbutton", "padding"))
+    finally:
+        style.configure("TCheckbutton", padding=original)
+
+
 def test_toggle_image_is_built_on_demand_without_configure_ttk_theme(themed_root) -> None:
     from bw_gui.theming import _toggle_styles
 

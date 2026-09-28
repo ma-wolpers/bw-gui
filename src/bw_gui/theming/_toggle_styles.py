@@ -180,7 +180,9 @@ def configure_toggle_styles(widget: tk.Misc, style: ttk.Style, theme: dict[str, 
             (ELEMENT_NAMES[control], {"side": "left", "sticky": ""}),
             ("Checkbutton.label", {"side": "left", "sticky": "nswe"}),
         ]})])
-        style.configure(style_name, background=theme["bg_main"], foreground=theme["fg_primary"], padding=(2, 2))
+        # No padding here: it is inherited from TCheckbutton, which apps tune for their
+        # UI density (e.g. Blattwerk's compact mode) - setting it would override that.
+        style.configure(style_name, background=theme["bg_main"], foreground=theme["fg_primary"])
         style.map(style_name,
                   background=[("active", theme["bg_main"]), ("disabled", theme["bg_main"])],
                   foreground=[("disabled", theme["fg_muted"])])
