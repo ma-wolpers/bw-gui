@@ -8,9 +8,11 @@ from .hover_tooltip import HoverTooltip
 from .regex_entry_field import RegexEntryField
 from .ring_chart import RingSegment, draw_ring_chart
 from .scrollable_frame import ScrollableFrame
+from .toggles import Checkbox, Switch
 from .wrapped_text_field import WrappedTextField
 
 __all__ = [
+    "Checkbox",
     "CodeBlockEvent",
     "DocEvent",
     "DragDropController",
@@ -22,6 +24,7 @@ __all__ = [
     "RegexEntryField",
     "RingSegment",
     "ScrollableFrame",
+    "Switch",
     "TextRun",
     "WrappedTextField",
     "compute_contiguous_spans",
