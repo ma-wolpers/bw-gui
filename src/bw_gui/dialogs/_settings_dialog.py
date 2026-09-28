@@ -11,6 +11,7 @@ from bw_gui.runtime import ui, widgets
 from bw_gui.runtime.platform import center_window_over_parent
 from bw_gui.theming import apply_window_theme, configure_ttk_theme
 from bw_gui.theming._theme_manager import get_theme
+from bw_gui.widgets.toggles import Checkbox, Switch
 
 from ._settings_spec import SettingsDialogSpec, SettingsFieldSpec, coerce_settings_payload
 
@@ -20,8 +21,15 @@ class TabbedSettingsDialog:
 
     Displays a sidebar list of section names on the left and a scrollable
     content area with the active section's fields on the right.  Supports
-    live-apply previewing (``on_live_apply``), deferred commit (``on_commit``),
+    live-apply (``on_live_apply``), deferred commit (``on_commit``),
     and optional navigation to a specific initial section.
+
+    Bool fields follow ``docs/TOGGLE_CONTRACT.md``: a ``live_apply`` field (with an
+    ``on_live_apply`` callback) is a ``Switch`` - its value takes effect at once -
+    every other bool field is a ``Checkbox`` that only takes effect on Apply/Save.
+    Cancel reverts staged values but keeps live-applied ones: if a live value changed
+    since the last commit, ``on_commit`` receives the last committed configuration
+    overlaid with the current live values (``result`` stays ``None``).
 
     Args:
         parent:           Tk parent window.
@@ -32,8 +40,11 @@ class TabbedSettingsDialog:
         initial_section:  Section key to activate on open; first section used
                           when ``None`` or not found.
         on_live_apply:    Callable invoked with the current values dict on every
-                          ``live_apply=True`` field change.
-        on_commit:        Callable invoked with the values dict on Apply/Save.
+                          ``live_apply=True`` field change (immediate runtime effect;
+                          says nothing about persistence).
+        on_commit:        Configuration-commit interface: invoked with the resulting
+                          values dict on Apply/Save, and on Cancel when live values
+                          changed. The consumer decides how/when to persist.
         geometry:         Tk geometry string for initial window size.
         minsize:          ``(width, height)`` minimum window size.
     """
@@ -183,6 +194,7 @@ class TabbedSettingsDialog:
     def _initialize_fields(self, values: dict[str, object]) -> None:
         """Create tk Variables for all fields and wire live-apply + visibility traces."""
         normalized = coerce_settings_payload(values, self.spec)
+        self._committed_values = normalized
         for section in self.spec.sections:
             for field in section.fields:
                 value = normalized.get(field.key, field.default)
@@ -191,7 +203,8 @@ class TabbedSettingsDialog:
                 else:
                     var = ui.StringVar(value=str(value))
                 self._field_vars[field.key] = var
-                if field.live_apply and self._on_live_apply is not None:
+                # Bool live fields report through Switch.on_change (user interaction only).
+                if self._is_live(field) and field.field_type != "bool":
                     var.trace_add("write", self._on_live_change)
 
         controlling_keys = {
@@ -250,8 +263,10 @@ class TabbedSettingsDialog:
     def _render_field(self, row_index: int, field: SettingsFieldSpec) -> int:
         """Render one field row; return the next available row index.
 
-        Bool fields render a checkbutton; enum fields render a combobox;
-        all other types render a text entry with optional hint labels below.
+        Bool fields render a ``Switch`` when live (see ``_is_live``) and a
+        ``Checkbox`` otherwise, labelled by the toggle itself across both columns;
+        enum fields render a combobox; all other types render a text entry with
+        optional hint labels below.
 
         Args:
             row_index: Grid row to place the label and input widget.
@@ -263,13 +278,18 @@ class TabbedSettingsDialog:
         if not self._field_is_visible(field):
             return row_index
 
-        label = widgets.Label(self.content_frame, text=field.label)
-        label.grid(row=row_index, column=0, sticky="w", padx=(0, 12), pady=5)
-
         var = self._field_vars[field.key]
         if field.field_type == "bool":
-            widgets.Checkbutton(self.content_frame, variable=var).grid(row=row_index, column=1, sticky="w", pady=5)
+            if self._is_live(field):
+                toggle = Switch(self.content_frame, text=field.label, variable=var,
+                                on_change=lambda _requested: self._on_live_change())
+            else:
+                toggle = Checkbox(self.content_frame, text=field.label, variable=var)
+            toggle.grid(row=row_index, column=0, columnspan=2, sticky="w", pady=5)
             return row_index + 1
+
+        label = widgets.Label(self.content_frame, text=field.label)
+        label.grid(row=row_index, column=0, sticky="w", padx=(0, 12), pady=5)
 
         if field.field_type == "enum":
             widgets.Combobox(
@@ -308,6 +328,10 @@ class TabbedSettingsDialog:
         raw: dict[str, object] = {key: var.get() for key, var in self._field_vars.items()}
         return coerce_settings_payload(raw, self.spec)
 
+    def _is_live(self, field: SettingsFieldSpec) -> bool:
+        """True if *field* takes effect immediately (``live_apply`` and a live callback)."""
+        return field.live_apply and self._on_live_apply is not None
+
     def _on_live_change(self, *_args) -> None:
         """Trigger live-apply callback when a traced field variable changes."""
         if self._on_live_apply is None:
@@ -321,6 +345,7 @@ class TabbedSettingsDialog:
             self._on_commit(values)
         if self._on_live_apply is not None:
             self._on_live_apply(values)
+        self._committed_values = values
         self.result = values
 
     def _on_save(self) -> None:
@@ -329,7 +354,18 @@ class TabbedSettingsDialog:
         self.window.destroy()
 
     def _on_cancel(self) -> None:
-        """Discard changes and close the dialog."""
+        """Discard staged changes, keep live-applied ones, and close the dialog.
+
+        Live values already took effect at runtime; if any differs from the last
+        committed configuration, ``on_commit`` receives that configuration overlaid
+        with the current live values, so the consumer never persists a state that
+        contradicts what is in effect. ``result`` stays ``None``.
+        """
+        current = self._collect_values()
+        live = {key: current[key] for key, field in self._field_specs.items() if self._is_live(field)}
+        changed = any(live[key] != self._committed_values.get(key) for key in live)
+        if changed and self._on_commit is not None:
+            self._on_commit({**self._committed_values, **live})
         self.result = None
         self.window.destroy()
 

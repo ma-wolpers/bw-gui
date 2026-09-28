@@ -30,8 +30,13 @@ class SettingsFieldSpec:
         min_value:    Lower bound for numeric fields (``None`` = unbounded).
         max_value:    Upper bound for numeric fields (``None`` = unbounded).
         hint:         Optional hint text shown below the entry widget.
-        live_apply:   When ``True``, the dialog fires ``on_live_apply`` on every
-                      keystroke / toggle, enabling real-time previewing.
+        live_apply:   When ``True`` (and the dialog has an ``on_live_apply``
+                      callback), the value takes effect in the running app
+                      immediately: ``on_live_apply`` fires on every keystroke /
+                      user toggle. Bool fields then render as a ``Switch``,
+                      otherwise as a ``Checkbox`` (effective on Apply/Save).
+                      Says nothing about persistence; Cancel keeps live values
+                      (see ``docs/TOGGLE_CONTRACT.md``).
         visible_when: ``(controlling_field_key, required_value)``. When set,
                       this field is only rendered while the field named
                       ``controlling_field_key`` currently holds

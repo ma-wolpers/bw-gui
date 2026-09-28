@@ -108,8 +108,12 @@ class _Toggle(ttk.Checkbutton):
         """Re-assert ttk ``selected``/``alternate`` from the display value and mixed flag.
 
         Needed after every display write: ttk clears ``alternate`` itself whenever its
-        variable changes, while the mixed flag lives here in Python.
+        variable changes, while the mixed flag lives here in Python. A no-op once the
+        widget is destroyed - e.g. when a trace on ``variable`` rebuilt the surrounding
+        form during the click sequence (settings dialog ``visible_when``).
         """
+        if not self.winfo_exists():
+            return
         selected = "selected" if self._display.get() else "!selected"
         self.state([selected, "alternate" if self._flow.mixed else "!alternate"])
 
