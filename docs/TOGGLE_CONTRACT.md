@@ -227,9 +227,14 @@ listener: after changing `tk scaling`, call `configure_ttk_theme` (normally via
 - **Screen readers**: Tk 8.6 on Windows exposes no usable screen-reader semantics for
   ttk widgets, before and after this change. Not tested, out of scope; the image-based
   indicator neither improves nor worsens it.
-- **Visual**: indicator contrast ≥ 3:1 against its background for every registered
-  theme, state not by colour alone, visible focus ring, mandatory label that is part of
-  the click target. Tested.
+- **Visual**: indicator contrast ≥ 3:1 for every registered theme **and every theme
+  intensity** (boundary against `bg_main`/`bg_surface`, mark/knob against its fill),
+  state not by colour alone, visible focus ring, mandatory label that is part of the
+  click target. Tested. At low intensities ("dezent", "mittel") the accent alone falls
+  below 3:1; a **contrast guard** then shifts the indicator colours in 5 % steps just far
+  enough (towards `fg_primary`, marks towards black/white), so toggles may look slightly
+  stronger than the rest of the UI there. At the default intensity nothing is shifted.
+  Disabled states are exempt, as in WCAG.
 
 ## Settings dialog: `live_apply`, Cancel and persistence
 

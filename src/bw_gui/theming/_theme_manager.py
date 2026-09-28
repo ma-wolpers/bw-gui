@@ -574,6 +574,11 @@ def configure_ttk_theme(root: tk.Misc, theme_key: str | None = None) -> None:
         ``Treeview`` — bg_surface rows, themed selection colors.
         ``Treeview.Heading`` — panel_strong background, flat relief.
 
+    *Toggles*
+        ``Checkbox.TCheckbutton`` / ``Switch.TCheckbutton`` — image indicators for
+        ``bw_gui.widgets.Checkbox`` / ``Switch`` (see ``_toggle_styles`` and
+        ``docs/TOGGLE_CONTRACT.md``).
+
     *Canvas default*
         ``option_add("*Canvas.Background", bg_surface)`` — sets the default
         background for any ``tk.Canvas`` created after this call, so bare canvases
@@ -857,6 +862,9 @@ def configure_ttk_theme(root: tk.Misc, theme_key: str | None = None) -> None:
         "Treeview.Heading",
         background=[("active", _mix(panel_bg, theme["accent"], 0.08))],
     )
+
+    from ._toggle_styles import configure_toggle_styles  # late import avoids circular dependency
+    configure_toggle_styles(root, style, theme)
 
     # Recolor all registered icon buttons for the new theme.
     from ._widget_utils import _reapply_icon_buttons  # late import avoids circular dependency
