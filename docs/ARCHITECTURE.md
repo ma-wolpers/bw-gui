@@ -83,6 +83,7 @@ refactor them.
 | `icon_photo = recolor(base_photo, fg_hex)` in consumer code | D | `icon_button(parent, base_photo, command, color_tint=seed)` |
 | `if event.state & 0x0008:` ("Alt held") in consumer code | E | `WindowShortcutBinder` gating or `modifiers_from_event(event)` |
 | `self.bind_all("<KeyPress-a>", ...)` for an app shortcut | E | `WindowShortcutBinder.bind("a", ...)` |
+| `widgets.Checkbutton(...)` / `menu.add_checkbutton(...)` in consumer code | B, D | `Checkbox` (staged, effective on submit) or `Switch` (immediate effect), see [TOGGLE_CONTRACT.md](TOGGLE_CONTRACT.md) |
 
 ---
 
