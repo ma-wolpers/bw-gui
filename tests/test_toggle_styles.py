@@ -172,6 +172,18 @@ def test_scaling_reconfigures_same_objects(themed_root, factor: float, expected_
     assert photo.width() == expected_width
 
 
+def test_toggle_image_is_built_on_demand_without_configure_ttk_theme(themed_root) -> None:
+    from bw_gui.theming import _toggle_styles
+
+    interp = themed_root.tk
+    saved = (_toggle_styles._IMAGES.pop(interp), _toggle_styles._LAST_DATA.pop(interp))
+    try:
+        photo = toggle_image(themed_root, "switch", "on-rest")
+        assert photo.width() == 40
+    finally:
+        _toggle_styles._IMAGES[interp], _toggle_styles._LAST_DATA[interp] = saved
+
+
 def test_density_change_relayouts_widget(themed_root) -> None:
     button = widgets.Checkbutton(themed_root, text="x", style="Switch.TCheckbutton")
     button.pack()

@@ -95,10 +95,17 @@ def all_state_combinations() -> list[frozenset[str]]:
 def toggle_image(widget: tk.Misc, control: str, image_key: str) -> tk.PhotoImage:
     """Return the shared, themed ``PhotoImage`` for one indicator state.
 
-    Used by the menu surfaces to show the same glyphs as the widgets. Only valid after
-    ``configure_ttk_theme`` has run for the widget's interpreter.
+    Used by the menu surfaces to show the same glyphs as the widgets. If
+    ``configure_ttk_theme`` has not run for the widget's interpreter yet (e.g. a
+    startup dialog with a native menu that only calls ``apply_window_theme``), the
+    images are built on demand from the current global theme; the next
+    ``configure_ttk_theme`` then updates them in place like always.
     """
-    return _IMAGES[widget._root().tk][(control, image_key)]
+    root = widget._root()
+    if root.tk not in _IMAGES:
+        from ._theme_manager import get_theme  # late import: theme manager imports this module lazily too
+        _update_images(root, get_theme(), density_for_scaling(float(root.tk.call("tk", "scaling"))))
+    return _IMAGES[root.tk][(control, image_key)]
 
 
 def _images_for(root: tk.Tk) -> dict[tuple[str, str], tk.PhotoImage]:
