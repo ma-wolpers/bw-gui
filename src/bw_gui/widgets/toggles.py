@@ -21,11 +21,10 @@ from __future__ import annotations
 
 import tkinter as tk
 from tkinter import ttk
-from typing import Callable
 
 from bw_gui.theming._toggle_styles import STYLE_NAMES
 
-ToggleCallback = Callable[[bool], None]
+from ._toggle_flow import ToggleCallback, ToggleFlow
 _RESERVED_OPTIONS = frozenset({"command", "variable", "style", "onvalue", "offvalue"})
 
 
@@ -71,10 +70,8 @@ class _Toggle(ttk.Checkbutton):
             raise ValueError(f"{type(self).__name__} needs a non-empty text label")
         self._variable = variable
         self._display = tk.BooleanVar(master=parent, value=bool(variable.get()))
-        self._callback = callback
-        self._mixed = bool(mixed)
-        self._mixed_click_target = bool(mixed_click_target)
-        self._in_callback = False
+        self._flow = ToggleFlow(variable, callback, mixed=mixed, mixed_click_target=mixed_click_target,
+                                render=self._render)
         super().__init__(
             parent, text=text, variable=self._display, style=STYLE_NAMES[self._CONTROL],
             command=self._on_invoke, **options,
@@ -87,12 +84,11 @@ class _Toggle(ttk.Checkbutton):
 
     def set_mixed(self, value: bool) -> None:
         """Show or clear the mixed indicator. Never touches ``variable``, never fires the callback."""
-        self._mixed = bool(value)
-        self._render()
+        self._flow.set_mixed(value)
 
     def is_mixed(self) -> bool:
         """Return whether the mixed indicator is currently shown."""
-        return self._mixed
+        return self._flow.mixed
 
     def configure(self, cnf=None, **options):
         """``ttk.Checkbutton.configure`` minus the reserved options (see ``__init__``)."""
@@ -115,7 +111,7 @@ class _Toggle(ttk.Checkbutton):
         variable changes, while the mixed flag lives here in Python.
         """
         selected = "selected" if self._display.get() else "!selected"
-        self.state([selected, "alternate" if self._mixed else "!alternate"])
+        self.state([selected, "alternate" if self._flow.mixed else "!alternate"])
 
     def _on_variable_write(self, *_trace_args) -> None:
         """Mirror a write to the consumer variable into the display (never a callback)."""
@@ -125,34 +121,12 @@ class _Toggle(ttk.Checkbutton):
     def _on_invoke(self) -> None:
         """Handle a user interaction; Tk has already flipped the *display* variable.
 
-        Sequence (contract "Click sequence"): re-entrancy check, remember previous
-        value and mixed flag, compute the requested value from the consumer variable,
-        clear mixed, optimistic ``variable.set``, callback; roll back and re-raise on
-        an exception.
+        Delegates the contract sequence to ``ToggleFlow.interact``. On a re-entrant
+        invocation the flow does nothing, and only Tk's display flip is undone here.
         """
-        if self._in_callback:
-            # Re-entrant invocation: undo Tk's display flip, change nothing else.
+        if not self._flow.interact():
             self._display.set(bool(self._variable.get()))
             self._render()
-            return
-        previous_value = bool(self._variable.get())
-        previous_mixed = self._mixed
-        requested = self._mixed_click_target if previous_mixed else not previous_value
-        self._mixed = False
-        self._variable.set(requested)
-        self._render()
-        if self._callback is None:
-            return
-        self._in_callback = True
-        try:
-            self._callback(requested)
-        except BaseException:
-            self._variable.set(previous_value)
-            self._mixed = previous_mixed
-            self._render()
-            raise
-        finally:
-            self._in_callback = False
 
     def _on_destroy(self, event: tk.Event) -> None:
         """Remove the mirror trace from the consumer variable when this widget dies."""
