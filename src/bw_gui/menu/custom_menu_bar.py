@@ -40,6 +40,7 @@ import tkinter as tk
 from bw_gui.theming._theme_manager import get_theme
 
 from .menu_types import MenuDefinition, MenuItem  # noqa: F401 — re-exported for callers
+from ._toggle_glyphs import glyph_image, is_binary, menu_item_command, text_prefix
 
 
 def _is_description_slot_replaceable(popup_stack: list, target_level: int) -> bool:
@@ -371,15 +372,15 @@ class CustomMenuBar:
             suffix = ""
             if item.type == "radio":
                 prefix = "● " if item.checked else "○ "
-            if item.type == "checkbox":
-                prefix = "☑ " if item.checked else "☐ "
+            glyph = glyph_image(body, item.type, item.checked, item.mixed) if is_binary(item) else None
+            prefix = text_prefix(item.type, item.checked, item.mixed) if is_binary(item) and glyph is None else prefix
             if item.type == "submenu":
                 suffix = "   ▸"
 
             row = tk.Label(
                 body,
                 text=f"{prefix}{item.label}{suffix}",
-                anchor="w",
+                image=glyph or "", compound="left", anchor="w",
                 justify="left",
                 bg=theme["bg_surface"],
                 fg=fg,
@@ -423,7 +424,7 @@ class CustomMenuBar:
                     lambda _event, parent=row, children=submenu_items: self.open_popup(parent, children, level + 1, top_key),
                 )
             else:
-                row.bind("<Button-1>", lambda _event, cmd=item.command: self._execute_menu_command(cmd))
+                row.bind("<Button-1>", lambda _event, cmd=menu_item_command(item): self._execute_menu_command(cmd))
 
         setattr(popup, "_bw_menu_navigable_rows", navigable_rows)
         setattr(popup, "_bw_menu_active_index", -1)
@@ -505,7 +506,7 @@ class CustomMenuBar:
             top_key = getattr(popup, "_bw_menu_top_key", "")
             self.open_popup(row, item.items, level + 1, top_key)
         else:
-            self._execute_menu_command(item.command)
+            self._execute_menu_command(menu_item_command(item))
 
     def _on_menu_right_key(self, popup: tk.Toplevel) -> None:
         """Right opens the highlighted row's submenu (no-op on a leaf row)."""

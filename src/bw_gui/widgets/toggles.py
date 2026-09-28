@@ -24,7 +24,7 @@ from tkinter import ttk
 
 from bw_gui.theming._toggle_styles import STYLE_NAMES
 
-from ._toggle_flow import ToggleCallback, ToggleFlow
+from bw_gui._toggle_flow import ToggleCallback, ToggleFlow
 _RESERVED_OPTIONS = frozenset({"command", "variable", "style", "onvalue", "offvalue"})
 
 
