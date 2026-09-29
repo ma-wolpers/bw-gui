@@ -12,6 +12,8 @@ All notable changes to this project will be documented in this file.
   - Both support an optional **mixed** state (`set_mixed`, `mixed_click_target`).
   - Both roll back the value and the mixed flag if the callback raises.
   - Indicators adapt to all themes, including a contrast guard that keeps at least 3:1 at every theme intensity, and to display scaling from 100 % to 200 %.
+- `bw_gui.testing.checkbutton_guard`: AST guard for consumer repos. `find_offenders(app_root)` reports raw Tk/ttk checkbuttons (also through bw-gui's `ui`/`widgets` aliases, `from … import Checkbutton [as X]`, star imports and subclasses) and native menu checkbuttons. The detected and deliberately undetected forms are listed in the module docstring.
+- `Checkbox`/`Switch(..., show_text=False)` for matrix cells: the mandatory label is shown as a hover tooltip.
 - Menus: `MenuItem(type="switch")` and the new fields `mixed`, `on_toggle(requested)` and `mixed_click_target`. Binary menu entries show the same indicators as the widgets. For native `tk.Menu`s, `add_menu_switch`/`add_menu_checkbox` replace `add_checkbutton` with the same semantics.
 - **Keybinding contract for modifiers and sequences** (`docs/KEYBINDING_CONTRACT.md`):
   - `bw_gui.contracts.key_modifiers`: `TkBackend`, `backend_for_platform`, `backend_for_windowing_system`, `KeyModifiers`, `UNKNOWN_MODIFIERS`, `modifiers_from_state`, `modifiers_from_event`.
