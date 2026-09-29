@@ -210,6 +210,14 @@ def test_destroy_removes_mirror_trace(root) -> None:
     var.set(True)  # must not touch the destroyed widget
 
 
+def test_matrix_cell_hides_text_but_keeps_label(root) -> None:
+    box = Checkbox(root, text="Mathe · Verstecken", variable=ui.BooleanVar(master=root), show_text=False)
+    assert box.cget("text") == ""
+    assert box.label == "Mathe · Verstecken"
+    with pytest.raises(ValueError):
+        Checkbox(root, text="", variable=ui.BooleanVar(master=root), show_text=False)
+
+
 def test_takes_keyboard_focus(root) -> None:
     switch = Switch(root, text="x", variable=ui.BooleanVar(master=root), on_change=lambda _: None)
     assert str(switch.cget("takefocus")) in ("", "ttk::takefocus")

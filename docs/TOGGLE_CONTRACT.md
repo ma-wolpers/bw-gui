@@ -104,6 +104,10 @@ widget.is_mixed() -> bool
 - `command` is reserved: passing it to the constructor or to `configure()` raises
   `TypeError`. There is no argument-less Tk command.
 - `variable` must be a `BooleanVar`, `text` must be non-empty.
+- **Matrix cells** (the only exception to a visible label): in a grid whose row and
+  column headers already label each cell, pass `show_text=False`. The text stays
+  mandatory and is shown as a hover tooltip instead, e.g.
+  `Checkbox(grid, text="Mathe · Verstecken", variable=v, show_text=False)`.
 
 ### Callback timing and mechanism
 

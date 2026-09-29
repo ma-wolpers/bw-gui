@@ -22,9 +22,11 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk
 
+from bw_gui._toggle_flow import ToggleCallback, ToggleFlow
 from bw_gui.theming._toggle_styles import STYLE_NAMES
 
-from bw_gui._toggle_flow import ToggleCallback, ToggleFlow
+from .hover_tooltip import HoverTooltip
+
 _RESERVED_OPTIONS = frozenset({"command", "variable", "style", "onvalue", "offvalue"})
 
 
@@ -45,6 +47,7 @@ class _Toggle(ttk.Checkbutton):
         callback: ToggleCallback | None,
         mixed: bool,
         mixed_click_target: bool,
+        show_text: bool,
         **options,
     ) -> None:
         """Create the widget and wire the display mirror.
@@ -56,6 +59,10 @@ class _Toggle(ttk.Checkbutton):
             callback:           Receives the requested bool on user interaction.
             mixed:              Initial mixed state.
             mixed_click_target: Value a click resolves to while mixed.
+            show_text:          ``False`` only for matrix cells whose row/column headers
+                                label them visually: the (still mandatory) *text* is
+                                then shown as a hover tooltip instead of next to the
+                                indicator.
             **options:          Further ``ttk.Checkbutton`` options (not ``command``,
                                 ``variable``, ``style``, ``onvalue``, ``offvalue``).
 
@@ -68,14 +75,17 @@ class _Toggle(ttk.Checkbutton):
             raise TypeError(f"{type(self).__name__} needs a tkinter.BooleanVar, got {type(variable).__name__}")
         if not str(text).strip():
             raise ValueError(f"{type(self).__name__} needs a non-empty text label")
+        self.label = str(text)
         self._variable = variable
         self._display = tk.BooleanVar(master=parent, value=bool(variable.get()))
         self._flow = ToggleFlow(variable, callback, mixed=mixed, mixed_click_target=mixed_click_target,
                                 render=self._render)
         super().__init__(
-            parent, text=text, variable=self._display, style=STYLE_NAMES[self._CONTROL],
+            parent, text=text if show_text else "", variable=self._display, style=STYLE_NAMES[self._CONTROL],
             command=self._on_invoke, **options,
         )
+        if not show_text:
+            HoverTooltip(self, self.label)
         self._trace_id: str | None = variable.trace_add("write", self._on_variable_write)
         self.bind("<Destroy>", self._on_destroy, add="+")
         self._render()
@@ -170,6 +180,7 @@ class Checkbox(_Toggle):
         on_select: ToggleCallback | None = None,
         mixed: bool = False,
         mixed_click_target: bool = True,
+        show_text: bool = True,
         **options,
     ) -> None:
         """Create a checkbox.
@@ -184,10 +195,11 @@ class Checkbox(_Toggle):
                                 preview) - never commit, persist or apply (convention).
             mixed:              Initial mixed state (e.g. a partly selected group).
             mixed_click_target: What a click from mixed selects (default ``True``).
+            show_text:          ``False`` for matrix cells only (text becomes a tooltip).
             **options:          Further ``ttk.Checkbutton`` layout options.
         """
         super().__init__(parent, text=text, variable=variable, callback=on_select, mixed=mixed,
-                         mixed_click_target=mixed_click_target, **options)
+                         mixed_click_target=mixed_click_target, show_text=show_text, **options)
 
 
 class Switch(_Toggle):
@@ -210,6 +222,7 @@ class Switch(_Toggle):
         on_change: ToggleCallback,
         mixed: bool = False,
         mixed_click_target: bool = False,
+        show_text: bool = True,
         **options,
     ) -> None:
         """Create a switch.
@@ -222,6 +235,7 @@ class Switch(_Toggle):
                                 business effect. Raise to reject: the widget rolls back.
             mixed:              Initial mixed state (e.g. "some, not all finished").
             mixed_click_target: What a click from mixed requests (default ``False``).
+            show_text:          ``False`` for matrix cells only (text becomes a tooltip).
             **options:          Further ``ttk.Checkbutton`` layout options.
 
         Raises:
@@ -230,4 +244,4 @@ class Switch(_Toggle):
         if on_change is None:
             raise TypeError("Switch needs an on_change callback (immediate effect)")
         super().__init__(parent, text=text, variable=variable, callback=on_change, mixed=mixed,
-                         mixed_click_target=mixed_click_target, **options)
+                         mixed_click_target=mixed_click_target, show_text=show_text, **options)
