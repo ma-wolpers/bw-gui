@@ -8,6 +8,7 @@ widgets, recoloured in place on every theme switch) and which callable a click r
 from __future__ import annotations
 
 import tkinter as tk
+from tkinter import font as tkfont
 from typing import Callable
 
 from bw_gui.theming._toggle_styles import toggle_image
@@ -37,6 +38,27 @@ def glyph_image(widget: tk.Misc, control: str, checked: bool, mixed: bool) -> tk
         return toggle_image(widget, control, f"{shape_of(checked, mixed)}-rest")
     except KeyError:
         return None
+
+
+def glyph_row_pady(widget: tk.Misc, glyph: tk.PhotoImage | None, *, base_pady: int, font) -> int:
+    """Vertical padding that keeps a glyph row as tall as a plain text row.
+
+    The glyph is taller than a text line (it includes a transparent focus-ring
+    margin), so the row's padding shrinks by the excess - evenly on both sides.
+    Font line height and glyph size both follow the display scaling, so this stays
+    right at every density.
+
+    Args:
+        widget:    Any widget of the menu's interpreter (for font metrics).
+        glyph:     The row's indicator image, or ``None`` for a text-only row.
+        base_pady: Padding of a text-only row.
+        font:      The row font.
+    """
+    if glyph is None:
+        return base_pady
+    linespace = tkfont.Font(root=widget, font=font).metrics("linespace")
+    excess = max(0, glyph.height() - linespace)
+    return max(0, base_pady - (excess + 1) // 2)
 
 
 def text_prefix(control: str, checked: bool, mixed: bool) -> str:

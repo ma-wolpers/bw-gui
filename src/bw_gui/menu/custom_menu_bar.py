@@ -40,7 +40,7 @@ import tkinter as tk
 from bw_gui.theming._theme_manager import get_theme
 
 from .menu_types import MenuDefinition, MenuItem  # noqa: F401 — re-exported for callers
-from ._toggle_glyphs import glyph_image, is_binary, menu_item_command, text_prefix
+from ._toggle_glyphs import glyph_image, glyph_row_pady, is_binary, menu_item_command, text_prefix
 
 
 def _is_description_slot_replaceable(popup_stack: list, target_level: int) -> bool:
@@ -385,7 +385,7 @@ class CustomMenuBar:
                 bg=theme["bg_surface"],
                 fg=fg,
                 padx=10,
-                pady=6,
+                pady=glyph_row_pady(body, glyph, base_pady=6, font=("Segoe UI", 9)),
                 font=("Segoe UI", 9),
             )
             setattr(row, "_bw_menu_row", True)
