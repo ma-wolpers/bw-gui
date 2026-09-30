@@ -23,7 +23,7 @@ def _lines(tmp_path: Path, source: str) -> list[int]:
     ("import tkinter.ttk as t\nt.Checkbutton(root)\n", [2]),
     ("from bw_gui.runtime import widgets\nwidgets.Checkbutton(root)\n", [2]),
     ("from bw_gui.runtime import widgets as w\nw.Checkbutton(root)\n", [2]),
-    ("from bw_gui import ui\nui.Checkbutton(root)\n", [2]),
+    ("from bw_gui.runtime import ui\nui.Checkbutton(root)\n", [2]),
     ("from bw_gui.runtime.primitives import widgets\nwidgets.Checkbutton(root)\n", [2]),
     ("import bw_gui\nbw_gui.runtime.widgets.Checkbutton(root)\n", [2]),
     ("from tkinter import Checkbutton\nCheckbutton(root)\n", [1, 2]),
@@ -76,3 +76,15 @@ def test_bw_gui_itself_uses_no_raw_checkbutton_outside_the_toggle_widgets() -> N
     # The widgets themselves are the one place that wraps ttk.Checkbutton.
     toggles = str(Path("bw_gui") / "widgets" / "toggles.py")
     assert set(offenders) == {toggles}, offenders
+
+
+def test_bw_gui_widgets_is_the_widget_package_not_the_ttk_alias() -> None:
+    import importlib
+
+    import bw_gui
+    import bw_gui.widgets.toggles as toggles
+
+    package = importlib.import_module("bw_gui.widgets")
+    assert bw_gui.widgets is package
+    assert package.Checkbox is toggles.Checkbox
+    assert not hasattr(bw_gui, "ui") and not hasattr(bw_gui, "fonts")

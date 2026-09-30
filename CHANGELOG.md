@@ -32,6 +32,7 @@ All notable changes to this project will be documented in this file.
 - `WindowShortcutBinder` no longer silently overwrites a binding when a second one with the same (or semantically equal, e.g. `<Control-,>`/`<Control-comma>`) sequence is registered. Each signature is bound once and multiplexed by runtime scope, and overlapping duplicates raise `ValueError` at bind time.
 
 ### Changed
+- **Breaking:** `bw_gui` no longer re-exports `ui`, `widgets` and `fonts` at the top level. Import them from `bw_gui.runtime`. The top-level `widgets` (the ttk module) shadowed the `bw_gui.widgets` package, so `import bw_gui.widgets.toggles as t` failed.
 - Settings dialog: bool fields with `live_apply` (and an `on_live_apply` callback) are now **Switches** that take effect at once. All other bool fields are **Checkboxes** that take effect on Apply/Save. The label is now part of the toggle and is clickable.
 - Settings dialog: **Cancel keeps live-applied values**. Staged values are still discarded. If a live value changed, `on_commit` receives the last committed configuration with the current live values, so the saved configuration matches what is in effect. Programmatic changes to a live bool field no longer trigger `on_live_apply`.
 - Custom menu bar: checkbox entries show the themed indicator instead of ☑/☐.

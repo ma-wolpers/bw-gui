@@ -1,4 +1,10 @@
-"""Shared GUI core package for Blattwerk-family applications."""
+"""Shared GUI core package for Blattwerk-family applications.
+
+The Tk/ttk aliases live in bw_gui.runtime only (from bw_gui.runtime import ui,
+widgets, fonts). They are deliberately *not* re-exported here: a top-level
+widgets attribute (the ttk module) would shadow the bw_gui.widgets package
+(Checkbox, Switch, ...), so import bw_gui.widgets.toggles as t broke.
+"""
 
 from .contracts import (
     HsmContract,
@@ -27,7 +33,7 @@ from .laufkern import (
     verify_manifest,
     verify_reachability,
 )
-from .runtime import BwBaseWindow, fonts, ui, widgets
+from .runtime import BwBaseWindow
 
 __all__ = [
     "BwBaseWindow",
@@ -37,7 +43,6 @@ __all__ = [
     "LaufKernRoute",
     "CompletionSummary",
     "FileDialogService",
-    "fonts",
     "KeyBindingDefinition",
     "KeybindingRegistry",
     "KeybindingRuntimeContext",
@@ -57,6 +62,4 @@ __all__ = [
     "evaluate_intent_routes",
     "emit_tracking_artifact",
     "aggregate_completion",
-    "ui",
-    "widgets",
 ]

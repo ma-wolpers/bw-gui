@@ -10,8 +10,8 @@ binary menu entries go through ``MenuItem(type="switch"/"checkbox")`` or
 Detected (per file, following that file's imports):
 
 * ``<source>.Checkbutton(...)`` where ``<source>`` resolves to ``tkinter``,
-  ``tkinter.ttk``, or bw-gui's aliases of them (``bw_gui.ui``/``widgets``,
-  ``bw_gui.runtime[.primitives].ui``/``widgets``) - also as a full dotted chain.
+  ``tkinter.ttk``, or bw-gui's aliases of them (``bw_gui.runtime[.primitives].ui``/
+  ``widgets``) - also as a full dotted chain.
 * ``from <source> import Checkbutton [as X]`` (the import itself, plus calls to ``X``),
   including ``from bw_gui.runtime[.primitives] import Checkbutton`` (not importable
   today, flagged anyway so a later re-export opens no gap).
@@ -42,7 +42,6 @@ RULE = (
 # Module paths whose ``Checkbutton`` attribute is Tk's / ttk's.
 TK_SOURCES = frozenset({
     "tkinter", "tkinter.ttk",
-    "bw_gui", "bw_gui.ui", "bw_gui.widgets",
     "bw_gui.runtime", "bw_gui.runtime.ui", "bw_gui.runtime.widgets",
     "bw_gui.runtime.primitives", "bw_gui.runtime.primitives.ui", "bw_gui.runtime.primitives.widgets",
 })
