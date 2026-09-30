@@ -114,3 +114,22 @@ Functions removed from `__all__` (`mix_hex`, `contrast_text_color`,
 `is_dark_color`, `relative_luminance`) remain as private bw-gui internals.
 Consumer code must not import them directly — their signatures and behavior are
 not part of the public contract.
+
+---
+
+## Internal module layout (maintainers)
+
+Files stay below ~300 lines of code (docstrings, comments, blank lines and imports
+not counted). Larger units are split by responsibility and the original module
+re-exports the moved names, so import paths stay stable:
+
+| Module | Responsibility |
+|---|---|
+| `theming/_theme_manager.py` | theme registry, intensity, current (ambient) theme, tinting; re-exports the two below |
+| `theming/_color_math.py` | pure color math (`_mix`, luminance, contrast) |
+| `theming/_ttk_theme.py` | `configure_ttk_theme` / `configure_tinted_button_style` (ttk style catalog) |
+| `theming/_toggle_assets.py`, `_toggle_styles.py`, `_png_codec.py` | Checkbox/Switch indicator images and ttk elements (see `TOGGLE_CONTRACT.md`) |
+| `menu/custom_menu_bar.py` | `CustomMenuBar`: lifecycle, strip, theme refresh |
+| `menu/_menu_popups.py` | mixin: popups, rows, description flyouts, keyboard navigation |
+| `menu/_menu_focus.py` | mixin: focus watchdog, outside-click/Alt/focus handlers |
+| `menu/_toggle_glyphs.py`, `native_toggles.py` | binary menu entries (glyphs, click resolution, native-menu helpers) |
