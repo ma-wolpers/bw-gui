@@ -296,5 +296,6 @@ and deliberately undetected forms is documented in the guard's module docstring.
   does - keep that order.
 - **Click sequence** lives once in `bw_gui._toggle_flow.ToggleFlow`, shared by the
   widgets and the native-menu helpers.
-- **Known limitation**: the gap between indicator and label is element padding,
-  fixed when the element is created (density at that time).
+- **Label gap**: transparent space on the right of every role mask (`LABEL_GAP` in the
+  build script), so it scales with the density. Not ttk element padding: for image
+  elements that is a *minimum size* (`max(image, padding)`), not spacing.

@@ -163,7 +163,7 @@ def test_elements_are_created_once_per_active_ttk_theme(themed_root) -> None:
     configure_toggle_styles(themed_root, style, get_theme(DEFAULT_THEME))  # no "Duplicate element" error
 
 
-@pytest.mark.parametrize("factor, expected_width", [(1.0, 40), (1.25, 50), (1.5, 60), (2.0, 80)])
+@pytest.mark.parametrize("factor, expected_width", [(1.0, 46), (1.25, 58), (1.5, 69), (2.0, 92)])
 def test_scaling_reconfigures_same_objects(themed_root, factor: float, expected_width: int) -> None:
     photo = toggle_image(themed_root, "switch", "off-rest")
     themed_root.tk.call("tk", "scaling", factor * BASE_SCALING)
@@ -192,7 +192,7 @@ def test_toggle_image_is_built_on_demand_without_configure_ttk_theme(themed_root
     saved = (_toggle_styles._IMAGES.pop(interp), _toggle_styles._LAST_DATA.pop(interp))
     try:
         photo = toggle_image(themed_root, "switch", "on-rest")
-        assert photo.width() == 40
+        assert photo.width() == 46
     finally:
         _toggle_styles._IMAGES[interp], _toggle_styles._LAST_DATA[interp] = saved
 

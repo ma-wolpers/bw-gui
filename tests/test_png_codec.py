@@ -60,7 +60,7 @@ def test_decode_rejects_other_formats() -> None:
 
 
 @pytest.mark.parametrize("density", [100, 125, 150, 175, 200])
-@pytest.mark.parametrize("control, base", [("checkbox", (22, 22)), ("switch", (40, 24))])
+@pytest.mark.parametrize("control, base", [("checkbox", (28, 22)), ("switch", (46, 24))])
 @pytest.mark.parametrize("shape", ["off", "on", "mixed"])
 def test_committed_assets_decode_with_expected_size(control: str, base: tuple[int, int], shape: str, density: int) -> None:
     width, height, _pixels = decode_rgba((ASSET_DIR / f"{control}_{shape}_{density}.png").read_bytes())

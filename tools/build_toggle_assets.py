@@ -45,6 +45,10 @@ SWITCH = {"canvas": (40, 24), "half": (17.0, 9.0), "radius": 9.0, "outline": 1.2
 KNOB_RADIUS = 6.5
 KNOB_OFFSET = {"off": -8.0, "on": 8.0, "mixed": 0.0}
 RING_GAP, RING_WIDTH = 1.0, 1.5
+# Transparent space right of the indicator, i.e. the gap to the label. It lives in the
+# asset (not in ttk element padding, which is a minimum size, not spacing), so it
+# scales with the density.
+LABEL_GAP = 6.0
 
 Sdf = Callable[[float, float], float]
 
@@ -94,12 +98,13 @@ def render(canvas: tuple[int, int], density: float, body: Sdf, outline_width: fl
     Returns:
         ``(width, height, rgba_pixels)`` of the role mask.
     """
-    width, height = round(canvas[0] * density), round(canvas[1] * density)
+    width, height = round((canvas[0] + LABEL_GAP) * density), round(canvas[1] * density)
+    shape_width = canvas[0] * density  # the shape is centred in the canvas without the gap
     pixels = bytearray(width * height * 4)
     for py in range(height):
         for px in range(width):
             # Pixel centre, converted back to 96-DPI units around the canvas centre.
-            x = (px + 0.5 - width / 2) / density
+            x = (px + 0.5 - shape_width / 2) / density
             y = (py + 0.5 - height / 2) / density
             d = body(x, y) * density
             fill = coverage(d)

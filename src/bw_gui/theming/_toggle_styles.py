@@ -29,7 +29,6 @@ from ._toggle_assets import CONTROLS, OVERLAYS, density_for_scaling, image_data,
 STATES = ("disabled", "alternate", "selected", "active", "pressed", "focus")
 STYLE_NAMES = {"checkbox": "Checkbox.TCheckbutton", "switch": "Switch.TCheckbutton"}
 ELEMENT_NAMES = {"checkbox": "Checkbox.indicator", "switch": "Switch.indicator"}
-LABEL_GAP = 6  # pixels between indicator and label at density 1.0
 
 # (control, image_key) -> PhotoImage, per Tk interpreter. Strong references keep the
 # images alive for as long as their interpreter; dropped when its root is destroyed.
@@ -141,12 +140,12 @@ def _update_images(root: tk.Tk, theme: dict[str, str], density: float) -> dict[t
     return images
 
 
-def _ensure_elements(style: ttk.Style, images: dict[tuple[str, str], tk.PhotoImage], density: float) -> None:
+def _ensure_elements(style: ttk.Style, images: dict[tuple[str, str], tk.PhotoImage]) -> None:
     """Create the indicator elements in the active ttk theme if they are missing.
 
-    The label gap (element padding) is fixed at creation time for the density active
-    then; later density changes resize the images but keep that gap - elements cannot
-    be reconfigured and are deliberately never recreated.
+    No element padding: for ttk image elements it is a *minimum size*, not spacing.
+    The gap to the label is transparent space inside the assets, so it scales with
+    the density.
     """
     existing = set(style.element_names())
     specs = state_specs()
@@ -155,8 +154,7 @@ def _ensure_elements(style: ttk.Style, images: dict[tuple[str, str], tk.PhotoIma
             continue
         default = images[(control, specs[-1][1])]
         mapped = [(*spec_states, images[(control, key)]) for spec_states, key in specs[:-1]]
-        style.element_create(element, "image", default, *mapped,
-                             padding=(0, 0, round(LABEL_GAP * density), 0), sticky="")
+        style.element_create(element, "image", default, *mapped, sticky="")
 
 
 def configure_toggle_styles(widget: tk.Misc, style: ttk.Style, theme: dict[str, str]) -> None:
@@ -174,7 +172,7 @@ def configure_toggle_styles(widget: tk.Misc, style: ttk.Style, theme: dict[str, 
     root = widget._root()
     density = density_for_scaling(float(root.tk.call("tk", "scaling")))
     images = _update_images(root, theme, density)
-    _ensure_elements(style, images, density)
+    _ensure_elements(style, images)
     for control, style_name in STYLE_NAMES.items():
         style.layout(style_name, [("Checkbutton.padding", {"sticky": "nswe", "children": [
             (ELEMENT_NAMES[control], {"side": "left", "sticky": ""}),
