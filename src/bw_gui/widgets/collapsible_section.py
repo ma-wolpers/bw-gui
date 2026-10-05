@@ -103,6 +103,10 @@ class CollapsibleSection(widgets.LabelFrame):
 
         self.content = widgets.Frame(self)
         """Target frame for the consumer's content."""
+        # Tk does not shrink a master when its *last* slave is pack_forget()-ten: it
+        # keeps the previously requested size. A zero-height placeholder packed while
+        # collapsed makes the frame recompute its size down to the title row.
+        self._collapsed_placeholder = widgets.Frame(self, height=0)
         self._render()
 
     # -- public API -----------------------------------------------------------------
@@ -152,9 +156,17 @@ class CollapsibleSection(widgets.LabelFrame):
     # -- internals ------------------------------------------------------------------
 
     def _render(self) -> None:
-        """Align the arrow and the visibility of ``content`` with ``_collapsed``."""
+        """Align the arrow, the visibility of ``content`` and the frame height with ``_collapsed``.
+
+        Collapsed means the section only takes the height of its title row (the
+        placeholder swap forces Tk to recompute the requested size).
+        """
         self._arrow.configure(text=ARROW_COLLAPSED if self._collapsed else ARROW_EXPANDED)
         if self._collapsed:
             self.content.pack_forget()
-        elif not self.content.winfo_manager():
-            self.content.pack(fill="both", expand=True)
+            if not self._collapsed_placeholder.winfo_manager():
+                self._collapsed_placeholder.pack(fill="x")
+        else:
+            self._collapsed_placeholder.pack_forget()
+            if not self.content.winfo_manager():
+                self.content.pack(fill="both", expand=True)

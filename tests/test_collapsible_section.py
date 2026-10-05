@@ -46,6 +46,33 @@ def test_initially_collapsed_keeps_header_visible(root):
     assert section._header.winfo_ismapped()
 
 
+def test_collapsed_section_shrinks_to_title_row_and_grows_back(root):
+    """Regression: eingeklappt darf der Rahmen nicht die alte Höhe behalten (Tk-pack_forget-Eigenheit)."""
+    section = CollapsibleSection(root, "Diagnostik")
+    section.pack(fill="x")
+    widgets.Frame(section.content, height=150, width=200).pack()
+    root.update()
+    expanded = section.winfo_height()
+    header = section._header.winfo_reqheight()
+
+    section.toggle()
+    root.update()
+    assert section.winfo_reqheight() <= header + 12
+    assert section.winfo_height() <= header + 12 < expanded
+
+    section.set_collapsed(False)
+    root.update()
+    assert section.winfo_height() == expanded
+
+
+def test_initially_collapsed_section_is_small(root):
+    section = CollapsibleSection(root, "Struktur", collapsed=True)
+    section.pack(fill="x")
+    widgets.Frame(section.content, height=150, width=200).pack()
+    root.update()
+    assert section.winfo_height() <= section._header.winfo_reqheight() + 12
+
+
 def test_set_collapsed_does_not_call_callback(root):
     calls = []
     section = _section(root, on_toggle=calls.append)
