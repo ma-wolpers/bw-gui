@@ -1,5 +1,6 @@
 """Shared widget primitives."""
 
+from .collapsible_section import CollapsibleSection
 from .doc_text_events import CodeBlockEvent, DocEvent, HeadingEvent, ListItemEvent, ParagraphEvent, TextRun, html_to_events
 from .doc_text_view import configure_doc_text_tags, render_events_into_text
 from .drag_drop import DragDropController
@@ -13,6 +14,7 @@ from .wrapped_text_field import WrappedTextField
 
 __all__ = [
     "Checkbox",
+    "CollapsibleSection",
     "CodeBlockEvent",
     "DocEvent",
     "DragDropController",

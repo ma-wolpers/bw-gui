@@ -41,6 +41,7 @@ anti-pattern table, and API guidance.
 - Menu: themed custom menubar widget
 - Dialogs: shared settings dialog and scrollable popup host
 - Widgets: hover tooltip primitive
+- Widgets: `CollapsibleSection` (LabelFrame with a ▾/▸ title-row toggle; content in `.content`)
 - Widgets: wrapped multiline text field with word-delete shortcuts
 - Shortcuts: shared label formatting helpers
 
