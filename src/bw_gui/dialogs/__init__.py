@@ -1,6 +1,12 @@
 """Shared dialog services."""
 
-from .service import FileDialogService, MessageDialogService, TextPromptDialogService
+from .service import (
+	ChoiceDialogService,
+	ChoiceOption,
+	FileDialogService,
+	MessageDialogService,
+	TextPromptDialogService,
+)
 from .scrollable_popup import ScrollablePopupWindow
 from .settings_orchestrator import SettingsDialogOrchestrator
 from .settings_dialog import (
@@ -13,6 +19,8 @@ from .settings_dialog import (
 )
 
 __all__ = [
+	"ChoiceDialogService",
+	"ChoiceOption",
 	"FileDialogService",
 	"MessageDialogService",
 	"TextPromptDialogService",

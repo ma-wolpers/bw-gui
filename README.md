@@ -39,7 +39,7 @@ anti-pattern table, and API guidance.
 - Theming: unified theme registry and ttk setup
 - Runtime host: composed Tk root host (`bw_gui.runtime.TkRootHost`)
 - Menu: themed custom menubar widget
-- Dialogs: shared settings dialog and scrollable popup host
+- Dialogs: shared settings dialog, scrollable popup host, modal choice dialog (`ChoiceDialogService.askchoice`)
 - Widgets: hover tooltip primitive
 - Widgets: `CollapsibleSection` (LabelFrame with a ▾/▸ title-row toggle; content in `.content`)
 - Widgets: wrapped multiline text field with word-delete shortcuts
