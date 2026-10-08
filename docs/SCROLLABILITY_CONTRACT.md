@@ -33,6 +33,7 @@ the window" problem this contract exists to prevent.
 |---|---|
 | Popup / Dialog | `bw_gui.dialogs.ScrollablePopupWindow` |
 | Embedded content area / Pane / Panel (not a popup) | `bw_gui.widgets.ScrollableFrame` |
+| Image preview (e.g. one PDF page) inside a popup or panel | `bw_gui.widgets.ScrollableImagePreview` |
 
 Both are opt-out, not opt-in: reach for them first, and only skip them with
 a documented reason (see below).
@@ -106,6 +107,37 @@ entry, not just bare canvas background) still resolves correctly.
 
 Vertical by default; `orient="horizontal"` exists for single-row strips - see
 "Horizontal scrolling" below.
+
+## `ScrollableImagePreview`
+
+A `ScrollableFrame` subclass that shows one image, fitted to the available
+width and scrolled vertically. The caller supplies `render(width) ->
+PhotoImage | None`; bw-gui never knows what is drawn (no PDF dependency).
+
+Use it instead of a `Canvas` that is sized to the rendered image: such a
+canvas requests the full image height (an A4 page at 700 px width is about
+990 px tall) and pushes every widget packed after it out of the window.
+The pattern for a popup whose controls must always stay visible:
+
+1. pack the control bars first (`side="bottom"` for bars below the image),
+2. pack the preview last with `fill="both", expand=True`,
+
+so shrinking the window only shrinks - and scrolls - the preview.
+
+Contract (details in the class docstring):
+
+- Render width = width available *as if the scrollbar were shown*, so
+  showing/hiding the scrollbar never re-renders (no render/scrollbar
+  oscillation). Deliberate stability trade-off: without a scrollbar the
+  image is one scrollbar-width narrower than the space would allow.
+- Re-render only after a width change of at least 2 px (debounced); height
+  changes never re-render. Nothing renders before the first `refresh()`.
+- `refresh(scroll_to_top=True)` re-renders now and jumps to the top (e.g.
+  on a page change); `scroll(steps, "units"|"pages")` is the keyboard
+  counterpart of the mousewheel and a no-op without overflow.
+- `render` exceptions are not caught: `refresh()` propagates them, a
+  debounced resize render reports them through Tk's
+  `report_callback_exception`. Catch inside `render` for a friendly display.
 
 ## `ScrollablePopupWindow`
 

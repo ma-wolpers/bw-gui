@@ -41,6 +41,7 @@ anti-pattern table, and API guidance.
 - Menu: themed custom menubar widget
 - Dialogs: shared settings dialog, scrollable popup host, modal choice dialog (`ChoiceDialogService.askchoice`)
 - Widgets: hover tooltip primitive
+- Widgets: `ScrollableImagePreview` (width-fitted, vertically scrolling image preview)
 - Widgets: `CollapsibleSection` (LabelFrame with a ▾/▸ title-row toggle; content in `.content`)
 - Widgets: wrapped multiline text field with word-delete shortcuts
 - Shortcuts: shared label formatting helpers
