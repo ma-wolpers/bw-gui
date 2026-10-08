@@ -225,8 +225,9 @@ class ChoiceDialogService:
     - The grab keeps the user from interacting with other windows of the app
       while it is open. It is not a general guarantee against Tk reentrancy:
       ``after()`` callbacks and already queued events still run.
-    - Theming: content uses ttk widgets; the dialog toplevel and its body frame
-      come from ``simpledialog.Dialog`` (plain Tk), the same limitation as
+    - GRENZE(theming): content uses ttk widgets; the dialog toplevel and its
+      body frame come from ``simpledialog.Dialog`` (plain Tk), the same
+      limitation as
       ``TextPromptDialogService.askstring``.
     """
 

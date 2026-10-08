@@ -120,7 +120,9 @@ not part of the public contract.
 ## Internal module layout (maintainers)
 
 Files stay below ~300 lines of code (docstrings, comments, blank lines and imports
-not counted). Larger units are split by responsibility and the original module
+not counted). A function that is long by necessity stays whole and is marked
+`# GRENZE(dateigroesse): long by necessity` (shared marker for accepted limitations
+across all projects; open items use `BAUSTELLE:`). Larger units are split by responsibility and the original module
 re-exports the moved names, so import paths stay stable:
 
 | Module | Responsibility |

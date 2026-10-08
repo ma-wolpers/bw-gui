@@ -73,7 +73,7 @@ def configure_tinted_button_style(
     )
 
 
-# ── TTK baseline (deliberate exception: long by necessity) ───────────────────
+# ── TTK baseline (GRENZE(dateigroesse): long by necessity) ───────────────────
 
 def configure_ttk_theme(root: tk.Misc, theme_key: str | None = None) -> None:
     """Configure the shared ttk style baseline for all Blattwerk-family programs.
