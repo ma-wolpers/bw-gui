@@ -1,5 +1,12 @@
-import bw_gui.runtime.platform as platform_module
+import bw_gui.runtime._win_monitors as win_monitors
+import bw_gui.runtime.screen_placement as placement_module
+from bw_gui.contracts.screen_geometry import MonitorInfo, MonitorSource, Rect
 from bw_gui.runtime.platform import center_window_over_parent, get_monitor_bounds
+
+
+def _secondary_monitor(*_args, **_kwargs):
+    rect = Rect(1920, 0, 3840, 1080)
+    return MonitorInfo(bounds=rect, work_area=rect, source=MonitorSource.WIN32)
 
 
 class _FakeScreenWidget:
@@ -40,15 +47,21 @@ class _FakeToplevel:
     def winfo_rootx(self):
         return self._root_x
 
+    def winfo_ismapped(self):
+        return False
+
     def winfo_rooty(self):
         return self._root_y
+
+    def winfo_exists(self):
+        return True
 
     def geometry(self, spec: str):
         self.geometry_calls.append(spec)
 
 
 def test_get_monitor_bounds_falls_back_to_primary_screen_on_non_windows(monkeypatch):
-    monkeypatch.setattr(platform_module.sys, "platform", "linux")
+    monkeypatch.setattr(win_monitors.sys, "platform", "linux")
     widget = _FakeScreenWidget(1920, 1080)
 
     assert get_monitor_bounds(widget) == (0, 0, 1920, 1080)
@@ -58,7 +71,7 @@ def test_center_window_over_parent_centers_on_parents_actual_monitor(monkeypatch
     # Parent lives on a secondary monitor to the right of the primary display
     # (1920-3840 horizontally). Centering must land inside that monitor, not
     # the primary one at (0, 0)-(1920, 1080).
-    monkeypatch.setattr(platform_module, "get_monitor_bounds", lambda _widget: (1920, 0, 3840, 1080))
+    monkeypatch.setattr(placement_module, "get_monitor_info", _secondary_monitor)
 
     parent = _FakeToplevel(width=1200, height=800, root_x=2100, root_y=100)
     window = _FakeToplevel(width=400, height=300)
@@ -75,7 +88,7 @@ def test_center_window_over_parent_clamps_to_monitor_right_edge(monkeypatch):
     # Parent sits near the right edge of its (secondary) monitor, so a naive
     # centered position for a wide popup would spill past the monitor's own
     # right bound (3840) rather than the primary monitor's (1920).
-    monkeypatch.setattr(platform_module, "get_monitor_bounds", lambda _widget: (1920, 0, 3840, 1080))
+    monkeypatch.setattr(placement_module, "get_monitor_info", _secondary_monitor)
 
     parent = _FakeToplevel(width=200, height=200, root_x=3700, root_y=50)
     window = _FakeToplevel(width=500, height=300)

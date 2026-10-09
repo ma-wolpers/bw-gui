@@ -4,13 +4,12 @@ On Windows 10 (build 17763+) and Windows 11 the DWM API allows applications to
 opt in to a dark or light title bar.  These functions set that attribute so the
 window frame matches the active bw_gui theme.
 
-This module also exposes ``get_monitor_bounds()`` and ``center_window_over_parent()``,
-used to place tooltips and popup windows correctly on multi-monitor setups. Tk's own
-``winfo_screenwidth``/``winfo_screenheight`` report only the *primary* monitor's size on
-Windows, not the monitor the app is actually displayed on, so any code that clamps a
-window position using those two calls silently drags popups back onto the primary
-display whenever the app lives on a secondary monitor. ``get_monitor_bounds()`` asks
-Win32 directly for the actual monitor rectangle instead.
+This module also exposes ``get_monitor_bounds()`` and ``center_window_over_parent()``
+as thin compatibility wrappers over the screen-placement contract
+(``bw_gui.contracts.screen_geometry`` + ``bw_gui.runtime.screen_placement``; Win32
+monitor queries live only in ``bw_gui.runtime._win_monitors``). Tk's own
+``winfo_screenwidth``/``winfo_screenheight`` report only the *primary* monitor on
+Windows, so positions must never be clamped with them.
 
 On macOS and Linux all public functions in this module are no-ops (or fall back to
 Tk's primary-screen-only behavior) — the module imports and runs cleanly on every
@@ -171,119 +170,36 @@ def _apply_native_menu_theme(prefer_dark: bool) -> None:
 def get_monitor_bounds(widget: tk.Misc) -> tuple[int, int, int, int]:
     """Return ``(left, top, right, bottom)`` of the monitor showing *widget*.
 
-    Coordinates are in the same virtual-desktop space as ``winfo_rootx()``/
-    ``winfo_rooty()`` — i.e. a monitor to the right of the primary display has
-    a positive ``left``, and one above/left of the primary display has a
-    negative ``top``/``left``. This is the piece Tk itself doesn't give you:
-    ``winfo_screenwidth()``/``winfo_screenheight()`` report only the *primary*
-    monitor's size on Windows, anchored at ``(0, 0)``, regardless of which
-    monitor the widget's window actually lives on.
-
-    Resolves the widget's HWND up to its root window (via ``GetAncestor``)
-    before asking Win32 ``MonitorFromWindow`` for the containing monitor, so
-    it works for both regular windows and popups/tooltips whose own HWND may
-    not exist yet.  Uses ``MONITOR_DEFAULTTONEAREST`` so a window that is
-    slightly off every monitor (e.g. mid-drag) still resolves to the nearest
-    one instead of failing.
-
-    Falls back to ``(0, 0, widget.winfo_screenwidth(), widget.winfo_screenheight())``
-    — the primary monitor's bounds anchored at the origin, i.e. Tk's own
-    single-monitor assumption — on non-Windows platforms or if any Win32 call
-    fails. Callers should treat that fallback as "best effort, single monitor"
-    rather than a bug: it never crashes, it just can't be more precise than Tk
-    itself is on that platform.
-
-    Args:
-        widget: Any Tk widget already realized enough to have an HWND (or
-                whose toplevel does); typically the tooltip's owner widget or
-                a dialog's parent window.
+    Compatibility wrapper around ``bw_gui.runtime.screen_placement.get_monitor_info``
+    (full monitor bounds, not the work area). New code should use
+    ``get_monitor_info`` / ``place_overlay_now`` directly. An unmapped widget is
+    resolved via its root-coordinate point instead of raising, as before.
     """
-    fallback = (
-        0,
-        0,
-        max(1, int(widget.winfo_screenwidth())),
-        max(1, int(widget.winfo_screenheight())),
-    )
-    if not sys.platform.startswith("win"):
-        return fallback
+    from bw_gui.contracts.screen_geometry import Point
+    from bw_gui.runtime.screen_placement import get_monitor_info
+
     try:
-        import ctypes
-
-        widget.update_idletasks()
-        hwnd = ctypes.c_void_p(widget.winfo_id())
-
-        user32 = ctypes.windll.user32
-        try:
-            ga_root = 2
-            user32.GetAncestor.argtypes = [ctypes.c_void_p, ctypes.c_uint]
-            user32.GetAncestor.restype = ctypes.c_void_p
-            root_hwnd = user32.GetAncestor(hwnd, ga_root)
-            if root_hwnd:
-                hwnd = ctypes.c_void_p(root_hwnd)
-        except Exception:
-            pass
-
-        class _Rect(ctypes.Structure):
-            _fields_ = [
-                ("left", ctypes.c_long),
-                ("top", ctypes.c_long),
-                ("right", ctypes.c_long),
-                ("bottom", ctypes.c_long),
-            ]
-
-        class _MonitorInfo(ctypes.Structure):
-            _fields_ = [
-                ("cbSize", ctypes.c_ulong),
-                ("rcMonitor", _Rect),
-                ("rcWork", _Rect),
-                ("dwFlags", ctypes.c_ulong),
-            ]
-
-        monitor_default_to_nearest = 2
-        user32.MonitorFromWindow.argtypes = [ctypes.c_void_p, ctypes.c_ulong]
-        user32.MonitorFromWindow.restype = ctypes.c_void_p
-        monitor = user32.MonitorFromWindow(hwnd, monitor_default_to_nearest)
-        if not monitor:
-            return fallback
-
-        info = _MonitorInfo()
-        info.cbSize = ctypes.sizeof(_MonitorInfo)
-        user32.GetMonitorInfoW.argtypes = [ctypes.c_void_p, ctypes.POINTER(_MonitorInfo)]
-        user32.GetMonitorInfoW.restype = ctypes.c_int
-        if not user32.GetMonitorInfoW(monitor, ctypes.byref(info)):
-            return fallback
-
-        rect = info.rcMonitor
-        return (int(rect.left), int(rect.top), int(rect.right), int(rect.bottom))
+        target = widget if bool(widget.winfo_ismapped()) else Point(int(widget.winfo_rootx()), int(widget.winfo_rooty()))
+        bounds = get_monitor_info(target, tk_context=widget).bounds
     except Exception:
-        return fallback
+        return (0, 0, max(1, int(widget.winfo_screenwidth())), max(1, int(widget.winfo_screenheight())))
+    return (bounds.left, bounds.top, bounds.right, bounds.bottom)
 
 
 def center_window_over_parent(window: tk.Misc, parent: tk.Misc) -> None:
-    """Reposition (not resize) *window* to be centered over *parent*'s monitor.
+    """Reposition (not resize) *window* centered over *parent*, clamped to the parent's work area.
 
-    Reads *window*'s current size (set beforehand via ``window.geometry("WxH")``)
-    and *parent*'s actual on-screen position via ``winfo_rootx()``/``winfo_rooty()``,
-    then centers *window* over *parent* and clamps the result to the bounds of
-    whichever monitor *parent* is actually displayed on (see
-    ``get_monitor_bounds()``). Only the position (``+x+y``) is written back —
-    *window*'s size is left untouched.
-
-    This exists because an un-positioned ``tk.Toplevel`` (one created with only
-    a ``"WxH"`` geometry, no ``+x+y``) is placed by Tk/Windows using its own
-    default placement, which is biased toward the primary monitor and ignores
-    where *parent* currently is. Popups and dialogs that skip this call will
-    reliably reopen on the primary display when the app itself is on a second
-    monitor.
+    Uses the screen-placement contract (``Side.CENTER_OVER``, margin 0): the window
+    is centered over *parent* and clamped into the work area (monitor minus task
+    bar) of the monitor *parent* is on. Only ``+x+y`` is written.
 
     Args:
-        window: The ``Toplevel`` to position. Must already have its target
-                size applied (e.g. via ``window.geometry("980x700")``) so that
-                ``winfo_width()``/``winfo_height()`` reflect it after
-                ``update_idletasks()``.
-        parent: The window to center over — typically the app's main window
-                or whichever widget owns the popup.
+        window: The ``Toplevel`` to position; its target size must already be applied.
+        parent: The window to center over.
     """
+    from bw_gui.contracts.screen_geometry import Side, Size, calculate_overlay_placement
+    from bw_gui.runtime.screen_placement import apply_window_position, get_monitor_info, widget_rect
+
     window.update_idletasks()
     width = int(window.winfo_width())
     height = int(window.winfo_height())
@@ -291,20 +207,10 @@ def center_window_over_parent(window: tk.Misc, parent: tk.Misc) -> None:
         width = int(window.winfo_reqwidth())
     if height <= 1:
         height = int(window.winfo_reqheight())
-    width = max(1, width)
-    height = max(1, height)
-
-    parent.update_idletasks()
-    parent_x = int(parent.winfo_rootx())
-    parent_y = int(parent.winfo_rooty())
-    parent_width = max(1, int(parent.winfo_width()))
-    parent_height = max(1, int(parent.winfo_height()))
-
-    x_pos = parent_x + (parent_width - width) // 2
-    y_pos = parent_y + (parent_height - height) // 2
-
-    left, top, right, bottom = get_monitor_bounds(parent)
-    x_pos = max(left, min(x_pos, right - width))
-    y_pos = max(top, min(y_pos, bottom - height))
-
-    window.geometry(f"+{x_pos}+{y_pos}")
+    size = Size(max(1, width), max(1, height))
+    anchor = widget_rect(parent)
+    monitor = get_monitor_info(anchor, tk_context=parent)
+    placement = calculate_overlay_placement(
+        anchor=anchor, size=size, monitor=monitor, placement=(Side.CENTER_OVER,), margin=0
+    )
+    apply_window_position(window, placement.position)

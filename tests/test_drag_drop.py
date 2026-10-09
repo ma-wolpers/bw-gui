@@ -76,3 +76,24 @@ def test_register_target_and_unregister_target_round_trip() -> None:
 
     controller.unregister_target(widget)
     assert str(widget) not in controller._targets
+
+
+def test_drag_ghost_is_clamped_to_cursor_monitor_work_area(_shared_tk_root, monkeypatch):
+    import types
+
+    import bw_gui.widgets.drag_drop as dd
+    from bw_gui.contracts.screen_geometry import MonitorInfo, MonitorSource, Rect
+
+    work = Rect(0, 0, 500, 300)
+    monkeypatch.setattr(dd, "get_monitor_info", lambda *_a, **_k: MonitorInfo(work, work, MonitorSource.WIN32, True))
+    controller = DragDropController(_shared_tk_root)
+    controller._start_drag(None, "payload", None)
+    try:
+        controller._on_motion(types.SimpleNamespace(x_root=495, y_root=295))
+        ghost = controller._drag_window
+        ghost.update_idletasks()
+        x, y = (int(v) for v in ghost.geometry().split("+")[1:3])
+        assert x + ghost.winfo_reqwidth() <= 500 and y + ghost.winfo_reqheight() <= 300
+        assert x >= 0 and y >= 0
+    finally:
+        controller._drag_window.destroy()

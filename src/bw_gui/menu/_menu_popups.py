@@ -10,6 +10,8 @@ from __future__ import annotations
 from typing import Callable
 import tkinter as tk
 
+from bw_gui.contracts.screen_geometry import Side, Size
+from bw_gui.runtime.screen_placement import place_overlay_now, widget_rect
 from bw_gui.theming._theme_manager import get_theme
 
 from ._toggle_glyphs import glyph_image, glyph_row_pady, is_binary, menu_item_command, text_prefix
@@ -82,18 +84,17 @@ class _MenuPopupsMixin:
         popup.transient(self.root)
         popup.configure(bg=theme["border"], bd=1, highlightthickness=0)
 
-        body = tk.Frame(popup, bg=theme["bg_surface"], bd=0, highlightthickness=0)
-        body.pack(fill="both", expand=True, padx=1, pady=1)
-        setattr(popup, "_bw_menu_body", body)
+        # Rows live in a ScrollableFrame so a popup taller than the work area can be
+        # capped and scrolled (screen-placement contract, max_size_policy below)
+        # instead of running off the monitor. The canvas is sized to the body.
+        from bw_gui.widgets.scrollable_frame import ScrollableFrame  # local: avoids a circular import
 
-        if level == 0:
-            x_pos = anchor_widget.winfo_rootx()
-            y_pos = anchor_widget.winfo_rooty() + anchor_widget.winfo_height()
-        else:
-            x_pos = anchor_widget.winfo_rootx() + anchor_widget.winfo_width() - 1
-            y_pos = anchor_widget.winfo_rooty()
-        popup.geometry(f"+{int(x_pos)}+{int(y_pos)}")
-        popup.lift()
+        scroll_host = ScrollableFrame(popup, style="Surface.TFrame")
+        scroll_host.pack(fill="both", expand=True, padx=1, pady=1)
+        body = tk.Frame(scroll_host.content, bg=theme["bg_surface"], bd=0, highlightthickness=0)
+        body.pack(fill="both", expand=True)
+        setattr(popup, "_bw_menu_body", body)
+        setattr(popup, "_bw_menu_scroll_host", scroll_host)
 
         navigable_rows: list[tuple[tk.Widget, MenuItem]] = []
 
@@ -187,6 +188,8 @@ class _MenuPopupsMixin:
         setattr(popup, "_bw_menu_top_key", top_key)
 
         # `popup` must already be on `_popup_stack` at its correct index before
+        self._place_menu_popup(popup, anchor_widget, level)
+
         # `_set_keyboard_active_index` runs below: highlighting row 0 may itself
         # trigger a description flyout (`_show_item_description`), which opens a
         # *nested* popup one level deeper via a re-entrant `open_popup` call. That
@@ -208,6 +211,41 @@ class _MenuPopupsMixin:
             popup.bind("<Escape>", lambda _event, p=popup: self._on_menu_back_key(p))
             popup.focus_set()
             self._set_keyboard_active_index(popup, 0)
+
+    def _place_menu_popup(self, popup: tk.Toplevel, anchor_widget: tk.Widget, level: int) -> None:
+        """Size the scroll host to its rows and position the popup on the anchor's monitor.
+
+        Level 0 opens below the strip button (flipping above if it does not fit);
+        deeper levels and description flyouts open right of their anchor row
+        (flipping left), overlapping it by one pixel as before. If the popup is
+        taller than the work area, its height is capped and the rows scroll; the
+        placement is then recomputed for the final size (``place_overlay_now``).
+        """
+        scroll_host = getattr(popup, "_bw_menu_scroll_host")
+        body = getattr(popup, "_bw_menu_body")
+        popup.update_idletasks()
+        scroll_host.canvas.configure(width=body.winfo_reqwidth(), height=body.winfo_reqheight())
+
+        def _cap_height(max_size: Size) -> None:
+            # Chrome around the canvas (popup border, host padding) is measured, not
+            # assumed, so the capped popup's requested height equals max_size.height.
+            chrome = int(popup.winfo_reqheight()) - int(scroll_host.canvas.winfo_reqheight())
+            scroll_host.canvas.configure(height=max(1, max_size.height - chrome))
+
+        # lift() BEFORE positioning: on Windows, lift() of a not-yet-mapped
+        # overrideredirect Toplevel resets an already applied "+x+y" to +0+0
+        # (measured 2026-10-09, Tk 8.6).
+        popup.lift()
+        placement = (Side.BELOW, Side.ABOVE) if level == 0 else (Side.RIGHT, Side.LEFT)
+        place_overlay_now(
+            popup,
+            anchor=widget_rect(anchor_widget),
+            placement=placement,
+            tk_context=self.root,
+            gap=0 if level == 0 else -1,
+            margin=0,
+            max_size_policy=_cap_height,
+        )
 
     def _set_keyboard_active_index(self, popup: tk.Toplevel, index: int) -> None:
         """Moves the keyboard-highlighted row of ``popup`` to ``index`` (wraps around).

@@ -135,3 +135,6 @@ re-exports the moved names, so import paths stay stable:
 | `menu/_menu_popups.py` | mixin: popups, rows, description flyouts, keyboard navigation |
 | `menu/_menu_focus.py` | mixin: focus watchdog, outside-click/Alt/focus handlers |
 | `menu/_toggle_glyphs.py`, `native_toggles.py` | binary menu entries (glyphs, click resolution, native-menu helpers) |
+| `contracts/screen_geometry.py` | pure screen geometry (monitor selection, overlay placement, clamping); no Tk |
+| `runtime/_win_monitors.py` | the only Win32 monitor-geometry adapter |
+| `runtime/screen_placement.py` | Tk side of placement (`get_monitor_info`, `place_overlay_now`); see `SCREEN_PLACEMENT_CONTRACT.md` |

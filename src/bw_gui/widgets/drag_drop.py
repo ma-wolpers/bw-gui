@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from bw_gui.contracts.screen_geometry import Point, Size, calculate_clamped_position
 from bw_gui.runtime import ui
+from bw_gui.runtime.screen_placement import apply_window_position, get_monitor_info, measure_overlay
+from bw_gui.theming._theme_manager import get_theme
 
 
 class DragDropController:
@@ -29,6 +32,7 @@ class DragDropController:
         self._drag_window: ui.Toplevel | None = None
         self._active_payload: object | None = None
         self._targets: dict[str, tuple[ui.Misc, Callable[[object], None]]] = {}
+        self._ghost_size = Size(1, 1)
 
     def register_source(
         self,
@@ -63,24 +67,40 @@ class DragDropController:
         self._active_payload = payload
         label_text = preview_text(payload) if preview_text is not None else str(payload)
 
+        # Colours come from the active theme (principle A), the same tokens the
+        # hover tooltip uses, instead of hard-coded light-yellow/black.
+        theme = get_theme()
         self._drag_window = ui.Toplevel(self._root)
         self._drag_window.overrideredirect(True)
         self._drag_window.attributes("-topmost", True)
         ui.Label(
             self._drag_window,
             text=label_text,
-            background="#ffffe0",
-            foreground="#111111",
+            background=theme["bg_surface"],
+            foreground=theme["fg_primary"],
+            highlightthickness=1,
+            highlightbackground=theme["border"],
             relief="solid",
             borderwidth=1,
             padx=6,
             pady=3,
         ).pack()
+        self._ghost_size = measure_overlay(self._drag_window)
 
     def _on_motion(self, event: ui.Event[ui.Misc]) -> None:
+        """Move the ghost next to the cursor, clamped to the cursor monitor's work area.
+
+        Uses the drag-ghost primitive ``calculate_clamped_position`` (no side/flip
+        semantics) so the ghost stays fully visible at every monitor edge.
+        """
         if self._drag_window is None:
             return
-        self._drag_window.geometry(f"+{event.x_root + 12}+{event.y_root + 8}")
+        cursor = Point(int(event.x_root), int(event.y_root))
+        bounds = get_monitor_info(cursor, tk_context=self._root).work_area
+        position = calculate_clamped_position(
+            desired=Point(cursor.x + 12, cursor.y + 8), size=self._ghost_size, bounds=bounds
+        )
+        apply_window_position(self._drag_window, position)
 
     def _on_release(self, event: ui.Event[ui.Misc]) -> None:
         if self._drag_window is None:
