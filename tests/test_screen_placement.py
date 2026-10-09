@@ -127,3 +127,14 @@ def test_place_overlay_now_detects_stale_placement(monkeypatch, toplevel):
     monkeypatch.setattr(sp, "measure_overlay", lambda _w: next(sizes))
     with pytest.raises(RuntimeError):
         sp.place_overlay_now(toplevel, anchor=Rect(10, 10, 60, 30), placement=(Side.BELOW,))
+
+
+def test_place_on_pointer_monitor_uses_pointer_monitor_and_fraction(monkeypatch, toplevel):
+    info = MonitorInfo(Rect(1920, 0, 3520, 900), Rect(1920, 0, 3520, 860), MonitorSource.WIN32)
+    seen = []
+    monkeypatch.setattr(sp, "get_monitor_info", lambda target, **_k: (seen.append(target), info)[1])
+    monkeypatch.setattr(toplevel, "winfo_pointerxy", lambda: (2500, 300))
+    ui.Frame(toplevel, width=400, height=300).pack()
+    position = sp.place_on_pointer_monitor(toplevel, vertical_fraction=1 / 3)
+    assert seen == [Point(2500, 300)]
+    assert position == Point(1920 + (1600 - 400) // 2, int((860 - 300) / 3))

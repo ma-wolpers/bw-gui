@@ -169,3 +169,28 @@ def place_overlay_now(
         raise RuntimeError("place_overlay_now: window size changed after the placement was calculated")
     apply_window_position(window, result.position)
     return result
+
+
+def place_on_pointer_monitor(window: tk.Misc, *, vertical_fraction: float = 0.5, margin: int = 0) -> Point:
+    """Position a free-standing window (no anchor) on the monitor under the mouse pointer.
+
+    For windows without a parent anchor, e.g. a startup dialog that is its own
+    root: horizontally centred in the work area of the monitor the pointer is on,
+    vertically at ``vertical_fraction`` of the free space (0.5 = centred, 1/3 =
+    upper third), then clamped with ``calculate_clamped_position``.
+
+    Returns:
+        The applied position.
+    """
+    from bw_gui.contracts.screen_geometry import calculate_clamped_position
+
+    size = measure_overlay(window)
+    pointer_x, pointer_y = window.winfo_pointerxy()
+    work = get_monitor_info(Point(int(pointer_x), int(pointer_y)), tk_context=window).work_area
+    desired = Point(
+        work.left + (work.width - size.width) // 2,
+        work.top + int((work.height - size.height) * vertical_fraction),
+    )
+    position = calculate_clamped_position(desired=desired, size=size, bounds=work, margin=margin)
+    apply_window_position(window, position)
+    return position

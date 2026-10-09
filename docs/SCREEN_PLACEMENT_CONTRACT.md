@@ -83,6 +83,10 @@ A separate primitive for objects that follow the pointer, for example the drag g
 
   Before applying, `RuntimeError` is raised if the size no longer matches the placement. A stale placement is never applied.
 
+- **`place_on_pointer_monitor(window, *, vertical_fraction=0.5, margin=0)`:** for free-standing windows without an anchor, such as a startup dialog that is its own root.
+  - Centred horizontally in the work area of the monitor under the mouse pointer, vertically at `vertical_fraction` of the free space.
+  - Then clamped and applied.
+
 ## Tk quirk (measured)
 
 On Windows, `lift()` of a not-yet-mapped `overrideredirect` Toplevel resets an already
