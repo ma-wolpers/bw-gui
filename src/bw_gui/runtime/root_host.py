@@ -19,7 +19,26 @@ Typical usage::
 
 from __future__ import annotations
 
+from typing import Callable, TypeVar
+
 from .primitives import ui
+
+T = TypeVar("T")
+
+
+def create_root() -> ui.Tk:
+    """Create a ``tk.Tk`` root and install the bw-gui key router before anything else.
+
+    The bootstrap invariant (``KEYBINDING_CONTRACT.md``, step 2-0): between ``Tk()``
+    and the router installation no consumer code runs, so everything found on the
+    ``all`` bindtag at installation time is a Tk default. This and
+    :class:`TkRootHost` are the only places allowed to call ``Tk()`` (guarded).
+    """
+    from .key_router import install_router
+
+    root = ui.Tk()
+    install_router(root)
+    return root
 
 
 class TkRootHost:
@@ -46,11 +65,27 @@ class TkRootHost:
         """Create or adopt a Tk root window.
 
         Args:
-            root: An existing ``tk.Tk`` instance to wrap. If None, a new one is created.
-                Passing an existing root is useful in tests or when embedding into a
-                larger application.
+            root: An existing ``tk.Tk`` instance to wrap. If None, a new one is created
+                via :func:`create_root`. Passing an existing root is useful in tests;
+                the key router is installed on it right away (idempotent).
         """
-        self._tk_root = root or ui.Tk()
+        if root is None:
+            self._tk_root = create_root()
+        else:
+            from .key_router import install_router
+
+            self._tk_root = root
+            if isinstance(root, ui.Tk):  # test doubles carry no interpreter to route
+                install_router(root)
+
+    @classmethod
+    def create(cls, *, build: Callable[[ui.Tk], T]) -> T:
+        """Create a root (router installed first), then run *build(root)* with all consumer code.
+
+        For programs that do not subclass :class:`BwBaseWindow`. *build* receives the
+        fresh root and returns whatever the program needs (e.g. its main controller).
+        """
+        return build(create_root())
 
     @property
     def tk_root(self) -> ui.Tk:
