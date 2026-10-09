@@ -86,6 +86,8 @@ A separate primitive for objects that follow the pointer, for example the drag g
 - **`place_on_pointer_monitor(window, *, vertical_fraction=0.5, margin=0)`:** for free-standing windows without an anchor, such as a startup dialog that is its own root.
   - Centred horizontally in the work area of the monitor under the mouse pointer, vertically at `vertical_fraction` of the free space.
   - Then clamped and applied.
+  - Pass `size=` for main windows whose size was set explicitly via `geometry("WxH")`.
+- **`work_area_for(widget) -> Rect`:** the work area of the monitor the widget is on, mapped or not. Use it to cap an initial window size, for example "monitor height minus 80", instead of using `winfo_screen*`.
 
 ## Tk quirk (measured)
 

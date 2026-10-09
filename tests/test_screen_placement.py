@@ -138,3 +138,18 @@ def test_place_on_pointer_monitor_uses_pointer_monitor_and_fraction(monkeypatch,
     position = sp.place_on_pointer_monitor(toplevel, vertical_fraction=1 / 3)
     assert seen == [Point(2500, 300)]
     assert position == Point(1920 + (1600 - 400) // 2, int((860 - 300) / 3))
+
+
+def test_place_on_pointer_monitor_respects_explicit_size(monkeypatch, toplevel):
+    info = MonitorInfo(Rect(0, 0, 1000, 800), Rect(0, 0, 1000, 800), MonitorSource.WIN32, True)
+    monkeypatch.setattr(sp, "get_monitor_info", lambda *_a, **_k: info)
+    monkeypatch.setattr(toplevel, "winfo_pointerxy", lambda: (10, 10))
+    assert sp.place_on_pointer_monitor(toplevel, size=Size(600, 400)) == Point(200, 200)
+
+
+def test_work_area_for_unmapped_widget_uses_root_point(monkeypatch, toplevel):
+    info = MonitorInfo(Rect(0, 0, 1000, 800), Rect(0, 0, 1000, 760), MonitorSource.WIN32, True)
+    seen = []
+    monkeypatch.setattr(sp, "get_monitor_info", lambda target, **_k: (seen.append(target), info)[1])
+    assert sp.work_area_for(toplevel) == Rect(0, 0, 1000, 760)
+    assert isinstance(seen[0], Point)

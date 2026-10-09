@@ -171,7 +171,9 @@ def place_overlay_now(
     return result
 
 
-def place_on_pointer_monitor(window: tk.Misc, *, vertical_fraction: float = 0.5, margin: int = 0) -> Point:
+def place_on_pointer_monitor(
+    window: tk.Misc, *, vertical_fraction: float = 0.5, margin: int = 0, size: Size | None = None
+) -> Point:
     """Position a free-standing window (no anchor) on the monitor under the mouse pointer.
 
     For windows without a parent anchor, e.g. a startup dialog that is its own
@@ -179,12 +181,16 @@ def place_on_pointer_monitor(window: tk.Misc, *, vertical_fraction: float = 0.5,
     vertically at ``vertical_fraction`` of the free space (0.5 = centred, 1/3 =
     upper third), then clamped with ``calculate_clamped_position``.
 
+    Args:
+        size: The size to place; defaults to the requested size (``measure_overlay``).
+            Main windows whose size was set explicitly via ``geometry("WxH")`` pass it.
+
     Returns:
         The applied position.
     """
     from bw_gui.contracts.screen_geometry import calculate_clamped_position
 
-    size = measure_overlay(window)
+    size = size if size is not None else measure_overlay(window)
     pointer_x, pointer_y = window.winfo_pointerxy()
     work = get_monitor_info(Point(int(pointer_x), int(pointer_y)), tk_context=window).work_area
     desired = Point(
@@ -194,3 +200,15 @@ def place_on_pointer_monitor(window: tk.Misc, *, vertical_fraction: float = 0.5,
     position = calculate_clamped_position(desired=desired, size=size, bounds=work, margin=margin)
     apply_window_position(window, position)
     return position
+
+
+def work_area_for(widget: tk.Misc) -> Rect:
+    """Return the work area of the monitor *widget* is on (mapped or not).
+
+    A mapped widget resolves via its toplevel frame; an unmapped one via its
+    current root position. Useful to cap an initial window size to the monitor
+    it opens on instead of the primary screen.
+    """
+    if bool(widget.winfo_ismapped()):
+        return get_monitor_info(widget, tk_context=widget).work_area
+    return get_monitor_info(Point(int(widget.winfo_rootx()), int(widget.winfo_rooty())), tk_context=widget).work_area
