@@ -1,3 +1,4 @@
+from bw_gui.contracts import KeySpec
 from bw_gui.contracts import (
     HsmIntentSpec,
     KeyBindingDefinition,
@@ -12,10 +13,10 @@ from bw_gui.contracts.hsm import HsmContract
 
 def test_keybinding_registry_duplicate_rejected():
     registry = KeybindingRegistry()
-    registry.register(KeyBindingDefinition(binding_id="save", sequence="<Control-s>", intent="save"))
+    registry.register(KeyBindingDefinition(binding_id="save", keys=(KeySpec.parse("Ctrl+S"),), intent="save"))
 
     try:
-        registry.register(KeyBindingDefinition(binding_id="save", sequence="<Control-S>", intent="save_upper"))
+        registry.register(KeyBindingDefinition(binding_id="save", keys=(KeySpec.parse("Ctrl+S"),), intent="save_upper"))
         assert False, "expected ValueError"
     except ValueError:
         assert True
@@ -24,7 +25,7 @@ def test_keybinding_registry_duplicate_rejected():
 def test_keybinding_runtime_evaluation():
     definition = KeyBindingDefinition(
         binding_id="save",
-        sequence="<Control-s>",
+        keys=(KeySpec.parse("Ctrl+S"),),
         intent="save",
         modes=("editor",),
         allow_when_text_input=False,
@@ -52,7 +53,7 @@ def test_keybinding_shortcut_for_intent_resolution():
     registry.register(
         KeyBindingDefinition(
             binding_id="save.editor",
-            sequence="<Control-s>",
+            keys=(KeySpec.parse("Ctrl+S"),),
             intent="save",
             modes=("editor",),
         )
@@ -60,14 +61,14 @@ def test_keybinding_shortcut_for_intent_resolution():
     registry.register(
         KeyBindingDefinition(
             binding_id="save.global",
-            sequence="<Control-Shift-s>",
+            keys=(KeySpec.parse("Ctrl+Shift+S"),),
             intent="save",
             modes=("global",),
         )
     )
 
-    assert registry.shortcut_for_intent("save", mode="editor") == "<Control-s>"
-    assert registry.shortcut_for_intent("save", mode="preview") == "<Control-Shift-s>"
+    assert registry.shortcut_for_intent("save", mode="editor") == KeySpec.parse("Ctrl+S")
+    assert registry.shortcut_for_intent("save", mode="preview") == KeySpec.parse("Ctrl+Shift+S")
     assert registry.shortcut_for_intent("missing") is None
 
 

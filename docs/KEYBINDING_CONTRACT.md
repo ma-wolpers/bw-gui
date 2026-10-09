@@ -1,50 +1,187 @@
 # Keybinding Contract
 
-bw-gui is the single place that understands Tk's keyboard semantics. Consumer apps
-declare *which* shortcut should trigger *which* intent in *which* UI mode. They never
-interpret `event.state`, never parse or compare Tk sequence strings and never decide
-themselves whether a held modifier should block a shortcut.
+bw-gui is the only place that understands Tk's keyboard semantics. Consumer apps
+declare *which* key should trigger *which* intent in *which* UI mode. They never see
+Tk binding strings (`"<Control-z>"`), Tk's `"break"`, `keysym`/`char`/`event.state`
+or Tk event objects, and they never decide whether a held modifier blocks a shortcut.
 
-If an app needs Tk keyboard knowledge that this contract does not offer yet, the
-contract is incomplete. Extend it here instead of writing a local helper.
-
-Modules:
+If an app needs Tk keyboard knowledge that this contract does not offer, the contract
+is incomplete. Extend it here instead of writing a local helper.
 
 | Module | Responsibility |
 |---|---|
-| `bw_gui.contracts.key_modifiers` | Tk backend normalisation, `KeyModifiers`, `event.state` decoding |
-| `bw_gui.contracts.key_sequence` | Parsing keyboard sequences, declared modifiers, `BindingSignature` |
-| `bw_gui.contracts.keybinding` | `KeyBindingDefinition`, runtime context, `evaluate_binding`, registry |
-| `bw_gui.contracts.keybinding_conflicts` | Semantic conflict detection over the full runtime applicability |
-| `bw_gui.runtime.shortcuts` | `WindowShortcutBinder`: binding, gating, multiplexing for one toplevel |
+| `contracts/key_spec.py` | `KeySpec`, `Key`, `Mod`, notation (`parse`/`str`), `KeyIdentity`, **`matches`**, `overlaps` |
+| `contracts/key_event.py` | `classify_key`: the only interpretation of `keysym`/`char`/`state` → `KeyEvent` + `KeyIdentity` |
+| `contracts/key_modifiers.py` | Tk backends, `KeyModifiers`, `event.state` decoding (masks below) |
+| `contracts/events.py` | `EventResult` (`HANDLED`/`NOT_HANDLED`), `coerce_result` |
+| `contracts/subscription.py` | `Subscription` lifecycle handle (`SUBSCRIPTION_CONTRACT.md`) |
+| `contracts/keybinding.py`, `keybinding_conflicts.py` | `KeyBindingDefinition`, gating, registry, model-A conflicts |
+| `runtime/_key_channel.py` | one catch-all per bindtag, gesture slot |
+| `runtime/key_router.py` | owner of the `all` tag, roles, `TK_DEFAULT` wrapping, `verify()` |
+| `runtime/shortcuts.py` | `WindowShortcutBinder`, `ApplicationShortcutBinder` |
+| `runtime/widget_keys.py` | `WidgetShortcutBinder`, `on_key` |
+| `runtime/text_input.py` | text-input context (`accepts_text_input`, `register_text_input`) |
+| `runtime/_tk_identity.py` | per-interpreter state on the `tkinter.Tk` root |
 
-## Platform vs. Tk backend
+## `KeySpec`: the only public shortcut syntax
 
-The modifier bits depend on the windowing system Tk talks to (the Tk backend), not
-on the operating system.
+- **Named keys:** `KeySpec(Key.ESCAPE)`, `KeySpec(Key.TAB, {Mod.SHIFT})`.
+- **Characters:** `KeySpec.char("z", {Mod.CTRL})`.
+  - The character is exactly one printable, non-whitespace character as the **current
+    keyboard layout** produces it, Shift included (`"Z"`).
+  - `Mod.SHIFT` is invalid for characters.
+- **Whitespace keys are named keys only:** `Key.SPACE`, `Key.TAB`, `Key.ENTER`. `char(" ")` is a `ValueError`.
+- **Exact modifiers:** `modifiers` is exact. `char("z", {CTRL})` matches Ctrl+Z, not Ctrl+Shift+Z and not Ctrl+Alt+Z.
+  - Extra held modifiers are allowed only through the explicit `tolerate` set (`modifiers ∩ tolerate = ∅`).
+  - Lock keys (NumLock, CapsLock) never take part.
+- **Shift tolerance on a character:** bind several specs, e.g. `[char("z", {CTRL}), char("Z", {CTRL})]`. Several specs on one binding are any-of alternatives.
+- **Logical keys:** matching uses the layout-produced character (Tk `keysym`), never a physical keycode. On another layout (e.g. Cyrillic) the same physical key produces another character and `char("z", …)` does not match there. This is intended.
+- **Backend check:** `Mod.CMD` exists only on aqua; binding it on win32/x11 raises `ValueError`.
 
-| `sys.platform` | Tk backend |
+### Notation (`KeySpec.parse` / `str(spec)`)
+
+```
+spec   := mods key [" (tolerate: " Mod (", " Mod)* ")"]
+mods   := (Mod "+")*            Mod ∈ {Ctrl, Alt, Shift, Cmd}, case-insensitive
+```
+
+- **Parsing:** known modifier prefixes are peeled from the left. The rest up to the first space is the key token:
+  - **(a)** a name (`Space`, `Escape`, `Enter`, `Tab`, `Up`, `PageDown`, `F1`–`F12`, …; case-insensitive)
+  - **(b)** one *letter*, case-insensitive. `Shift` folds into it: `"Ctrl+Shift+Z"` = `char("Z", {CTRL})`, and `"Ctrl+Z"` = `"Ctrl+z"` = `char("z", {CTRL})`.
+  - **(c)** any other printable character, taken literally: `"Ctrl++"` = `char("+", {CTRL})`, `"€"`. `Shift` is invalid here, so write the produced character (`"!"`, not `"Shift+1"`).
+- **Letter:** a character with a lossless one-character upper/lower mapping. `ß` (→ `SS`) and `µ` (→ Greek `Μ` → `μ`) fall under rule (c).
+- **Tolerate suffix:**
+  - One space separates it. Whitespace around `:` and `,` is allowed, names are case-insensitive.
+  - Errors: an empty list, a duplicate, an overlap with `modifiers`, `Shift` on a character, an unknown name, or text after `)`.
+- **Canonical output:**
+  - Fixed order `Ctrl+Alt+Shift+Cmd`.
+  - Letters are upper-case, and `Shift+` appears exactly when the character is upper-case.
+  - Tolerate suffix: `" (tolerate: Ctrl, Shift)"`.
+- **Roundtrip:** `KeySpec.parse(str(s)) == s` for every valid spec.
+
+## Two levels: `KeyIdentity.character` vs. `KeyEvent.text`
+
+| | `KeyIdentity.character` (internal) | `KeyEvent.text` (public) |
+|---|---|---|
+| meaning | logical, layout-based key/character | character actually typed |
+| used for | shortcut matching, menu mnemonics | type-ahead, filtering |
+| Ctrl+Z / Alt+Z | `"z"` | `None` |
+| AltGr character (`@`) | `"@"` | `"@"` |
+| whitespace keys | never (named key) | `" "` for Space |
+
+`text` rule:
+
+1. No character, or `Cc`/`Cf` → `None`.
+2. A printable character with no shortcut modifier → the character.
+3. A printable character with shortcut modifiers → `None`, except for the per-backend exception table. The table currently holds only aqua Option, which is not verified live. For those combinations the modifier is removed from `KeyEvent.modifiers` and the identity.
+
+On win32, AltGr characters arrive with Ctrl/Alt already stripped by Tk (measured, `KEYBINDING_AUDIT.md`), so rule 2 applies. There is **no** `state == 0` heuristic.
+
+## Architecture: one semantic matching layer
+
+**Channels.** Every bw-gui-owned bindtag carries exactly **one** keyboard catch-all (`<KeyPress>`). Its script is a constant Tcl line calling a registered dispatcher, and it `break`s when the dispatcher returns `handled`. No concrete shortcut is ever registered with Tk, so Tk's specificity rule has nothing to decide. Runtime and conflict analysis use the same `matches`.
+
+**Ownership.** A tag that carries a bw-gui channel must not carry foreign keyboard bindings:
+
+- Creating a channel next to one raises `ValueError`.
+- `router.verify()` reports later additions on `all`.
+- Non-keyboard bindings (e.g. `<Configure>`) may coexist.
+
+**Dispatch channels.** For every semantic dispatch channel (keyboard, wheel, click, drag, lifecycle) there is one central bw-gui dispatcher.
+
+- Internal Tk bindings may use extra raw sequences to recognise gestures (double press for `bind_click(count=2)`).
+- Consumers never see Tk syntax, and no shortcut/role decision is delegated to Tk's matcher.
+
+### Bindtag order (binding)
+
+```
+widget -> bwkeys:<path> -> Class -> bwkeys-after:<path> -> toplevel path -> all
+```
+
+| Tag | Content |
 |---|---|
-| `win32`, `cygwin` | `win32` |
-| `darwin` | `aqua` |
-| `linux*`, `freebsd*`, `openbsd*`, `netbsd*` | `x11` |
-| anything else | `ValueError` |
+| `bwkeys:<path>` | `WidgetShortcutBinder` definitions, then `on_key(phase="before")` |
+| Class | native Tk bindings (text insertion, native navigation) |
+| `bwkeys-after:<path>` | `on_key(phase="after")`; only exists when registered |
+| toplevel path | `WindowShortcutBinder` (decision 36); popup overrides live here |
+| `all` | router: `OBSERVER` → `APP_SHORTCUT` → `MENU_MNEMONIC` → wrapped Tk default |
 
-`sys.platform` never returns `"x11"`. At runtime the binder asks the window itself
-(`tk windowingsystem`), which is authoritative. `backend_for_platform()` is only the
-fallback without a Tk interpreter.
+- **Why the toplevel path:** Tk adds it to the bindtags of every current and future descendant. A separate `bwwindow:*` tag would have to be inserted into every widget, including widgets created later, and Tk offers no hook for that.
+- **Effect on popups:** a binding on a popup's toplevel runs before `all`, so it beats `ApplicationShortcutBinder`. The main window's `WindowShortcutBinder` never sees popup events.
 
-## Modifier model
+### The `all` router (`runtime/key_router.py`)
 
-`KeyModifiers(shift, control, alt, command)` is a deliberately **semantic** model,
-not a mirror of the Tk bit field. Lock keys and mouse buttons are not represented.
+- **Ownership:** exactly one router per interpreter (decision 31).
+  - It is stored as an attribute of the interpreter's `tkinter.Tk` root.
+  - It is not kept in a global map keyed by `root.tk`, because `_tkinter.tkapp` is not weak-referenceable.
+  - `interpreter_root(widget)` is the only place relying on tkinter internals.
+  - Several toplevels of one interpreter resolve to the same router; several `Tk()` instances get separate routers.
+  - Root destroy drops everything.
+- **Bootstrap (step 2-0):** `TkRootHost` / `create_root()` installs the router **directly after `Tk()`**, before any consumer code runs. `TkRootHost.create(build=...)` runs consumer code strictly afterwards. Everything on `all` at installation time is therefore by definition a Tk default.
+- **`TK_DEFAULT` wrapping (decision 32):**
+  - Every keyboard-press sequence and every virtual event found on `all` gets the script `prefix + "\n" + original`.
+    - The original is read via `bind all S` as one opaque Tcl string. It includes `+`-appended parts and is never parsed, escaped or formatted in Python.
+    - It stays at the top level of the binding script, so Tk's `%`-substitution and Tcl parsing are unchanged.
+  - Tk's own matcher keeps choosing which binding runs. The dispatcher runs once per key press, and only on `NOT_HANDLED` does the original of exactly that binding follow.
+  - Key-release defaults are not touched.
+  - Virtual events without key information (`%K` = `??`) produce an identity without key, so only observers and the original run.
+  - `uninstall()` restores every original byte-for-byte.
+  - Tk 8.6 / win32 defaults found by the spike: `<<PrevWindow>>`, `<<NextWindow>>`, `<Key-F10>`, `<Alt-Key>`, `<Key-Alt_L/R>` (plus releases).
+- **Roles:**
+  - Observers always run and cannot consume. In the other roles, the first `HANDLED` ends processing.
+  - `APP_SHORTCUT` before `MENU_MNEMONIC` reproduces today's outcome: a concrete app `Alt+Z` beat the generic menu `<Alt-KeyPress>` by Tk specificity. It is now guaranteed.
+  - The mnemonic matches `KeyIdentity.character`, never `KeyEvent.text` (which is `None` for Alt+Z).
+- **Exceptions:** handler errors are reported through `report_callback_exception` and end the event's processing. A failing observer does not end the observer phase.
 
-A **shortcut modifier** is Control, Alt/Option or Command: a modifier that turns a
-key into a different command (`has_shortcut_modifier`). Shift is not a shortcut
-modifier, because it changes the produced character (`a` becomes `A`, `=` becomes
-`+`) rather than the command.
+### Binders
 
-### `event.state` masks
+`WindowShortcutBinder(window, ...)`, `ApplicationShortcutBinder(root, ...)` and `WidgetShortcutBinder(widget, ...)` share one API:
+
+```
+bind(keys, handler, *, binding_id, intent, modes=(GLOBAL,), allow_when_text_input=False,
+     allow_when_offline=True, description="", applies_when=None) -> ShortcutRegistration
+```
+
+- **Handler:** `handler(KeyEvent) -> EventResult | None`.
+  - `None` means `NOT_HANDLED` (propagates). `HANDLED` makes bw-gui stop the Tk event.
+  - Returning a string (e.g. a legacy `"break"`) raises `TypeError`.
+- **Constructor hooks:** `registry`, `hsm_contract.validate_intent`, `is_text_input` (transitional override), `dialog_open`, `offline`, `mode_provider` (base mode from domain state), `on_dispatch(intent, success=...)`, `backend`.
+- **Gating order:** mode → offline → text input → dialog (`evaluate_binding`). Modifiers are not part of gating; exact matching decides them.
+- **Model A (decision 21):**
+  - Per scope there is at most one applicable definition per key event and runtime context.
+  - The static check rejects overlaps (`overlaps()` × every gating context), across all binders on the same toplevel and across all application binders.
+  - `applies_when` never makes definitions disjoint; definitions differing only by a predicate must be merged.
+  - At runtime, `applies_when=False` → the handler does not run, `on_dispatch` is not called, the result is `NOT_HANDLED` and the event propagates. No further definition is searched.
+- **Lifecycle:**
+  - `bind` returns a `ShortcutRegistration` (`Subscription` + `.definition`).
+  - `dispose()` removes everything. It runs automatically when the toplevel/widget is destroyed.
+
+### `on_key(widget, handler, *, phase="before" | "after")`
+
+- **Precedence:** if a widget shortcut executed in `bwkeys:<path>`, `on_key` is not called for that event.
+- **`before`:** runs ahead of the native class bindings. In a text widget the character is not inserted yet.
+- **`after`:** means *after successful propagation through every preceding bindtag*. If anything before consumed the event (a shortcut or `before` `HANDLED`, or a native class binding breaking), Tk never reaches `bwkeys-after:<path>`.
+- **`HANDLED`:** stops the event. In `before` this also skips the class bindings, `after`, the toplevel and `all`.
+- **Completion order:**
+  1. Popup navigation as widget shortcuts with `applies_when=popup_open` → `HANDLED`.
+  2. Filtering in `after` → `NOT_HANDLED`.
+  3. Pure type-ahead in `before` → `HANDLED` on a hit.
+
+## Text-input context (`runtime/text_input.py`)
+
+A widget accepts text input when a key without shortcut modifier would insert or delete text in it.
+
+- **Closed Tk table:**
+  - Entry/Spinbox (tk and ttk) unless `disabled`/`readonly`
+  - `ttk.Combobox` unless `readonly`
+  - `Text` when `normal`
+- **Custom widgets:** only via `bw_accepts_text_input()` or `register_text_input(widget, predicate)`. Any other widget is never text input.
+- **Which widget:** the event widget, else the focus widget; there is no ancestor walk.
+- **Deliberate change:** a read-only combobox and a disabled entry are no text input any more.
+
+## Modifier decoding (`contracts/key_modifiers.py`)
+
+`KeyModifiers(shift, control, alt, command)` is semantic: lock keys and mouse buttons are not represented. The modifier bits depend on the Tk backend (`tk windowingsystem`), not on the OS.
 
 | Modifier | win32 | aqua | x11 |
 |---|---|---|---|
@@ -54,174 +191,23 @@ modifier, because it changes the produced character (`a` becomes `A`, `=` become
 | Command | – | `0x8` (Mod1) | – |
 | NumLock (ignored) | `0x8` | – | usually `0x10` (Mod2) |
 
-How far each column is verified:
-
-- **win32 is verified live.** It was measured with real key strokes on Windows 11 and
-  Tk 8.6.15 (`tests/live/test_live_keyboard.py`). NumLock adds `0x8` to *every* state
-  while it is on.
-- **This is the Windows NumLock trap.** Code that reads `0x8` as "Alt" (correct on X11)
-  treats every key as Alt-modified as soon as NumLock is on. That exact bug disabled
-  the single-letter shortcuts in Kartograph and Blattwerk.
-- **AltGr is never gated on win32.** AltGr and Ctrl+Alt combinations that produce a
-  character arrive with `state=0x0`, because Tk strips the Control and Alt bits.
-- **Tk's binding matcher also treats `0x10` as Alt on win32.** Real keyboards did not
-  produce `0x10` in the measurement, so the contract decodes only `0x20000` as Alt.
-- **aqua is not verified live.** Its column is derived from Tk's macOS sources.
-- **x11 depends on the user's modifier mapping.** Mod1 is Alt only under the usual
-  xmodmap assignment.
-
-### Unknown vs. absent modifier information
-
-| Value | Meaning | Gating |
-|---|---|---|
-| `KeybindingRuntimeContext.modifiers = None` | This runtime path supplies no modifier information (legacy contexts) | none |
-| `UNKNOWN_MODIFIERS` | An event exists, but its `state` is missing or not an `int` | fail-closed |
-| `KeyModifiers(...)` | State decoded | rule below |
-
-`modifiers_from_event(event) -> KeyModifiers | UnknownModifiers` never returns `None`.
-`UNKNOWN_MODIFIERS` has no truth value. Always compare it with `is`.
-
-## Sequence syntax (keyboard shortcuts only)
-
-`parse_sequence()` supports exactly the keyboard-shortcut subset of Tk's syntax:
-
-- a single character (`"a"`, `"+"`)
-- `<[Modifier-]*[KeyPress-|Key-]detail>` with one event
-
-Single-character details are normalised to keysym names, so `<Control-,>` equals
-`<Control-comma>`. Keysyms stay case-sensitive: `a` and `A` are different keys.
-
-The parser rejects the following with `ValueError`:
-
-- virtual events
-- mouse and other event types
-- `KeyRelease`
-- detail-less `<KeyPress>`
-- `Double` / `Triple` / `Any` / `Lock` / `Extended`
-- button modifiers
-- multi-event sequences
-
-Other kinds of GUI semantics need their own contract.
-
-### Modifier tokens per backend
-
-| Token | win32 | aqua | x11 |
-|---|---|---|---|
-| `Control` | control | control | control |
-| `Shift` | shift | shift | shift |
-| `Alt` | alt | rejected | alt |
-| `Command` | rejected | command | rejected |
-| `Mod1` / `M1` | rejected | command | alt |
-| `Option`, `Mod2` / `M2` | rejected | alt | rejected |
-| `Meta` / `M` | rejected | rejected | rejected |
-
-"Rejected" means the contract defines no meaning for that token on that backend, so
-binding it raises `ValueError` instead of guessing.
-
-On win32, `<Command-a>` and `<Mod1-a>` match only `state=0x8`, which is the NumLock
-bit (measured with Tk 8.6.15). So `Command` is **not** Control on Windows.
-
-`binding_signature(sequence, backend)` returns the event type, keysym and semantic
-modifiers. It is the only accepted way to compare two bindings.
-
-## Runtime gating (`evaluate_binding` / `KeybindingRegistry.evaluate_runtime`)
-
-The checks run in this order:
-
-1. mode
-2. offline
-3. text-input focus
-4. dialog priority
-5. modifiers
-
-The modifier rule:
-
-- `modifiers is None`: no check (legacy behaviour).
-- `allow_modifiers=True`: additional, undeclared shortcut modifiers are allowed.
-- Otherwise:
-  - `UNKNOWN_MODIFIERS` gives `(False, "modifier-unknown")`. This applies even to
-    bindings that declare modifiers, because Tk also matches `<Control-a>` while
-    extra modifiers are held.
-  - A held shortcut modifier that the sequence does not declare gives
-    `(False, "modifier-held")`.
-
-| Event | Binding | Result (`allow_modifiers=False`) |
-|---|---|---|
-| `a` | `a` | allowed |
-| `Shift+a` | `a` | allowed |
-| `Ctrl+a` | `a` | blocked |
-| `Alt+a` | `a` | blocked |
-| `Cmd+a` | `a` | blocked |
-| `Ctrl+Shift+a` | `a` | blocked |
-| `Ctrl+a` | `<Control-a>` | allowed |
-| `Alt+a` | `<Alt-a>` | allowed |
-| `Ctrl+Alt+a` | `<Control-a>` | blocked |
-| NumLock+`a` (win32) | `a` | allowed |
-
-`derive_active_mode()` defines the mode priority: offline, then dialog, then text
-input (editor), then the app's base mode. The binder and the conflict analysis both
-use this function.
-
-## Conflicts
-
-Two definitions **conflict** if both conditions hold:
-
-- They have the same `binding_signature`.
-- At least one runtime context exists in which both would be allowed to execute.
-
-The contexts considered cover every dispatch criterion:
-
-- every relevant base mode
-- the offline, dialog and text-input flags
-- the modifier state: exactly the declared modifiers, one additional shortcut
-  modifier, or unknown
-
-Each context is judged by `evaluate_binding` itself, so the analysis cannot drift from
-the runtime rules. Use `KeybindingRegistry.find_conflicts(backend)` or
-`find_conflicts(definitions, backend)`. The older `KeybindingRegistry.conflicts()`
-compares raw strings and is deprecated.
-
-## `WindowShortcutBinder`
-
-- **Scope and bindtag:** one binder serves exactly one toplevel and binds on that
-  window's bindtag (`window.bind`). Widgets in other toplevels, such as popups, do not
-  see its shortcuts. `bind_all` is not equivalent and is not used. A cross-window
-  shortcut scope would be a separate contract.
-- **Mode provider:** `mode_provider` is a generic binder feature. It returns the app's
-  base mode (default `UI_MODE_GLOBAL`) and should come from domain state, not from
-  widget visibility.
-- **Multiplexing:**
-  - Tk keeps one script per (tag, sequence) and silently replaces it on a second
-    `bind`. The binder therefore binds each signature once and dispatches to the first
-    allowed definition in registration order.
-  - Overlapping definitions with the same signature are rejected at bind time. So are
-    sequences outside the contract and unknown intents.
-- **Propagation:** a blocked shortcut returns `None`, never `"break"`, so later
-  bindtags still see the event. An example is a global `<Alt-KeyPress>` menu handler
-  on `all`. An executed shortcut returns its handler's result.
-- **Observability:** `on_dispatch(intent, success=...)` runs after every handler
-  invocation.
+- **win32** is verified live (Windows 11, Tk 8.6.15, `tests/live/`). NumLock adds `0x8` to every state. Code reading `0x8` as Alt (X11 habit) breaks as soon as NumLock is on. That is the trap this contract removes.
+- **AltGr / Ctrl+Alt** combinations that produce a character arrive with `state=0x0` on win32.
+- **aqua** is derived from Tk's sources and not verified live.
+- **x11** depends on the user's modifier mapping.
+- **Undecodable states** (a missing or non-integer `state`) become `UNKNOWN_MODIFIERS`, so no `KeySpec` matches (fail-closed).
 
 ## Rule for apps
 
-This rule is enforced by `bw_gui.testing.tk_state_guard.find_offenders(repo / "app")` in every consumer's test suite.
-
-- **No raw `event.state`:** never write `event.state & <mask>` or
-  `getattr(event, "state") & ...`. Use the binder, or `modifiers_from_event()` where a
-  handler genuinely needs the modifier state (for example Ctrl+click semantics).
-- **No local sequence helpers:** never parse, normalise or compare sequence strings
-  yourself.
-- **No `bind_all` for shortcuts.**
+- No Tk binding strings and no `return "break"` in app code. Use `KeySpec` and `EventResult`.
+- No keyboard `bind`/`bind_all` outside bw-gui. Use the binders and `on_key`.
+- No `event.state`, `keysym` or `char` interpretation.
+- Guards in `bw_gui.testing` enforce this; see each guard's docstring for what it detects and what it deliberately misses. `find_offenders(...) == {}` means "no known statically detectable violation", not a formal proof.
 
 ## Testing
 
-- **Headless:** `tests/test_shortcut_binder_headless.py` uses a window test double. It
-  covers gating, multiplexing and return values without opening windows.
-- **Real Tk key routing (opt-in):** tests that route real synthetic key events need
-  the OS keyboard focus. They are opt-in via `TK_FOCUS_TESTS=1` and should be run while
-  nobody is typing.
-- **Consumer repos:** import the `bw_gui.testing.background_windows` hooks in
-  `tests/conftest.py`. Every mapped Tk test window then immediately returns the OS
-  foreground to the developer's window.
-- **Live keyboard (opt-in):** `BW_GUI_LIVE_KEYBOARD=1 pytest -m live_keyboard
-  tests/live` re-measures the win32 masks with real key strokes.
+- **Headless:** `tests/test_shortcut_binders.py`, `tests/test_key_router.py`, `tests/test_key_spec.py` and `tests/test_key_event.py` feed the dispatcher entry directly, so no keyboard focus is needed.
+  - The `TK_DEFAULT` wrapping is verified with a deliberately nasty fake default on a virtual event. Virtual events reach widgets without focus.
+- **Real Tk key routing (opt-in):** `tests/test_shortcut_binder_tk.py` with `TK_FOCUS_TESTS=1`.
+- **Consumer repos:** import the `bw_gui.testing.background_windows` hooks in `tests/conftest.py`.
+- **Live keyboard (opt-in):** `BW_GUI_LIVE_KEYBOARD=1 pytest -m live_keyboard tests/live`.

@@ -22,7 +22,10 @@ from .key_modifiers import (
     modifiers_from_event,
     modifiers_from_state,
 )
-from .key_sequence import BindingSignature, ParsedSequence, binding_signature, declared_modifiers, parse_sequence
+from .events import EventResult, coerce_result
+from .key_event import KeyEvent
+from .key_spec import Key, KeySpec, Mod
+from .subscription import Subscription
 from .keybinding_conflicts import definitions_overlap, find_conflicts
 from .keybinding import (
     UI_MODE_DIALOG,
@@ -71,11 +74,13 @@ __all__ = [
     "backend_for_windowing_system",
     "modifiers_from_event",
     "modifiers_from_state",
-    "BindingSignature",
-    "ParsedSequence",
-    "binding_signature",
-    "declared_modifiers",
-    "parse_sequence",
+    "EventResult",
+    "coerce_result",
+    "Key",
+    "KeyEvent",
+    "KeySpec",
+    "Mod",
+    "Subscription",
     "definitions_overlap",
     "find_conflicts",
     "POPUP_KIND_MODAL",

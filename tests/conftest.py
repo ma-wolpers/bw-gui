@@ -32,3 +32,20 @@ def _shared_tk_root():
     window.update()
     yield window
     window.destroy()
+
+
+def create_extra_tk(attempts: int = 3):
+    """Create an additional real Tk interpreter, retrying only the known Tcl init race.
+
+    Some tests need their own interpreter (e.g. to observe what is on the ``all``
+    bindtag at router installation). Creating one next to the shared root
+    intermittently fails on this Windows setup with ``init.tcl``/``tcl_findLibrary``
+    errors (see the module docstring); only those are retried.
+    """
+    for attempt in range(attempts):
+        try:
+            return ui.Tk()
+        except ui.TclError as exc:
+            if attempt == attempts - 1 or not any(m in str(exc) for m in ("tcl_findLibrary", "init.tcl", "tk.tcl")):
+                raise
+    raise AssertionError("unreachable")

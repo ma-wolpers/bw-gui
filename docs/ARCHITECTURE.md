@@ -59,9 +59,10 @@ color work, forever.
 
 ### E — bw-gui is the only entity that knows Tk's keyboard semantics
 
-Consumer programs never interpret `event.state` bits, never parse or compare Tk
-sequence strings and never decide themselves whether a held modifier blocks a
-shortcut. Those rules differ per Tk backend (the Windows NumLock bit is Alt's bit
+bw-gui primitives are semantic contracts, not a 1:1 pass-through of the Tk API.
+Consumer programs never see Tk binding strings or `"break"`, never interpret
+`event.state`/`keysym`/`char` bits and never decide themselves whether a held
+modifier blocks a shortcut; shortcuts are `KeySpec`s, handlers return `EventResult`. Those rules differ per Tk backend (the Windows NumLock bit is Alt's bit
 on X11) and live in the keybinding contract. See
 [KEYBINDING_CONTRACT.md](KEYBINDING_CONTRACT.md). If an app needs Tk knowledge the
 contract does not offer, the contract is extended; no local helper is written.
@@ -81,8 +82,9 @@ refactor them.
 | `style.lookup("MyStyle.TButton", "background")` to read a colour | A | read from theme contract instead |
 | `configure_ttk_theme(root, theme_key)` where `theme_key` comes from a non-framework caller | C | only the framework calls this; consumers call `apply_theme()` |
 | `icon_photo = recolor(base_photo, fg_hex)` in consumer code | D | `icon_button(parent, base_photo, command, color_tint=seed)` |
-| `if event.state & 0x0008:` ("Alt held") in consumer code | E | `WindowShortcutBinder` gating or `modifiers_from_event(event)` |
-| `self.bind_all("<KeyPress-a>", ...)` for an app shortcut | E | `WindowShortcutBinder.bind("a", ...)` |
+| `if event.state & 0x0008:` ("Alt held") in consumer code | E | exact `KeySpec` matching in the binders |
+| `self.bind_all("<Control-z>", ...)` / `widget.bind("<Up>", ...)` | E | `ApplicationShortcutBinder`/`WindowShortcutBinder`/`WidgetShortcutBinder` with `KeySpec` |
+| `return "break"` in a handler | E | `return EventResult.HANDLED` |
 | `widgets.Checkbutton(...)` / `menu.add_checkbutton(...)` in consumer code | B, D | `Checkbox` (staged, effective on submit) or `Switch` (immediate effect), see [TOGGLE_CONTRACT.md](TOGGLE_CONTRACT.md) |
 
 ---
@@ -135,6 +137,8 @@ re-exports the moved names, so import paths stay stable:
 | `menu/_menu_popups.py` | mixin: popups, rows, description flyouts, keyboard navigation |
 | `menu/_menu_focus.py` | mixin: focus watchdog, outside-click/Alt/focus handlers |
 | `menu/_toggle_glyphs.py`, `native_toggles.py` | binary menu entries (glyphs, click resolution, native-menu helpers) |
+| `contracts/key_spec.py`, `key_event.py`, `events.py`, `subscription.py` | semantic keyboard contract (no Tk) |
+| `runtime/_key_channel.py`, `key_router.py`, `shortcuts.py`, `widget_keys.py`, `text_input.py`, `_tk_identity.py` | keyboard dispatch; see `KEYBINDING_CONTRACT.md` |
 | `contracts/screen_geometry.py` | pure screen geometry (monitor selection, overlay placement, clamping); no Tk |
 | `runtime/_win_monitors.py` | the only Win32 monitor-geometry adapter |
 | `runtime/screen_placement.py` | Tk side of placement (`get_monitor_info`, `place_overlay_now`); see `SCREEN_PLACEMENT_CONTRACT.md` |

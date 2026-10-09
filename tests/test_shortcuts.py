@@ -2,7 +2,7 @@ from bw_gui.shortcuts import (
     compose_action_label,
     compose_hover_text,
     format_shortcut_label,
-    humanize_shortcut_sequence,
+    humanize_shortcut,
 )
 
 
@@ -21,11 +21,21 @@ def test_compose_hover_text_without_description():
     assert compose_hover_text("", "Ctrl+S") == "Shortcut: Ctrl+S"
 
 
-def test_humanize_shortcut_sequence_from_tk_sequence():
-    assert humanize_shortcut_sequence("<Control-Shift-s>") == "Ctrl+Shift+S"
-    assert humanize_shortcut_sequence("<Control-comma>") == "Ctrl+,"
+def test_humanize_shortcut_from_keyspec_and_notation():
+    from bw_gui.contracts import Key, KeySpec, Mod
+
+    assert humanize_shortcut(KeySpec.char("S", {Mod.CTRL})) == "Ctrl+Shift+S"
+    assert humanize_shortcut("Ctrl+,") == "Ctrl+,"
+    assert humanize_shortcut(KeySpec(Key.ESCAPE, (), {Mod.SHIFT})) == "Escape"
+
+
+def test_humanize_shortcut_rejects_tk_syntax():
+    import pytest
+
+    with pytest.raises(ValueError):
+        humanize_shortcut("<Control-s>")
 
 
 def test_compose_action_label_icon_and_shortcut():
-    label = compose_action_label("Save", icon="💾", shortcut="<Control-s>")
+    label = compose_action_label("Save", icon="💾", shortcut="Ctrl+S")
     assert label == "💾 Save [Ctrl+S]"

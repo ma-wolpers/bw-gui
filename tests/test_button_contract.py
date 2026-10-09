@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from bw_gui.contracts import ButtonDefinition, ButtonRegistry, KeyBindingDefinition, KeybindingRegistry
+from bw_gui.contracts import ButtonDefinition, ButtonRegistry, KeyBindingDefinition, KeybindingRegistry, KeySpec
 
 
 def _shortcuts() -> KeybindingRegistry:
@@ -10,7 +10,7 @@ def _shortcuts() -> KeybindingRegistry:
     registry.register(
         KeyBindingDefinition(
             binding_id="save.editor",
-            sequence="<Control-s>",
+            keys=(KeySpec.parse("Ctrl+S"),),
             intent="save",
             modes=("editor",),
         )
@@ -18,7 +18,7 @@ def _shortcuts() -> KeybindingRegistry:
     registry.register(
         KeyBindingDefinition(
             binding_id="save.global",
-            sequence="<Control-Shift-s>",
+            keys=(KeySpec.parse("Ctrl+Shift+S"),),
             intent="save",
             modes=("global",),
         )

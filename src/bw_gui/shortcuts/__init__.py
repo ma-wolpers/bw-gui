@@ -5,7 +5,7 @@ from .label_formatter import (
 	compose_hover_text,
 	compose_hover_text_for_intent,
 	format_shortcut_label,
-	humanize_shortcut_sequence,
+	humanize_shortcut,
 )
 
 __all__ = [
@@ -13,5 +13,5 @@ __all__ = [
 	"compose_hover_text",
 	"compose_hover_text_for_intent",
 	"format_shortcut_label",
-	"humanize_shortcut_sequence",
+	"humanize_shortcut",
 ]

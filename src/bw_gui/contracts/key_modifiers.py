@@ -99,7 +99,7 @@ class KeyModifiers:
     ``alt`` also represents the macOS Option key (same role in shortcuts).
     ``command`` is only ever set on the Aqua backend. On Windows Tk's ``Command``
     token is an alias of ``Mod1`` = the NumLock bit, so it has no shortcut meaning
-    there (see :mod:`bw_gui.contracts.key_sequence`).
+    there (``Mod.CMD`` is rejected on win32, see :mod:`bw_gui.contracts.key_spec`).
     """
 
     shift: bool = False

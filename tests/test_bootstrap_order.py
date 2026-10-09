@@ -40,7 +40,16 @@ def test_create_runs_build_only_after_router(spy):
         seen["defaults"] = dict(router.originals)
         return root
 
-    root = TkRootHost.create(build=build)
+    # Creating an additional Tk interpreter intermittently fails on this Windows setup
+    # with a Tcl init race (see tests/conftest.py); retry only that environment error.
+    for attempt in range(3):
+        try:
+            root = TkRootHost.create(build=build)
+            break
+        except tkinter.TclError as exc:
+            if attempt == 2 or not any(m in str(exc) for m in ("tcl_findLibrary", "init.tcl", "tk.tcl")):
+                raise
+            spy.clear()
     try:
         assert spy == ["Tk()", "router", "build"]
         assert seen["unwrapped"] == [] and seen["children"] == []

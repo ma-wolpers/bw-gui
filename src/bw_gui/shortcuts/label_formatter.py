@@ -4,68 +4,44 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from bw_gui.contracts.key_spec import KeySpec
+
 
 class ShortcutResolver(Protocol):
-    def shortcut_for_intent(self, intent: str, *, mode: str | None = None, offline: bool = False, text_input_focused: bool = False) -> str | None:
+    def shortcut_for_intent(
+        self, intent: str, *, mode: str | None = None, offline: bool = False, text_input_focused: bool = False
+    ) -> KeySpec | None:
         ...
 
 
-def humanize_shortcut_sequence(sequence: str | None) -> str:
-    """Convert Tk-like sequences into a readable shortcut label."""
-    text = (sequence or "").strip()
-    if not text:
+def humanize_shortcut(shortcut: KeySpec | str | None) -> str:
+    """Return the readable label of a shortcut (``"Ctrl+S"``, ``"Ctrl+Shift+Z"``, ``"F5"``).
+
+    Accepts a :class:`KeySpec` or its canonical notation (``KeySpec.parse``); Tk
+    binding syntax is not accepted. The tolerate suffix is not shown.
+
+    Raises:
+        ValueError: For a string outside the ``KeySpec`` notation.
+    """
+    if shortcut is None or shortcut == "":
         return ""
-
-    if text.startswith("<") and text.endswith(">"):
-        parts = [part for part in text[1:-1].split("-") if part]
-    else:
-        parts = [part for part in text.replace("+", "-").split("-") if part]
-
-    if not parts:
-        return text
-
-    normalized: list[str] = []
-    for index, part in enumerate(parts):
-        lower = part.lower()
-        if lower in {"control", "ctrl"}:
-            normalized.append("Ctrl")
-            continue
-        if lower in {"shift"}:
-            normalized.append("Shift")
-            continue
-        if lower in {"alt", "option"}:
-            normalized.append("Alt")
-            continue
-        if lower in {"command", "cmd"}:
-            normalized.append("Cmd")
-            continue
-        if lower == "comma":
-            normalized.append(",")
-            continue
-        if lower == "period":
-            normalized.append(".")
-            continue
-        if index == len(parts) - 1 and len(part) == 1:
-            normalized.append(part.upper())
-            continue
-        normalized.append(part.capitalize())
-
-    return "+".join(normalized)
+    spec = shortcut if isinstance(shortcut, KeySpec) else KeySpec.parse(str(shortcut).strip())
+    return str(KeySpec(spec.key, spec.modifiers, (), character=spec.character))
 
 
-def format_shortcut_label(symbol_label: str, shortcut: str | None = None) -> str:
+def format_shortcut_label(symbol_label: str, shortcut: KeySpec | str | None = None) -> str:
     """Return compact icon-centric button label with optional shortcut suffix."""
     label = (symbol_label or "").strip()
-    hint = humanize_shortcut_sequence(shortcut)
+    hint = humanize_shortcut(shortcut)
     if not hint:
         return label
     return f"{label} [{hint}]"
 
 
-def compose_hover_text(description: str, shortcut: str | None = None) -> str:
+def compose_hover_text(description: str, shortcut: KeySpec | str | None = None) -> str:
     """Compose hover text with explanation and optional shortcut line."""
     desc = (description or "").strip()
-    hint = humanize_shortcut_sequence(shortcut)
+    hint = humanize_shortcut(shortcut)
     if not hint:
         return desc
     if not desc:
@@ -77,7 +53,7 @@ def compose_action_label(
     label: str,
     *,
     icon: str | None = None,
-    shortcut: str | None = None,
+    shortcut: KeySpec | str | None = None,
     include_shortcut: bool = True,
 ) -> str:
     """Compose compact action label with optional icon and shortcut badge."""

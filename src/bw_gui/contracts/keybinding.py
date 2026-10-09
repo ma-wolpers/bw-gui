@@ -6,8 +6,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Callable, Iterable
 
-from .key_modifiers import UNKNOWN_MODIFIERS, KeyModifiers, TkBackend, UnknownModifiers
-from .key_sequence import binding_signature
+from .key_spec import KeySpec
 
 UI_MODE_GLOBAL = "global"
 UI_MODE_EDITOR = "editor"
@@ -20,49 +19,56 @@ UI_MODE_OFFLINE = "offline"
 class KeyBindingDefinition:
     """Declarative keybinding contract used across all apps.
 
-    ``allow_modifiers`` allows *additional, undeclared* shortcut modifiers
-    (Control, Alt/Option, Command) to be held while the binding fires. With the
-    default ``False``, a binding for ``a`` does not fire on Ctrl+a / Alt+a, while
-    ``<Control-a>`` still fires on Ctrl+a because Control is declared in its
-    sequence. Shift is never a shortcut modifier and never blocks. The rule is only
-    enforced when the runtime context carries modifier information (see
-    :class:`KeybindingRuntimeContext` and ``docs/KEYBINDING_CONTRACT.md``).
+    ``keys`` holds one or more :class:`~bw_gui.contracts.key_spec.KeySpec`
+    alternatives (any-of; decision 33). Each spec matches exactly its modifiers plus
+    its explicit ``tolerate`` set (decision 26); there is no implicit modifier
+    tolerance any more (the former ``allow_modifiers`` flag is replaced by
+    ``KeySpec.tolerate`` / a second spec for Shift on characters).
     """
 
     binding_id: str
-    sequence: str
+    keys: tuple[KeySpec, ...]
     intent: str
     modes: tuple[str, ...] = (UI_MODE_GLOBAL,)
     description: str = ""
-    allow_modifiers: bool = False
     allow_when_text_input: bool = False
     allow_when_offline: bool = True
     metadata: dict[str, str] = field(default_factory=dict)
     handler: Callable[[], None] | None = field(default=None, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        keys = (self.keys,) if isinstance(self.keys, KeySpec) else tuple(self.keys)
+        if not keys or not all(isinstance(k, KeySpec) for k in keys):
+            raise ValueError(f"Binding {self.binding_id!r} needs at least one KeySpec")
+        if len(set(keys)) != len(keys):
+            raise ValueError(f"Binding {self.binding_id!r} lists a KeySpec twice")
+        from .key_spec import overlaps
+
+        for index, first in enumerate(keys):
+            for second in keys[index + 1 :]:
+                if overlaps(first, second):
+                    raise ValueError(f"Binding {self.binding_id!r}: alternatives {first} and {second} overlap")
+        object.__setattr__(self, "keys", keys)
+
+    @property
+    def primary_key(self) -> KeySpec:
+        """The first spec: the one shown in menu hints and overviews."""
+        return self.keys[0]
 
 
 @dataclass(frozen=True)
 class KeybindingRuntimeContext:
     """Runtime context contract for mode-aware keybinding resolution.
 
-    ``modifiers`` has three distinct states:
-
-    * ``None`` -- this runtime path supplies no modifier information at all
-      (legacy contexts); no modifier gating is applied.
-    * :data:`~bw_gui.contracts.key_modifiers.UNKNOWN_MODIFIERS` -- an event exists,
-      but its modifier state could not be decoded; gated fail-closed.
-    * :class:`~bw_gui.contracts.key_modifiers.KeyModifiers` -- decoded state.
-
-    ``backend`` selects the Tk backend used to interpret the modifier tokens of a
-    binding's sequence; ``None`` derives it from ``sys.platform``.
+    Modifier handling is not part of the context any more: whether the held keys
+    match a binding is decided by the exact ``KeySpec`` matching
+    (``bw_gui.contracts.key_spec.matches``) before gating.
     """
 
     active_mode: str
     offline: bool = False
     text_input_focused: bool = False
     dialog_open: bool = False
-    modifiers: KeyModifiers | UnknownModifiers | None = None
-    backend: TkBackend | None = None
 
 
 def derive_active_mode(*, offline: bool, dialog_open: bool, text_input_focused: bool, base_mode: str) -> str:
@@ -89,13 +95,7 @@ def evaluate_binding(
     """Evaluate whether *definition* may execute in *context* (pure function).
 
     Returns ``(allowed, reason)``; reasons: ``"active"``, ``"mode=<mode>"``,
-    ``"offline-disabled"``, ``"text-input-focus"``, ``"dialog-priority"``,
-    ``"modifier-held"`` (an undeclared shortcut modifier is held) and
-    ``"modifier-unknown"`` (modifier state undecodable; fail-closed).
-
-    Raises:
-        ValueError: If modifier gating applies and the binding's sequence is outside
-            the keyboard-shortcut contract (see :func:`binding_signature`).
+    ``"offline-disabled"``, ``"text-input-focus"`` and ``"dialog-priority"``.
     """
     active_mode = active_mode_override or context.active_mode
 
@@ -110,14 +110,6 @@ def evaluate_binding(
 
     if context.dialog_open and UI_MODE_DIALOG not in definition.modes and UI_MODE_GLOBAL not in definition.modes:
         return False, "dialog-priority"
-
-    held = context.modifiers
-    if held is not None and not definition.allow_modifiers:
-        if held is UNKNOWN_MODIFIERS:
-            return False, "modifier-unknown"
-        declared = binding_signature(definition.sequence, context.backend).modifiers
-        if held.shortcut_modifiers_not_in(declared).has_shortcut_modifier:
-            return False, "modifier-held"
 
     return True, "active"
 
@@ -156,8 +148,8 @@ class KeybindingRegistry:
         mode: str | None = None,
         offline: bool = False,
         text_input_focused: bool = False,
-    ) -> str | None:
-        """Resolve first matching shortcut sequence for one intent."""
+    ) -> KeySpec | None:
+        """Resolve the primary key of the first binding for one intent (``None`` if none)."""
         if mode is None:
             source = self._bindings
         else:
@@ -169,7 +161,7 @@ class KeybindingRegistry:
 
         for definition in source:
             if definition.intent == intent:
-                return definition.sequence
+                return definition.primary_key
         return None
 
     def active_for_mode(
@@ -191,32 +183,14 @@ class KeybindingRegistry:
             active.append(definition)
         return tuple(active)
 
-    def conflicts(self) -> dict[str, list[str]]:
-        """List *raw-string* sequence collisions per mode (sequence to binding ids).
+    def find_conflicts(self) -> list[tuple[str, str]]:
+        """Return pairs of binding ids that could both fire for the same key event (model A).
 
-        Deprecated: compares sequence strings literally, so semantically equal
-        sequences (``<Control-,>`` vs ``<Control-comma>``) are missed and
-        disjoint runtime scopes are reported. Use :meth:`find_conflicts`.
-        """
-        collisions: dict[str, list[str]] = {}
-        usage: dict[tuple[str, str], list[str]] = defaultdict(list)
-        for definition in self._bindings:
-            for mode in definition.modes:
-                usage[(mode, definition.sequence)].append(definition.binding_id)
-        for (mode, sequence), binding_ids in usage.items():
-            if len(binding_ids) > 1:
-                collisions[f"{mode}:{sequence}"] = sorted(binding_ids)
-        return collisions
-
-    def find_conflicts(self, backend: TkBackend | None = None) -> list[tuple[str, str]]:
-        """Return pairs of binding ids that could both fire for the same key event.
-
-        Uses semantic :func:`binding_signature` equality plus overlap of the complete
-        runtime applicability (see :mod:`bw_gui.contracts.keybinding_conflicts`).
+        See :mod:`bw_gui.contracts.keybinding_conflicts`.
         """
         from .keybinding_conflicts import find_conflicts
 
-        return find_conflicts(self._bindings, backend)
+        return find_conflicts(self._bindings)
 
     def mode_manifest(self) -> dict[str, list[str]]:
         """Expose a compact mode to binding id overview for audit and help UIs."""

@@ -10,6 +10,8 @@ import pytest
 from bw_gui.contracts.events import EventResult
 from bw_gui.contracts.key_spec import Key, KeySpec, Mod, matches
 from bw_gui.runtime import ui
+
+from conftest import create_extra_tk
 from bw_gui.runtime._tk_identity import existing_runtime, interpreter_root, runtime_for
 from bw_gui.runtime.key_router import ROLE_APP_SHORTCUT, ROLE_MENU_MNEMONIC, ROLE_OBSERVER, router_for
 
@@ -27,7 +29,7 @@ NASTY_PLUS = "lappend ::bwtest(log) plus-%K"
 @pytest.fixture(scope="module")
 def _module_root():
     """One extra interpreter for this module (repeated Tk() creation races, see conftest)."""
-    root = ui.Tk()
+    root = create_extra_tk()
     root.geometry("200x80+0+0")  # must be mapped: a withdrawn root gets no Tk focus
     entry = ui.Entry(root)
     entry.pack()
@@ -176,7 +178,7 @@ def test_one_router_per_interpreter_and_cleanup(fresh_root):
     finally:
         top_a.destroy()
         top_b.destroy()
-    other = ui.Tk()  # the only second interpreter of this module
+    other = create_extra_tk()  # the only second interpreter of this module
     other.withdraw()
     assert router_for(other) is not router_for(root)
     router_ref = weakref.ref(router_for(other))

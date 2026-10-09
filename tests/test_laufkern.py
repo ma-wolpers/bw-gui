@@ -1,3 +1,4 @@
+from bw_gui.contracts import KeySpec
 from bw_gui.contracts.keybinding import KeyBindingDefinition, KeybindingRuntimeContext
 from bw_gui.laufkern import (
     aggregate_completion,
@@ -19,7 +20,7 @@ def test_manifest_build_and_validate_success():
         keybindings=(
             KeyBindingDefinition(
                 binding_id="global.open",
-                sequence="<Control-o>",
+                keys=(KeySpec.parse("Ctrl+O"),),
                 intent="open",
             ),
         ),
@@ -56,7 +57,7 @@ def test_manifest_rejects_unknown_exclusion_reason():
 def test_reachability_reports_text_input_blocked():
     definition = KeyBindingDefinition(
         binding_id="global.open",
-        sequence="<Control-o>",
+        keys=(KeySpec.parse("Ctrl+O"),),
         intent="open",
         allow_when_text_input=False,
     )
