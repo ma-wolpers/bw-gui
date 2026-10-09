@@ -28,7 +28,9 @@ my_program/
 ```
 
 You never modify `bw_libs`. If `import bw_gui` fails, check that:
-1. `bw-gui` is at `c:\Users\7thpl\Desktop\Code\bw-gui`
+1. `bw-gui` sits next to your program as a sibling folder (`../bw-gui`, so that
+   `../bw-gui/src` exists). `ensure_bw_gui_on_path()` also checks `../../bw-gui/src`
+   and, as a last resort, a stale copy at `./bw-gui/src`; see `bw_libs/shared_gui_core.py`.
 2. `bw_libs/shared_gui_core.py` is calling `ensure_bw_gui_on_path()` at startup
 
 ---
@@ -278,10 +280,13 @@ window returns to when the user un-maximizes it. Pass `start_maximized=False` to
 `root.state("normal")` before `root.geometry(...)`, otherwise the maximized state wins.
 
 See also:
-- [MENUBAR.md](MENUBAR.md) — menu sections, item types, submenus
-- [THEMING.md](THEMING.md) — themes, tokens, custom themes
-- [DIALOGS.md](DIALOGS.md) — popups, message boxes, settings dialog
+- [ARCHITECTURE.md](ARCHITECTURE.md) — the five principles, anti-patterns, internal module layout
+- [THEME_CONTRACT.md](THEME_CONTRACT.md) — themes, tokens, custom themes
 - [KEYBINDING_CONTRACT.md](KEYBINDING_CONTRACT.md) — keyboard shortcuts, modifiers, `WindowShortcutBinder`.
   Apps never test `event.state` bits or parse sequence strings themselves.
-- [WIDGETS.md](WIDGETS.md) — HoverTooltip, WrappedTextField
-- [LAUFKERN.md](LAUFKERN.md) — shortcut reachability verification
+- [TOGGLE_CONTRACT.md](TOGGLE_CONTRACT.md) — `Checkbox` and `Switch` (effect timing, callbacks, mixed state)
+- [SCROLLABILITY_CONTRACT.md](SCROLLABILITY_CONTRACT.md) — `ScrollableFrame`, `ScrollableImagePreview`
+- Menus (sections, item types, submenus): docstrings in `src/bw_gui/menu/`
+- Dialogs (popups, message boxes, settings dialog): docstrings in `src/bw_gui/dialogs/`
+- Widgets (`HoverTooltip`, `WrappedTextField`, `RegexEntryField`, …): docstrings in `src/bw_gui/widgets/`
+- Laufkern (shortcut reachability verification): docstrings in `src/bw_gui/laufkern/`
