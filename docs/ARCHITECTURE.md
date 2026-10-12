@@ -121,8 +121,13 @@ not part of the public contract.
 
 ## Internal module layout (maintainers)
 
-Files stay below ~300 lines of code (docstrings, comments, blank lines and imports
-not counted). A function that is long by necessity stays whole and is marked
+Files stay below 300 lines of code (docstrings, comments, blank lines and imports
+not counted). The check is automated: `bw_gui.testing.line_limits` counts exactly these
+executable lines for every touched Python file (sources and tests; `python -m
+bw_gui.testing.line_limits --repo .`), and consumer repos reuse the same module. Pure
+data modules carry the header comment `# line-limit: data-only` (refused if the file
+defines functions or classes). Justified exceptions are listed below under
+"Line-limit exceptions". A function that is long by necessity stays whole and is marked
 `# GRENZE(dateigroesse): long by necessity` (shared marker for accepted limitations
 across all projects; open items use `BAUSTELLE:`). Larger units are split by responsibility and the original module
 re-exports the moved names, so import paths stay stable:
@@ -142,3 +147,8 @@ re-exports the moved names, so import paths stay stable:
 | `contracts/screen_geometry.py` | pure screen geometry (monitor selection, overlay placement, clamping); no Tk |
 | `runtime/_win_monitors.py` | the only Win32 monitor-geometry adapter |
 | `runtime/screen_placement.py` | Tk side of placement (`get_monitor_info`, `place_overlay_now`); see `SCREEN_PLACEMENT_CONTRACT.md` |
+| `testing/line_limits.py` | 300-executable-line check shared by all repos (counting rule, data-only marker, exception section) |
+
+### Line-limit exceptions
+
+None. Each entry reads ``- `path` — justification``; an entry without justification fails the check.
