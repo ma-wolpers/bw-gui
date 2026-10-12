@@ -51,6 +51,13 @@ def test_non_docstring_multiline_string_counts():
     assert count_executable_lines(source) == 5
 
 
+def test_leading_byte_order_mark_is_ignored(tmp_path):
+    """Files saved with a UTF-8 BOM are counted, not rejected as unparsable."""
+    assert count_executable_lines("﻿x = 1\n") == 1
+    (tmp_path / "bom.py").write_bytes(b"\xef\xbb\xbfx = 1\n")
+    assert check_files(tmp_path, ["bom.py"]) == []
+
+
 def test_data_only_marker_without_logic_is_accepted():
     """A marked pure-data module has no problem."""
     assert data_only_problem("# line-limit: data-only\nVALUES = {'a': 1}\n") is None

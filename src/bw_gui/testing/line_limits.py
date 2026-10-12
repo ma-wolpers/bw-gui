@@ -95,6 +95,8 @@ def count_executable_lines(source: str) -> int:
         Number of lines that are neither blank, nor pure comment lines, nor part of a
         docstring, nor part of an import statement.
 
+    A leading UTF-8 byte-order mark is ignored (Windows editors write one).
+
     Raises:
         SyntaxError: If ``source`` is not valid Python (a file that does not parse
             cannot be judged; the caller reports it as an error).
@@ -108,6 +110,7 @@ def count_executable_lines(source: str) -> int:
         >>> count_executable_lines("import os\\n'''Not a docstring.'''\\n")
         1
     """
+    source = source.removeprefix("﻿")
     excluded = _excluded_line_numbers(ast.parse(source))
     count = 0
     for number, line in enumerate(source.splitlines(), start=1):
@@ -127,7 +130,7 @@ def data_only_problem(source: str) -> str | None:
     """
     if not has_data_only_marker(source):
         return None
-    for node in ast.walk(ast.parse(source)):
+    for node in ast.walk(ast.parse(source.removeprefix("﻿"))):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             return (
                 f"marked '{DATA_ONLY_MARKER}' but defines `{node.name}` (line {node.lineno}); "
@@ -223,7 +226,7 @@ def check_files(
     errors: list[str] = []
     for rel_path in rel_paths:
         posix = rel_path.replace("\\", "/")
-        source = (Path(repo_root) / posix).read_text(encoding="utf-8")
+        source = (Path(repo_root) / posix).read_text(encoding="utf-8-sig")
         try:
             problem = data_only_problem(source)
             if has_data_only_marker(source):
