@@ -50,6 +50,7 @@ import sys
 from pathlib import Path
 
 LINE_LIMIT = 300
+_BOM = chr(0xFEFF)  # UTF-8 byte-order mark as decoded text
 DATA_ONLY_MARKER = "# line-limit: data-only"
 DEFAULT_EXCEPTION_HEADINGS = ("Ausnahmen 300-Zeilen-Regel", "Line-limit exceptions")
 
@@ -110,7 +111,7 @@ def count_executable_lines(source: str) -> int:
         >>> count_executable_lines("import os\\n'''Not a docstring.'''\\n")
         1
     """
-    source = source.removeprefix("﻿")
+    source = source.removeprefix(_BOM)
     excluded = _excluded_line_numbers(ast.parse(source))
     count = 0
     for number, line in enumerate(source.splitlines(), start=1):
@@ -130,7 +131,7 @@ def data_only_problem(source: str) -> str | None:
     """
     if not has_data_only_marker(source):
         return None
-    for node in ast.walk(ast.parse(source.removeprefix("﻿"))):
+    for node in ast.walk(ast.parse(source.removeprefix(_BOM))):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             return (
                 f"marked '{DATA_ONLY_MARKER}' but defines `{node.name}` (line {node.lineno}); "
