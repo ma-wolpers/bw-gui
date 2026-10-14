@@ -62,32 +62,15 @@ class ScrollableFrame(widgets.Frame):
     (`grid_viewport_sync.py`) is a separate, bespoke mechanism unrelated to
     this class.
 
-    Mousewheel dispatch: multiple `ScrollableFrame` instances can be
-    visible at once (nested, or simply several panels on screen), and a
-    naive per-instance `<Enter>`/`<Leave>`-scoped `bind_all`/`unbind_all`
-    would let them clobber each other's binding as the cursor moves
-    between them. Instead there is exactly **one** `bind_all("<MouseWheel>")`
-    per Tk interpreter (keyed by `self.tk`, the actual interpreter handle -
-    not a specific `Toplevel`: multiple `Toplevel` windows under the same
-    `Tk()` application share one interpreter and therefore one "all"
-    bindtag, so keying by a specific `Toplevel` would under- or
-    over-register), lazily bound by whichever `ScrollableFrame` happens to
-    be constructed first under that interpreter - and bound at most once
-    for that interpreter's entire lifetime (see `_register_for_mousewheel_dispatch`'s
-    docstring for why the registration must outlive any single instance,
-    including "every instance under this interpreter was destroyed, then
-    a new one was created later", e.g. closing and reopening every popup).
-    `_dispatch_mousewheel`
-    walks the actual event-target widget's `.master` chain (same
-    finite-step-capped walk pattern as `DragDropController._resolve_drop_callback`)
-    to find which registered instance's `canvas` it belongs to, so a wheel
-    event over a *child* widget inside `.content` (a button, an entry, a
-    label - not just bare canvas background) still resolves to the right
-    instance, and instances never interfere with each other regardless of
-    how many are visible at once.
+    Mousewheel dispatch: one interpreter-wide resolver on the router-owned ``all``
+    tag (``bw_gui.runtime.scroll_resolver``) decides which frame scrolls: the
+    nearest registered frame along the widget hierarchy, within the event's own
+    toplevel; native scrollable widgets (Text, Listbox, Treeview, scrollbars,
+    combobox) and widgets with their own ``bind_wheel`` take precedence; a frame
+    that does not overflow passes the wheel to the next outer frame. Each frame
+    registers its outer frame, canvas and scrollbar and unregisters on destroy, so
+    instances never interfere regardless of how many are visible.
     """
-
-    _registry_by_interpreter: dict[object, dict[ui.Misc, "ScrollableFrame"]] = {}
 
     def __init__(self, master, *, orient: str = "vertical", **frame_kwargs) -> None:
         """Build the viewport.
@@ -141,35 +124,36 @@ class ScrollableFrame(widgets.Frame):
         self.canvas.configure(highlightthickness=0)
 
     def _register_for_mousewheel_dispatch(self) -> None:
-        """Register this instance, binding `<MouseWheel>` for the interpreter at most once, ever.
+        """Register outer frame, canvas and scrollbar with the interpreter's scroll resolver.
 
-        `bind_all` must be registered exactly once per interpreter for
-        that interpreter's whole lifetime - not once per period during
-        which at least one instance happens to be alive. The interpreter
-        key is only ever *added* to `_registry_by_interpreter` here, never
-        removed by `_on_destroy` (even once its per-canvas dict becomes
-        empty): if it were removed, the next `ScrollableFrame` created
-        under the same interpreter after all previous ones had been
-        destroyed would see an empty/missing entry and re-run
-        `bind_all(..., add="+")`, stacking a second, independent handler
-        registration onto the same interpreter-wide "all" bindtag - every
-        subsequent wheel event would then fire `_dispatch_mousewheel`
-        (and therefore scroll) once per accumulated registration instead
-        of once. `_on_destroy` only ever removes this instance's own
-        `canvas` entry, keeping the (possibly now-empty) per-interpreter
-        dict itself in place as the "already bound" marker.
+        The single wheel handler on the ``all`` tag belongs to the router-owned
+        ``ScrollResolver`` (``bw_gui.runtime.scroll_resolver``); it finds the nearest
+        registered frame along the widget hierarchy, independent of registration
+        order. The registration ends when this frame is destroyed.
         """
-        by_canvas = ScrollableFrame._registry_by_interpreter.get(self.tk)
-        if by_canvas is None:
-            by_canvas = ScrollableFrame._registry_by_interpreter[self.tk] = {}
-            self.bind_all("<MouseWheel>", ScrollableFrame._dispatch_mousewheel, add="+")
-        by_canvas[self.canvas] = self
+        from bw_gui.runtime.scroll_resolver import scroll_resolver_for
 
-    def _on_destroy(self, _event=None) -> None:
-        by_canvas = ScrollableFrame._registry_by_interpreter.get(self.tk)
-        if by_canvas is None:
+        self._wheel_registration = scroll_resolver_for(self).register(self, [self, self.canvas, self._scrollbar])
+
+    def _on_destroy(self, event=None) -> None:
+        if event is not None and getattr(event, "widget", self) is not self:
             return
-        by_canvas.pop(self.canvas, None)
+        registration = getattr(self, "_wheel_registration", None)
+        if registration is not None:
+            registration.remove()
+
+    @property
+    def is_horizontal(self) -> bool:
+        """True for ``orient="horizontal"`` (scroll resolver axis)."""
+        return self._horizontal
+
+    def overflows(self) -> bool:
+        """True while the content is larger than the viewport on the scroll axis."""
+        return self._overflows()
+
+    def scroll_units(self, units: int) -> None:
+        """Scroll by *units* (positive = towards the content end); used by the scroll resolver."""
+        (self.canvas.xview_scroll if self._horizontal else self.canvas.yview_scroll)(int(units), "units")
 
     def _on_content_configure(self, _event=None) -> None:
         if self._horizontal:
@@ -238,36 +222,3 @@ class ScrollableFrame(widgets.Frame):
             return
         self.canvas.xview_moveto(max(0, target) / total)
 
-    def _on_mousewheel(self, event) -> str | None:
-        if not self._overflows():
-            return None
-        step = -1 if event.delta > 0 else 1
-        (self.canvas.xview_scroll if self._horizontal else self.canvas.yview_scroll)(step, "units")
-        return "break"
-
-    @classmethod
-    def _dispatch_mousewheel(cls, event) -> None:
-        """Route one `<MouseWheel>` event (bound once per interpreter) to the owning instance, if any.
-
-        `event.widget` is whichever widget actually received the raw
-        event (via the interpreter-wide "all" bindtag) - typically a
-        child several levels deep inside some `ScrollableFrame.content`,
-        not the canvas itself. Walking `.master` from there finds the
-        nearest enclosing registered canvas; a 64-step cap guards against
-        a pathological parent-chain, matching the existing
-        `DragDropController._resolve_drop_callback` convention.
-        """
-        widget = getattr(event, "widget", None)
-        interpreter = getattr(widget, "tk", None)
-        by_canvas = cls._registry_by_interpreter.get(interpreter) if interpreter is not None else None
-        if not by_canvas:
-            return
-        current = widget
-        steps = 0
-        while current is not None and steps < 64:
-            instance = by_canvas.get(current)
-            if instance is not None:
-                instance._on_mousewheel(event)
-                return
-            current = getattr(current, "master", None)
-            steps += 1

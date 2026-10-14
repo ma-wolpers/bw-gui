@@ -8,6 +8,11 @@ from __future__ import annotations
 from contextlib import contextmanager
 import tkinter as tk
 
+from bw_gui.contracts.events import EventResult
+from bw_gui.contracts.key_spec import Mod
+from bw_gui.runtime._key_channel import KeyDispatch
+from bw_gui.runtime.key_router import ROLE_MENU_MNEMONIC, router_for
+
 
 class _MenuFocusMixin:
     """Closes the menu on outside clicks/focus loss and handles Alt mnemonics."""
@@ -47,29 +52,42 @@ class _MenuFocusMixin:
         if self._bound:
             return
 
-        self.root.bind_all("<Button-1>", self._on_global_click, add="+")
-        self.root.bind_all("<Alt-KeyPress>", self._on_alt_keypress, add="+")
-        self.root.bind_all("<FocusIn>", self._on_focus_change, add="+")
-        self.root.bind_all("<FocusOut>", self._on_focus_change, add="+")
+        # The `all` tag belongs to the per-interpreter router (KEYBINDING_CONTRACT.md):
+        # click/focus handlers are router observers, Alt mnemonics the MENU_MNEMONIC role.
+        router = router_for(self.root)
+        self._router_subscriptions = [
+            router.register_event("<Button-1>", self._on_global_click),
+            router.register_event("<FocusIn>", self._on_focus_change),
+            router.register_event("<FocusOut>", self._on_focus_change),
+            router.register(ROLE_MENU_MNEMONIC, self._on_alt_keypress, owner=self),
+        ]
         self.root.bind("<Unmap>", self._on_deactivate, add="+")
         self.root.bind("<Deactivate>", self._on_deactivate, add="+")
 
         self._bound = True
 
-    def _on_alt_keypress(self, event) -> str | None:
-        """Handle Alt+key presses and open the matching section's menu if found."""
-        key = str(getattr(event, "keysym", "") or getattr(event, "char", "")).lower()
-        if not key:
-            return None
-        for definition in self.definitions:
-            if definition.alt.lower() == key:
-                return self._on_mnemonic(definition)
-        return None
+    def _on_alt_keypress(self, dispatch: KeyDispatch) -> EventResult:
+        """Open the section whose mnemonic matches an Alt+character press (router role).
 
-    def _on_mnemonic(self, definition: MenuDefinition) -> str:
-        """Open the top menu for the matched definition and return "break" to stop propagation."""
+        Matches the logical character of the key (``KeyIdentity.character``), never
+        ``KeyEvent.text``, which is ``None`` for Alt+character. Case-insensitive like
+        before; additional modifiers (Shift, Ctrl) are tolerated as with the former
+        ``<Alt-KeyPress>`` binding.
+        """
+        identity = dispatch.identity
+        modifiers = identity.modifiers
+        if not isinstance(modifiers, frozenset) or Mod.ALT not in modifiers or not identity.character:
+            return EventResult.NOT_HANDLED
+        key = identity.character.casefold()
+        for definition in self.definitions:
+            if definition.alt and definition.alt.casefold() == key:
+                return self._on_mnemonic(definition)
+        return EventResult.NOT_HANDLED
+
+    def _on_mnemonic(self, definition: MenuDefinition) -> EventResult:
+        """Open the top menu for the matched definition; the key press is consumed."""
         self.open_top_menu(definition)
-        return "break"
+        return EventResult.HANDLED
 
     def _on_deactivate(self, _event=None) -> None:
         """Close all popups when the window loses focus or is unmapped."""

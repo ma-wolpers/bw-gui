@@ -94,16 +94,14 @@ Geometry contract:
   growing/shrinking panel, a `PanedWindow` splitter drag, or a window
   resize alike.
 
-**Mousewheel dispatch** is centralized, not per-instance: exactly one
-`bind_all("<MouseWheel>")` per Tk interpreter (not per `Toplevel` - several
-`Toplevel` windows under one `Tk()` application share a single interpreter
-and therefore a single `"all"` bindtag), lazily registered by whichever
-`ScrollableFrame` is constructed first under that interpreter. The shared
-handler resolves the actual event-target widget's enclosing `ScrollableFrame`
-by walking its `.master` chain, so any number of simultaneously visible
-instances - nested or side-by-side - never clobber each other's binding,
-and a wheel event over a *child* widget inside `.content` (a button, an
-entry, not just bare canvas background) still resolves correctly.
+**Mousewheel dispatch** is centralized in the router-owned scroll resolver
+(`bw_gui.runtime.scroll_resolver`, rules in `POINTER_CONTRACT.md`): one wheel
+handler per interpreter on the `all` tag. Each frame registers its outer frame,
+canvas and scrollbar; the nearest registered frame along the event widget's
+hierarchy (within its own toplevel) is the candidate, native scrollable widgets
+(Text, Listbox, Treeview, scrollbars, combobox) and widgets with their own
+`bind_wheel` take precedence, and a non-overflowing frame passes the wheel to the
+next outer one. Scrolling uses accumulated whole notches.
 
 Vertical by default; `orient="horizontal"` exists for single-row strips - see
 "Horizontal scrolling" below.

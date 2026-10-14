@@ -202,15 +202,38 @@ class _MenuPopupsMixin:
         self._refresh_button_states()
 
         if navigable_rows:
-            popup.bind("<Down>", lambda _event, p=popup: self._move_keyboard_active_row(p, 1))
-            popup.bind("<Up>", lambda _event, p=popup: self._move_keyboard_active_row(p, -1))
-            popup.bind("<Return>", lambda _event, p=popup: self._activate_keyboard_active_row(p))
-            popup.bind("<KP_Enter>", lambda _event, p=popup: self._activate_keyboard_active_row(p))
-            popup.bind("<Right>", lambda _event, p=popup: self._on_menu_right_key(p))
-            popup.bind("<Left>", lambda _event, p=popup: self._on_menu_back_key(p))
-            popup.bind("<Escape>", lambda _event, p=popup: self._on_menu_back_key(p))
+            self._bind_popup_navigation(popup)
             popup.focus_set()
             self._set_keyboard_active_index(popup, 0)
+
+    def _bind_popup_navigation(self, popup: tk.Toplevel) -> None:
+        """Bind the popup's keyboard navigation through a window binder on the popup.
+
+        The keys tolerate additionally held modifiers, as the former Tk bindings
+        (``<Down>`` etc. match regardless of extra modifiers) did. The handlers return
+        ``None`` (not handled), so propagation is unchanged.
+        """
+        from bw_gui.contracts.key_spec import Key, KeySpec, Mod
+        from bw_gui.runtime.shortcuts import WindowShortcutBinder
+
+        tolerate = (Mod.CTRL, Mod.ALT, Mod.SHIFT)
+        binder = WindowShortcutBinder(popup)
+        bindings = (
+            ("down", Key.DOWN, lambda _e: self._move_keyboard_active_row(popup, 1)),
+            ("up", Key.UP, lambda _e: self._move_keyboard_active_row(popup, -1)),
+            ("enter", Key.ENTER, lambda _e: self._activate_keyboard_active_row(popup)),
+            ("right", Key.RIGHT, lambda _e: self._on_menu_right_key(popup)),
+            ("left", Key.LEFT, lambda _e: self._on_menu_back_key(popup)),
+            ("escape", Key.ESCAPE, lambda _e: self._on_menu_back_key(popup)),
+        )
+        for name, key, handler in bindings:
+            binder.bind(
+                KeySpec(key, (), tolerate),
+                handler,
+                binding_id=f"menu.popup.{name}",
+                intent=f"menu.popup.{name}",
+                allow_when_text_input=True,
+            )
 
     def _place_menu_popup(self, popup: tk.Toplevel, anchor_widget: tk.Widget, level: int) -> None:
         """Size the scroll host to its rows and position the popup on the anchor's monitor.

@@ -30,7 +30,7 @@ from ._key_channel import KeyChannel, KeyDispatch
 from ._tk_identity import interpreter_root, runtime_for
 from .shortcuts import PHASE_SHORTCUT, _ShortcutScope
 
-__all__ = ["WidgetShortcutBinder", "on_key"]
+__all__ = ["WidgetShortcutBinder", "ensure_widget_tag", "on_key"]
 
 
 class _WidgetKeyHub:
@@ -112,6 +112,15 @@ class _WidgetKeyHub:
         self.before_channel.uninstall()
         if self.after_channel is not None:
             self.after_channel.uninstall()
+        # Pointer hooks bind on the same tags; a tag outlives its widget in Tk, so clear
+        # every remaining script (no stale bindings for a re-used widget path).
+        root = interpreter_root(self.widget)
+        for tag in (self.before_tag, self.after_tag):
+            try:
+                for sequence in root.tk.splitlist(root.tk.call("bind", tag)):
+                    root.tk.call("bind", tag, sequence, "")
+            except Exception:
+                pass
 
 
 def _hub_for(widget: Any) -> _WidgetKeyHub:
@@ -164,3 +173,12 @@ def on_key(widget: Any, handler: Callable[[KeyEvent], object], *, phase: str = "
         phase: ``"before"`` (ahead of native class bindings) or ``"after"``.
     """
     return _hub_for(widget).add_handler(phase, handler)
+
+
+def ensure_widget_tag(widget: Any) -> str:
+    """Return the widget's ``bwkeys:<path>`` tag, inserting it (and its hub) if needed.
+
+    Pointer hooks (``bind_wheel``, ``bind_click``, ``bind_drag``, ``on_activate``) bind
+    on this tag too, so they run before the widget's native class bindings.
+    """
+    return _hub_for(widget).before_tag
