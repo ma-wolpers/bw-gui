@@ -28,8 +28,8 @@ def test_wrapped_text_field_str_delegates_to_container_path():
 # --- get_raw / load / set with a real Tk root ---------------------------------------
 
 ROUND_TRIP_CASES = [
-    "", "\n", "\n\n", "a   ", "  \tx", "a\r\nb", "a\rb", "a\x00b", "a\x0bb", "a b",
-    "﻿a", "x \U0001F600 y", "\U0001F469‍\U0001F4BB", "é", "\tx\t", "x" * 5000,
+    "", "\n", "\n\n", "a   ", "  \tx", "a\r\nb", "a\rb", "a\x00b", "a\x0bb", "a\u2028b",
+    "\ufeffa", "x \U0001F600 y", "\U0001F469\u200d\U0001F4BB", "e\u0301", "\tx\t", "x" * 5000,
 ]
 
 
