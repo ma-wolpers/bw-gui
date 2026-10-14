@@ -11,6 +11,7 @@ used for            shortcut matching, menu mnemonics           type-ahead, filt
 Ctrl+Z / Alt+Z      ``"z"`` (present)                           ``None``
 AltGr char (``@``)  ``"@"``                                     ``"@"``
 whitespace keys     never (named ``Key``)                       ``" "`` for Space
+CapsLock + ``d``    ``"d"`` (letter case follows Shift only)    ``"D"``
 ==================  ==========================================  =========================
 
 ``text`` rule (decision 22):
@@ -40,7 +41,7 @@ from .key_modifiers import (
     modifiers_from_state,
     resolve_backend,
 )
-from .key_spec import UNKNOWN, Key, KeyIdentity, Mod
+from .key_spec import UNKNOWN, Key, KeyIdentity, Mod, is_cased_letter
 
 _NAMED_KEYSYMS: Final[dict[str, Key]] = {
     "Up": Key.UP, "KP_Up": Key.UP, "Down": Key.DOWN, "KP_Down": Key.DOWN,
@@ -137,6 +138,11 @@ def classify_key(raw: RawKey, backend: TkBackend | None = None, widget: object =
     if raw.keysym == "ISO_Left_Tab" and isinstance(modifiers, KeyModifiers):
         modifiers = replace(modifiers, shift=True)
     character = None if named is not None else _logical_character(raw.keysym, raw.char)
+    if character is not None and isinstance(modifiers, KeyModifiers) and is_cased_letter(character):
+        # Lock keys never take part in matching: for letters the case follows Shift,
+        # not CapsLock (Ctrl+Shift+D stays Ctrl+Shift+D with CapsLock on). The typed
+        # text below keeps the actual character.
+        character = character.upper() if modifiers.shift else character.lower()
     key = named if named is not None else (Key.CHARACTER if character is not None else Key.OTHER)
 
     text: str | None = None

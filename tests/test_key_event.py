@@ -104,3 +104,13 @@ def test_modifier_key_itself_is_other():
 
 def test_keyevent_has_no_tk_fields():
     assert set(KeyEvent.__dataclass_fields__) == {"key", "text", "modifiers", "widget"}
+
+
+def test_capslock_never_changes_the_letter_identity():
+    capslock = 0x2
+    event, identity = classify("D", "D", capslock)
+    assert identity.character == "d" and event.text == "D"
+    _event, identity = classify("d", "", CTRL_W | SHIFT | capslock)
+    assert identity.character == "D"
+    assert matches(KeySpec.char("D", {Mod.CTRL}), identity)
+    assert not matches(KeySpec.char("d", {Mod.CTRL}), identity)

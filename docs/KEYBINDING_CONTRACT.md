@@ -68,6 +68,7 @@ mods   := (Mod "+")*            Mod ∈ {Ctrl, Alt, Shift, Cmd}, case-insensitiv
 | Ctrl+Z / Alt+Z | `"z"` | `None` |
 | AltGr character (`@`) | `"@"` | `"@"` |
 | whitespace keys | never (named key) | `" "` for Space |
+| CapsLock + `d` | `"d"`: the letter case follows Shift, never CapsLock | `"D"` |
 
 `text` rule:
 
