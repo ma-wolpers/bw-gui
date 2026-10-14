@@ -288,5 +288,7 @@ See also:
 - [SCROLLABILITY_CONTRACT.md](SCROLLABILITY_CONTRACT.md) — `ScrollableFrame`, `ScrollableImagePreview`
 - Menus (sections, item types, submenus): docstrings in `src/bw_gui/menu/`
 - Dialogs (popups, message boxes, settings dialog): docstrings in `src/bw_gui/dialogs/`
-- Widgets (`HoverTooltip`, `WrappedTextField`, `RegexEntryField`, …): docstrings in `src/bw_gui/widgets/`
+- Widgets (`HoverTooltip`, `WrappedTextField`, `RegexEntryField`, …): docstrings in `src/bw_gui/widgets/`.
+  `WrappedTextField`: `load()` starts an editing session (not undoable), `set()` replaces text undoably,
+  `get()` strips whitespace, `get_raw()` returns the exact text.
 - Laufkern (shortcut reachability verification): docstrings in `src/bw_gui/laufkern/`

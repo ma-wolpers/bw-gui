@@ -4,7 +4,20 @@ from bw_gui.runtime import ui, widgets
 
 
 class WrappedTextField:
-    """Multiline text input wrapper with compact get/set and word-delete shortcuts."""
+    """Multiline text input wrapper with compact get/set and word-delete shortcuts.
+
+    Content methods and their roles:
+
+    * ``load(value)``: set the *initial* content of an editing session. The undo and
+      redo stacks are cleared, so Ctrl+Z can never revert to an empty field.
+    * ``set(value)``: replace the content mid-session. The replacement stays undoable.
+    * ``get()``: normalized content (surrounding whitespace stripped).
+    * ``get_raw()``: the exact content, without any normalization.
+
+    Round trip: for every string ``s``, ``get_raw()`` returns ``s`` after ``load(s)``
+    or ``set(s)``. This covers ``\\r``, ``\\r\\n``, NUL, U+2028, emoji, combining
+    characters and surrounding whitespace.
+    """
 
     def __getattr__(self, name: str):
         """Delegate unknown widget attributes to the composed frame container."""
@@ -21,7 +34,7 @@ class WrappedTextField:
         self.text.bind("<Control-BackSpace>", self._on_ctrl_backspace, add="+")
         self.text.bind("<Control-Delete>", self._on_ctrl_delete, add="+")
         if initial:
-            self.set(initial)
+            self.load(initial)
 
     @staticmethod
     def _left_delete_span(before_cursor: str) -> int:
@@ -67,14 +80,67 @@ class WrappedTextField:
         return "break"
 
     def get(self) -> str:
-        """Return normalized content without trailing newline artifacts."""
+        """Return the normalized content: surrounding whitespace is stripped.
+
+        Use ``get_raw()`` when the text must come back exactly as typed.
+
+        Returns:
+            The content with leading and trailing whitespace removed.
+        """
         return self.text.get("1.0", "end").strip()
 
+    def get_raw(self) -> str:
+        """Return the exact content without any normalization.
+
+        Tk keeps one newline after the last character internally. This method
+        excludes exactly that newline (``"end-1c"``) and nothing else: no
+        stripping, no line-ending conversion (``\\r``, ``\\r\\n`` and ``\\n`` come
+        back as stored) and no Unicode normalization. Emits no events.
+
+        Returns:
+            The buffer content. For every ``s`` it equals ``s`` after ``load(s)``
+            or ``set(s)``.
+
+        Raises:
+            tkinter.TclError: if the widget has been destroyed.
+        """
+        return self.text.get("1.0", "end-1c")
+
     def set(self, value: str) -> None:
-        """Replace current text content with ``value``."""
+        """Replace the current content with ``value``; the replacement stays undoable.
+
+        Meant for changes during an editing session (e.g. applying a suggestion).
+        The undo/redo stacks and the modified flag are left untouched, so the
+        user can take the replacement back with Ctrl+Z. To start an editing
+        session use ``load()`` instead.
+
+        Args:
+            value: The new content (inserted verbatim).
+        """
         self.text.delete("1.0", "end")
         if value:
             self.text.insert("1.0", value)
+
+    def load(self, value: str) -> None:
+        """Load the initial content of an editing session; this cannot be undone.
+
+        Replaces the content with ``value``, then clears the undo and redo
+        stacks (``edit_reset``), resets the modified flag (``edit_modified(False)``)
+        and puts the cursor at the start and scrolls there. Afterwards Ctrl+Z does
+        nothing until the user types. Resetting the modified flag can fire Tk's
+        ``<<Modified>>`` event, but only if the flag was ``True`` before.
+
+        Args:
+            value: The initial content (inserted verbatim).
+
+        Raises:
+            tkinter.TclError: if the widget has been destroyed.
+        """
+        self.set(value)
+        self.text.edit_reset()
+        self.text.edit_modified(False)
+        self.text.mark_set("insert", "1.0")
+        self.text.see("1.0")
 
     def bind(self, sequence: str, func, add: str | None = None):  # type: ignore[override]
         """Forward event bindings to the internal text widget for convenience."""
