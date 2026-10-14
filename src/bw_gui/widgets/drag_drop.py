@@ -4,6 +4,7 @@ from collections.abc import Callable
 
 from bw_gui.contracts.screen_geometry import Point, Size, calculate_clamped_position
 from bw_gui.runtime import ui
+from bw_gui.runtime.overlay_stack import OverlayCategory, register_overlay
 from bw_gui.runtime.screen_placement import apply_window_position, get_monitor_info, measure_overlay
 from bw_gui.theming._theme_manager import get_theme
 
@@ -71,6 +72,7 @@ class DragDropController:
         # hover tooltip uses, instead of hard-coded light-yellow/black.
         theme = get_theme()
         self._drag_window = ui.Toplevel(self._root)
+        register_overlay(self._drag_window, OverlayCategory.TRANSIENT, toplevel=self._drag_window)
         self._drag_window.overrideredirect(True)
         self._drag_window.attributes("-topmost", True)
         ui.Label(

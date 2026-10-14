@@ -33,10 +33,27 @@ def _resolve_parent(parent: object | None) -> object | None:
 
 
 def _run_modal(parent: object | None, title: str, callback: ModalCallback) -> Any:
+    """Run a blocking native dialog as a modal invocation on the overlay stack.
+
+    Native message/file dialogs have no Tk toplevel, so they are registered as
+    ``MODAL_DIALOG`` with ``toplevel=None`` for exactly the duration of the call
+    (OVERLAY_STACK_CONTRACT.md); a parent's own ``_run_modal_dialog_call`` tracking
+    still runs as before.
+    """
+    from bw_gui.runtime.overlay_stack import OverlayCategory, register_overlay
+
     resolved_parent = _resolve_parent(parent)
-    if resolved_parent is not None and hasattr(resolved_parent, "_run_modal_dialog_call"):
-        return resolved_parent._run_modal_dialog_call(title, callback)
-    return callback()
+    anchor = getattr(resolved_parent, "tk_root", resolved_parent)
+    invocation = None
+    if isinstance(anchor, tk.Misc):
+        invocation = register_overlay(anchor, OverlayCategory.MODAL_DIALOG, toplevel=None)
+    try:
+        if resolved_parent is not None and hasattr(resolved_parent, "_run_modal_dialog_call"):
+            return resolved_parent._run_modal_dialog_call(title, callback)
+        return callback()
+    finally:
+        if invocation is not None:
+            invocation.remove()
 
 
 class MessageDialogService:

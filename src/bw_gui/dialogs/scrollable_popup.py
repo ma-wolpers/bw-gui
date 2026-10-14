@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from bw_gui.runtime import ui, widgets
+from bw_gui.contracts.popup import PopupPolicy
+from bw_gui.runtime.overlay_stack import OverlayCategory, overlay_state, register_overlay
 from bw_gui.runtime.platform import center_window_over_parent
 from bw_gui.widgets.scrollable_frame import ScrollableFrame
 
@@ -18,7 +20,6 @@ class ScrollablePopupWindow:
     handling) lives here.
     """
 
-    _open_popups: list["ScrollablePopupWindow"] = []
 
     def __getattr__(self, name: str):
         """Delegate unknown attributes to the composed ``ui.Toplevel`` window."""
@@ -90,24 +91,54 @@ class ScrollablePopupWindow:
             self.content = widgets.Frame(self)
             self.content.pack(fill="both", expand=True)
 
-        self.bind("<Escape>", self._on_escape_close, add="+")
-        self.bind("<Destroy>", self._on_destroy, add="+")
+        self._bind_escape()
         self.protocol("WM_DELETE_WINDOW", self._on_window_close)
 
-        ScrollablePopupWindow._open_popups.append(self)
+        # The interpreter's overlay stack is the single source of "which popup is open"
+        # (OVERLAY_STACK_CONTRACT.md); the registration ends on <Destroy>.
+        setattr(self._popup_window, "_bw_scrollable_popup", self)
+        self._overlay = register_overlay(
+            self._popup_window,
+            OverlayCategory.MODAL_DIALOG,
+            toplevel=self._popup_window,
+            policy=PopupPolicy(policy_id="bw_gui.scrollable_popup"),
+        )
         self.after_idle(self._activate_modal_focus)
         self.after(80, self._activate_modal_focus)
 
-    @classmethod
-    def _cleanup_open_popups(cls) -> None:
-        cls._open_popups = [popup for popup in cls._open_popups if popup.winfo_exists()]
+    def _bind_escape(self) -> None:
+        """Close on Escape through a window binder on the popup (keyboard contract).
+
+        Escape tolerates additionally held modifiers like the former Tk ``<Escape>``
+        binding and also works while a text field has focus; it is consumed.
+        """
+        from bw_gui.contracts.events import EventResult
+        from bw_gui.contracts.key_spec import Key, KeySpec, Mod
+        from bw_gui.runtime.shortcuts import WindowShortcutBinder
+
+        def _on_escape(_event) -> EventResult:
+            self._on_escape_close()
+            return EventResult.HANDLED
+
+        WindowShortcutBinder(self._popup_window).bind(
+            KeySpec(Key.ESCAPE, (), (Mod.CTRL, Mod.ALT, Mod.SHIFT)),
+            _on_escape,
+            binding_id="bw_gui.scrollable_popup.escape",
+            intent="bw_gui.popup.close",
+            allow_when_text_input=True,
+        )
 
     @classmethod
     def active_popup(cls) -> "ScrollablePopupWindow | None":
-        cls._cleanup_open_popups()
-        if not cls._open_popups:
+        """Return the most recently opened, still open popup of the default interpreter."""
+        root = ui._default_root
+        if root is None:
             return None
-        return cls._open_popups[-1]
+        for entry in reversed(overlay_state(root).entries):
+            popup = getattr(entry.toplevel, "_bw_scrollable_popup", None) if entry.toplevel is not None else None
+            if isinstance(popup, cls) and popup.winfo_exists():
+                return popup
+        return None
 
     @classmethod
     def has_active_popup(cls) -> bool:
@@ -162,9 +193,6 @@ class ScrollablePopupWindow:
             except ui.TclError:
                 return False
         return False
-
-    def _on_destroy(self, _event=None):
-        ScrollablePopupWindow._cleanup_open_popups()
 
     def _request_close(self) -> str:
         """Close the popup, idempotently.

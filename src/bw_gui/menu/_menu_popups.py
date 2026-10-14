@@ -80,6 +80,9 @@ class _MenuPopupsMixin:
         theme = get_theme(self.theme_key)
         popup = tk.Toplevel(self.root)
         setattr(popup, "_bw_menu_popup", True)
+        from bw_gui.runtime.overlay_stack import OverlayCategory, register_overlay
+
+        register_overlay(popup, OverlayCategory.MENU, toplevel=popup)
         popup.overrideredirect(True)
         popup.transient(self.root)
         popup.configure(bg=theme["border"], bd=1, highlightthickness=0)

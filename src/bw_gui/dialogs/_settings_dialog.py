@@ -7,6 +7,7 @@ Private module; import via ``bw_gui.dialogs.settings_dialog`` or
 
 from __future__ import annotations
 
+from bw_gui.runtime.overlay_stack import OverlayCategory, register_overlay
 from bw_gui.runtime import ui, widgets
 from bw_gui.runtime.platform import center_window_over_parent
 from bw_gui.theming import apply_window_theme, configure_ttk_theme
@@ -80,6 +81,7 @@ class TabbedSettingsDialog:
         self._active_section_key = spec.sections[0].key
 
         self.window = ui.Toplevel(parent)
+        register_overlay(self.window, OverlayCategory.MODAL_DIALOG, toplevel=self.window)
         self.window.title(title)
         self.window.transient(parent)
         self.window.geometry(geometry)
