@@ -14,6 +14,7 @@ from bw_gui.runtime.overlay_stack import (
     modal_affecting_mode,
     overlay_state,
     register_overlay,
+    topmost_window,
     unregistered_visible_toplevels,
 )
 
@@ -79,3 +80,22 @@ def test_diagnostics_reports_unregistered_visible_toplevel(root):
     assert stray in unregistered_visible_toplevels(root)
     register_overlay(root, OverlayCategory.NON_MODAL_POPUP, toplevel=stray)
     assert stray not in unregistered_visible_toplevels(root)
+
+
+def test_topmost_window_skips_transient_native_and_non_escapable(root):
+    """Escape target: latest entry with a toplevel, never TRANSIENT, honouring close_on_escape."""
+    assert topmost_window(root) is None
+    first, menu_top, tip, sticky = ui.Toplevel(root), ui.Toplevel(root), ui.Toplevel(root), ui.Toplevel(root)
+    register_overlay(root, OverlayCategory.MODAL_DIALOG, toplevel=first)
+    register_overlay(root, OverlayCategory.MENU, toplevel=menu_top)
+    assert topmost_window(root) is menu_top
+    register_overlay(root, OverlayCategory.TRANSIENT, toplevel=tip)
+    native = register_overlay(root, OverlayCategory.MODAL_DIALOG)
+    register_overlay(
+        root, OverlayCategory.NON_MODAL_POPUP, toplevel=sticky,
+        policy=PopupPolicy(policy_id="sticky", kind=POPUP_KIND_MODAL, close_on_escape=False),
+    )
+    assert topmost_window(root) is menu_top
+    native.remove()
+    menu_top.destroy()
+    assert topmost_window(root) is first

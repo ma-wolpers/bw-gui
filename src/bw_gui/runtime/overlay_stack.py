@@ -39,6 +39,7 @@ __all__ = [
     "modal_affecting_mode",
     "overlay_state",
     "register_overlay",
+    "topmost_window",
     "unregistered_visible_toplevels",
 ]
 
@@ -170,6 +171,25 @@ def modal_affecting_mode(widget: Any) -> Callable[[], bool]:
     counted menu popups, so it uses ``blocking(include_menus=True)``.
     """
     return lambda: overlay_state(widget).modal_affecting_mode
+
+
+def topmost_window(widget: Any) -> Any | None:
+    """Return the toplevel of the most recently opened overlay that Escape may close, or ``None``.
+
+    Candidates are entries with a toplevel whose category is not ``TRANSIENT`` (tooltips
+    and drag ghosts are never Escape targets) and whose policy allows
+    ``close_on_escape`` (no policy = allowed). Native modal invocations
+    (``toplevel=None``) are skipped -- while they run, the application gets no keys.
+    This is the stack order the former consumer popup registries used for "Escape from
+    the main window closes the latest popup" (Korrektor, Blattwerk).
+    """
+    for entry in reversed(_stack(widget).entries):
+        if entry.toplevel is None or entry.category is OverlayCategory.TRANSIENT:
+            continue
+        if entry.policy is not None and not entry.policy.close_on_escape:
+            continue
+        return entry.toplevel
+    return None
 
 
 def unregistered_visible_toplevels(widget: Any) -> list[Any]:

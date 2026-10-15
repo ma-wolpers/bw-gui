@@ -3,7 +3,14 @@
 from .app_shell import AppShellConfig, TkinterAppShell
 from .base_window import BwBaseWindow
 from .primitives import fonts, ui, widgets
-from .overlay_stack import OverlayCategory, blocking, modal_affecting_mode, overlay_state, register_overlay
+from .overlay_stack import (
+    OverlayCategory,
+    blocking,
+    modal_affecting_mode,
+    overlay_state,
+    register_overlay,
+    topmost_window,
+)
 from .pointer import bind_click, bind_drag, bind_wheel, on_global_click
 from .pointer_group import PointerGroup
 from .root_host import TkRootHost, create_root
@@ -32,6 +39,7 @@ __all__ = [
     "modal_affecting_mode",
     "overlay_state",
     "register_overlay",
+    "topmost_window",
     "bind_click",
     "bind_drag",
     "bind_wheel",

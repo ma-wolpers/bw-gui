@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- `bw_gui.runtime.topmost_window(w)`: the toplevel Escape may close from the main window -- the most recent overlay-stack entry with a toplevel, never `TRANSIENT`, honouring `PopupPolicy.close_on_escape`; replaces consumer popup registries' `active_popup()` (`docs/OVERLAY_STACK_CONTRACT.md`).
 - `ScrollablePopupWindow(..., overlay_category=OverlayCategory.NON_MODAL_POPUP)`: a popup can register as a non-modal tool window in the overlay stack (default stays `MODAL_DIALOG`; `MENU`/`TRANSIENT` raise `ValueError`). Non-modal popups gate shortcuts only under `blocking(include_non_modal=True)`; Escape and `active_popup()` treat both alike.
 - `bw_gui.runtime.PointerGroup(anchor, name)`: one shared pointer tag for many widgets (`add`/`discard`, `on_click`, `on_wheel`; `docs/POINTER_CONTRACT.md`) -- for grids and tables that rebuild many cells, without per-widget tags, channels or `<Destroy>` bookkeeping. Members count as wheel-subscribed for the scroll resolver.
 - `bw_gui.runtime.on_global_click(anchor, handler, *, button=PRIMARY, owner=None)`: interpreter-wide click observer on the `all` router (cannot consume; replaces consumer `bind_all("<Button-1>")`), documented in `docs/POINTER_CONTRACT.md`. With `owner`, the observer is removed from the router when that widget is destroyed (e.g. a dialog closing its selection overlay on outside clicks).
