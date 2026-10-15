@@ -12,7 +12,6 @@ class _FakePopup:
 
     def _request_close(self):
         self.request_close_calls += 1
-        return "break"
 
 
 def test_escape_always_closes_regardless_of_focus():
@@ -27,7 +26,7 @@ def test_escape_always_closes_regardless_of_focus():
 
     result = ScrollablePopupWindow._handle_escape_request(popup)
 
-    assert result == "break"
+    assert result is None
     assert popup.request_close_calls == 1
 
 
@@ -86,7 +85,7 @@ def test_request_close_respects_confirmation_callback():
 
     result = ScrollablePopupWindow._request_close(popup)
 
-    assert result == "break"
+    assert result is None
     assert popup.destroy_calls == 0
     assert popup.withdraw_calls == 0
     assert popup._closing is False
@@ -109,7 +108,7 @@ def test_request_close_withdraws_before_destroying():
 
     result = ScrollablePopupWindow._request_close(popup)
 
-    assert result == "break"
+    assert result is None
     assert popup.calls == ["withdraw", "destroy"]
     assert popup._closing is True
 
@@ -132,7 +131,7 @@ def test_request_close_is_idempotent():
     ScrollablePopupWindow._request_close(popup)
     result = ScrollablePopupWindow._request_close(popup)
 
-    assert result == "break"
+    assert result is None
     assert popup.destroy_calls == 1
 
 

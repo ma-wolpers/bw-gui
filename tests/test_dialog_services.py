@@ -88,15 +88,18 @@ def test_message_dialog_askretrycancel_normalizes_bool(monkeypatch):
     assert result is False
 
 
-def test_escape_safe_query_string_cancel_returns_break():
-    """cancel() must return "break" so Escape stops at the dialog instead of leaking
-    to whatever bind_all("<Escape>") handler sits on the window(s) behind it."""
-    calls = {"destroy": 0}
-    dialog = _EscapeSafeQueryString.__new__(_EscapeSafeQueryString)
-    dialog.parent = None
-    dialog.destroy = lambda: calls.__setitem__("destroy", calls["destroy"] + 1)
+def test_escape_safe_query_string_keys_go_through_the_window_binder(_shared_tk_root, monkeypatch):
+    """Enter/Escape of the text prompt are window-binder shortcuts that consume the key, so
+    Escape never leaks to shortcuts behind the dialog; the stdlib's raw bindings are gone."""
+    from bw_gui.testing.keys import press_key
 
-    result = dialog.cancel()
-
-    assert result == "break"
-    assert calls["destroy"] == 1
+    monkeypatch.setattr(_EscapeSafeQueryString, "wait_window", lambda self, window=None: None)
+    monkeypatch.setattr(_EscapeSafeQueryString, "grab_set", lambda self: None)
+    dialog = _EscapeSafeQueryString("Titel", "Frage", parent=_shared_tk_root)
+    try:
+        assert str(dialog.tk.call("bind", str(dialog), "<Key-Escape>")) == ""
+        assert press_key(dialog.entry, "Escape") is True
+        assert not dialog.winfo_exists()
+    finally:
+        if dialog.winfo_exists():
+            dialog.destroy()

@@ -208,7 +208,7 @@ class ScrollablePopupWindow:
                 return False
         return False
 
-    def _request_close(self) -> str:
+    def _request_close(self) -> None:
         """Close the popup, idempotently.
 
         Reachable from multiple paths (window-close protocol, Escape) that
@@ -220,20 +220,19 @@ class ScrollablePopupWindow:
         child widget tree, so no intermediate teardown layout is visible.
         """
         if self._closing:
-            return "break"
+            return
         if self._request_close_confirmation is not None:
             should_close = bool(self._request_close_confirmation())
             if not should_close:
-                return "break"
+                return
         self._closing = True
         try:
             self.withdraw()
         except ui.TclError:
             pass
         self.destroy()
-        return "break"
 
-    def _handle_escape_request(self) -> str:
+    def _handle_escape_request(self) -> None:
         """Close the popup on Escape, unconditionally.
 
         Previously this refocused instead of closing when an editable widget had
@@ -241,12 +240,13 @@ class ScrollablePopupWindow:
         does not actually change which widget holds keyboard focus, so it had no
         observable effect and Escape appeared to do nothing while typing.
         """
-        return self._request_close()
+        self._request_close()
 
-    def _on_escape_close(self, _event=None):
+    def _on_escape_close(self, _event=None) -> None:
+        """Escape on this popup: close it unless another popup is the active one (the binder consumes the key)."""
         if self.active_popup() is not self:
-            return "break"
-        return self._handle_escape_request()
+            return
+        self._handle_escape_request()
 
     def _on_window_close(self):
         self._request_close()

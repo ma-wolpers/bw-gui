@@ -12,18 +12,49 @@ from tkinter import simpledialog as _tk_simpledialog
 ModalCallback = Callable[[], Any]
 
 
-class _EscapeSafeQueryString(_tk_simpledialog._QueryString):
-    """Wie ``simpledialog._QueryString``, aber ``cancel()`` stoppt die Ereigniskette.
+def _bind_dialog_keys(dialog: tk.Toplevel, *, on_enter: Callable[[], Any] | None, on_escape: Callable[[], Any]) -> None:
+    """Enter/Escape of a ``simpledialog`` dialog through a window binder (keyboard contract).
 
-    Der Stdlib-``Dialog.cancel`` gibt ``None`` statt ``"break"`` zurueck, wodurch ein
-    Escape-Tastendruck nicht am Dialog-Toplevel stoppt, sondern bis zu darunterliegenden
-    Fenstern (z. B. einem globalen ``bind_all("<Escape>")``-Handler) weiterlaeuft.
+    Replaces the raw ``<Return>``/``<Escape>`` bindings the stdlib puts on the dialog
+    toplevel (removed first: bw-gui owns the keyboard bindings of a toplevel tag). The
+    binder consumes the key, so Escape never reaches an application shortcut behind the
+    dialog. Like the former Tk bindings, both also work in the entry; Escape tolerates
+    additionally held Shift/Ctrl/Alt, Enter tolerates Shift.
+    """
+    from bw_gui.contracts.events import EventResult
+    from bw_gui.contracts.key_spec import Key, KeySpec, Mod
+    from bw_gui.runtime.shortcuts import WindowShortcutBinder
+
+    for sequence in ("<Return>", "<Escape>"):
+        dialog.unbind(sequence)
+
+    def _consume(action: Callable[[], Any]) -> Callable[[object], EventResult]:
+        def _handler(_event: object) -> EventResult:
+            action()
+            return EventResult.HANDLED
+
+        return _handler
+
+    binder = WindowShortcutBinder(dialog)
+    binder.bind(KeySpec(Key.ESCAPE, (), (Mod.CTRL, Mod.ALT, Mod.SHIFT)), _consume(on_escape),
+                binding_id="bw_gui.dialog.cancel", intent="bw_gui.dialog.cancel", allow_when_text_input=True)
+    if on_enter is not None:
+        binder.bind(KeySpec(Key.ENTER, (), (Mod.SHIFT,)), _consume(on_enter),
+                    binding_id="bw_gui.dialog.ok", intent="bw_gui.dialog.ok", allow_when_text_input=True)
+
+
+class _EscapeSafeQueryString(_tk_simpledialog._QueryString):
+    """``simpledialog._QueryString`` with Enter/Escape on the keyboard contract.
+
+    The stdlib dialog binds raw ``<Return>``/``<Escape>`` whose ``cancel`` does not stop
+    the event, so Escape leaked to shortcuts of the windows behind the dialog. Through
+    the window binder the key is consumed at the dialog.
     """
 
-    def cancel(self, event=None):
-        """Close the dialog like the base class, additionally stopping event propagation."""
-        super().cancel(event)
-        return "break"
+    def buttonbox(self):
+        """Build the stdlib OK/Cancel box, then move its Enter/Escape to the window binder."""
+        super().buttonbox()
+        _bind_dialog_keys(self, on_enter=self.ok, on_escape=self.cancel)
 
 
 def _resolve_parent(parent: object | None) -> object | None:
@@ -147,10 +178,9 @@ class _ChoiceDialog(_tk_simpledialog.Dialog):
     already defines e.g. ``_options`` as an internal method, and shadowing it
     breaks widget construction (``TypeError: 'list' object is not callable``).
 
-    Keyboard: initial focus is on the first option; Return activates the
+    Keyboard: initial focus is on the first option; Enter activates the
     focused button (ttk buttons have no Return binding of their own); Escape
-    cancels and returns ``"break"`` so a global ``bind_all("<Escape>")`` of the
-    underlying window never sees it (same reason as ``_EscapeSafeQueryString``).
+    cancels and is consumed at the dialog (window binder, see ``_bind_dialog_keys``).
     """
 
     def __init__(
@@ -200,18 +230,23 @@ class _ChoiceDialog(_tk_simpledialog.Dialog):
         cancel_button.pack(fill="x", pady=(12, 0))
         self._bind_return_to_invoke(cancel_button)
         box.pack(fill="both", expand=True)
-        self.bind("<Escape>", self._on_escape)
+        _bind_dialog_keys(self, on_enter=None, on_escape=self.cancel)
         self.initial_focus = self._choice_buttons[0]
 
     @staticmethod
     def _bind_return_to_invoke(button: ttk.Button) -> None:
-        """Make Return activate ``button`` while it has the focus, stopping propagation."""
+        """Make Enter (Shift tolerated) activate ``button`` while it has the focus; the key is consumed."""
+        from bw_gui.contracts.events import EventResult
+        from bw_gui.contracts.key_spec import Key, KeySpec, Mod
+        from bw_gui.runtime.widget_keys import WidgetShortcutBinder
 
-        def _invoke(_event=None) -> str:
+        def _invoke(_event: object) -> EventResult:
             button.invoke()
-            return "break"
+            return EventResult.HANDLED
 
-        button.bind("<Return>", _invoke)
+        WidgetShortcutBinder(button).bind(
+            KeySpec(Key.ENTER, (), (Mod.SHIFT,)), _invoke, binding_id="bw_gui.choice.invoke", intent="bw_gui.choice.invoke"
+        )
 
     def _choose(self, key: str) -> None:
         """Record ``key`` as the result and close the dialog (mirrors ``Dialog.ok``)."""
@@ -220,10 +255,6 @@ class _ChoiceDialog(_tk_simpledialog.Dialog):
         self.update_idletasks()
         self.cancel()
 
-    def _on_escape(self, _event=None) -> str:
-        """Cancel (result ``None``) and stop the event at the dialog toplevel."""
-        self.cancel()
-        return "break"
 
 
 class ChoiceDialogService:

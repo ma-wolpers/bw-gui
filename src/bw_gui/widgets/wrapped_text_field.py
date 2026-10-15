@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from bw_gui.contracts.events import EventResult
+from bw_gui.contracts.key_spec import KeySpec
 from bw_gui.runtime import ui, widgets
+from bw_gui.runtime.widget_keys import WidgetShortcutBinder
 
 
 class WrappedTextField:
@@ -31,8 +34,14 @@ class WrappedTextField:
         self._container = widgets.Frame(master)
         self.text = ui.Text(self._container, wrap="word", height=height, undo=True)
         self.text.pack(fill="both", expand=True)
-        self.text.bind("<Control-BackSpace>", self._on_ctrl_backspace, add="+")
-        self.text.bind("<Control-Delete>", self._on_ctrl_delete, add="+")
+        # Word delete through the keyboard contract (Shift tolerated like the former Tk
+        # <Control-BackSpace>/<Control-Delete>, which also fired with Shift held).
+        keys = WidgetShortcutBinder(self.text)
+        for notation, handler, binding_id in (
+            ("Ctrl+Backspace (tolerate: Shift)", self._on_ctrl_backspace, "bw_gui.wrapped_text.delete_word_left"),
+            ("Ctrl+Delete (tolerate: Shift)", self._on_ctrl_delete, "bw_gui.wrapped_text.delete_word_right"),
+        ):
+            keys.bind(KeySpec.parse(notation), handler, binding_id=binding_id, intent=binding_id, allow_when_text_input=True)
         if initial:
             self.load(initial)
 
@@ -63,21 +72,21 @@ class WrappedTextField:
             count += 1
         return count
 
-    def _on_ctrl_backspace(self, _event):
-        """Delete the previous word using editor-like behavior."""
+    def _on_ctrl_backspace(self, _event) -> EventResult:
+        """Delete the previous word using editor-like behavior (consumes the key)."""
         before_cursor = self.text.get("1.0", "insert")
         delete_span = self._left_delete_span(before_cursor)
         if delete_span > 0:
             self.text.delete(f"insert-{delete_span}c", "insert")
-        return "break"
+        return EventResult.HANDLED
 
-    def _on_ctrl_delete(self, _event):
-        """Delete the next word using editor-like behavior."""
+    def _on_ctrl_delete(self, _event) -> EventResult:
+        """Delete the next word using editor-like behavior (consumes the key)."""
         after_cursor = self.text.get("insert", "end-1c")
         delete_span = self._right_delete_span(after_cursor)
         if delete_span > 0:
             self.text.delete("insert", f"insert+{delete_span}c")
-        return "break"
+        return EventResult.HANDLED
 
     def get(self) -> str:
         """Return the normalized content: surrounding whitespace is stripped.
