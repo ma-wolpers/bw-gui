@@ -13,6 +13,7 @@ from bw_gui.runtime import (
     on_tab_changed,
     on_text_modified,
     on_visibility,
+    reset_text_modified,
     ui,
     widgets,
 )
@@ -158,3 +159,17 @@ def test_bind_canvas_item_replaces_like_tag_bind(top):
     canvas.event_generate("<ButtonPress-1>", x=10, y=10)
     top.update()
     assert seen == ["new", "new"]
+
+
+def test_reset_text_modified_declares_a_load_as_unmodified(top):
+    text = ui.Text(top)
+    text.pack()
+    seen = []
+    on_text_modified(text, lambda t: seen.append("changed"))
+    text.insert("1.0", "geladen")
+    reset_text_modified(text)  # Tk delivers <<Modified>> later; the flag is false by then
+    top.update()
+    assert seen == []
+    text.insert("end", "!")
+    top.update()
+    assert seen == ["changed"]

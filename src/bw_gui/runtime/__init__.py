@@ -26,7 +26,15 @@ from .selection import (
     on_treeview_select,
     treeview_selection,
 )
-from .widget_events import on_destroy, on_focus_change, on_resize, on_tab_changed, on_text_modified, on_visibility
+from .widget_events import (
+    on_destroy,
+    on_focus_change,
+    on_resize,
+    on_tab_changed,
+    on_text_modified,
+    on_visibility,
+    reset_text_modified,
+)
 from .widget_keys import WidgetShortcutBinder, on_key
 
 __all__ = [
@@ -44,6 +52,7 @@ __all__ = [
     "on_text_modified",
     "on_treeview_select",
     "on_visibility",
+    "reset_text_modified",
     "treeview_selection",
     "BwBaseWindow",
     "fonts",

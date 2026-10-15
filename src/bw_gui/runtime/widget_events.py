@@ -23,7 +23,15 @@ from bw_gui.contracts.widget_events import FocusChange, ResizeEvent, TabChange
 
 from .pointer import _bind, _track
 
-__all__ = ["on_destroy", "on_focus_change", "on_resize", "on_tab_changed", "on_text_modified", "on_visibility"]
+__all__ = [
+    "on_destroy",
+    "on_focus_change",
+    "on_resize",
+    "on_tab_changed",
+    "on_text_modified",
+    "on_visibility",
+    "reset_text_modified",
+]
 
 
 def _is_toplevel(widget: Any) -> bool:
@@ -154,7 +162,8 @@ def on_text_modified(text: Any, handler: Callable[[Any], object]) -> Subscriptio
     flag (``edit_modified(False)``) and reports the change; the event caused by that
     reset (flag now false) is not reported. Typing, paste, undo and programmatic
     ``insert``/``delete`` all report, like the former raw binding with its manual reset.
-    Consumers never read or reset the flag themselves.
+    Consumers never read the flag; to declare programmatic content (e.g. a document
+    just loaded) as the unmodified baseline they call :func:`reset_text_modified`.
     """
 
     def _on_modified(_event: Any) -> None:
@@ -167,6 +176,16 @@ def on_text_modified(text: Any, handler: Callable[[Any], object]) -> Subscriptio
         handler(text)
 
     return _track(text, _bind(text, "<<Modified>>", _on_modified))
+
+
+def reset_text_modified(text: Any) -> None:
+    """Declare the current content of *text* as unmodified (e.g. right after loading a document).
+
+    Call it right after the programmatic ``insert``/``delete``: Tk delivers
+    ``<<Modified>>`` later, and by then the flag is false, so ``on_text_modified``
+    does not report the load as a change.
+    """
+    text.edit_modified(False)
 
 
 def on_tab_changed(notebook: Any, handler: Callable[[TabChange], object]) -> Subscription:

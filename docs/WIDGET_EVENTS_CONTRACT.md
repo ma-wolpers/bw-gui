@@ -26,7 +26,7 @@ Hooks bind on the widget's own bw-gui tag (`bwkeys:<path>`) and see the widget's
 
 **`on_visibility`:** reports only real transitions of `winfo_viewable()`, not each raw `<Map>`/`<Unmap>`. bw-gui watches `<Map>`/`<Unmap>` of the widget and of all ancestors up to its toplevel (iconify/deiconify included), re-evaluates the state, and calls `on_shown(widget)`/`on_hidden(widget)` only when it changed. Registration stores the current state without reporting it. Focus or activation changes of the application never report.
 
-**`on_text_modified`:** uses Tk's modified flag. On `<<Modified>>` with the flag set, bw-gui resets the flag (`edit_modified(False)`) and reports. The event caused by that reset is not reported. Typing, paste, undo and programmatic `insert`/`delete` all report. Consumers never read or reset the flag themselves (this replaces the reset each consumer used to do by hand).
+**`on_text_modified`:** uses Tk's modified flag. On `<<Modified>>` with the flag set, bw-gui resets the flag (`edit_modified(False)`) and reports. The event caused by that reset is not reported. Typing, paste, undo and programmatic `insert`/`delete` all report. Consumers never read the flag (this replaces the check-and-reset each consumer used to do by hand). To declare programmatic content, such as a document just loaded, as the unmodified baseline, they call `reset_text_modified(text)` right after the `insert`/`delete`. Tk delivers `<<Modified>>` later, and by then the flag is false, so the load does not report.
 
 ## Selection: hooks and mutations
 
