@@ -14,19 +14,61 @@ class ShortcutResolver(Protocol):
         ...
 
 
+_DISPLAY_TOKENS = {
+    "control": "Ctrl",
+    "ctrl": "Ctrl",
+    "shift": "Shift",
+    "alt": "Alt",
+    "option": "Alt",
+    "command": "Cmd",
+    "cmd": "Cmd",
+    "comma": ",",
+    "period": ".",
+}
+
+
+def _normalize_display_text(text: str) -> str:
+    """Normalize a free-form shortcut display text (``"strg+t"`` -> ``"Strg+T"``).
+
+    Parts are split at ``+``/``-``; known modifier words get their canonical English
+    spelling, a single-character last part is upper-cased, every other part is
+    capitalized. Localized words (``"Entf"``, ``"Leertaste"``) pass through.
+    """
+    parts = [part for part in text.replace("+", "-").split("-") if part]
+    if not parts:
+        return text
+    normalized: list[str] = []
+    for index, part in enumerate(parts):
+        token = _DISPLAY_TOKENS.get(part.lower())
+        if token is not None:
+            normalized.append(token)
+        elif index == len(parts) - 1 and len(part) == 1:
+            normalized.append(part.upper())
+        else:
+            normalized.append(part.capitalize())
+    return "+".join(normalized)
+
+
 def humanize_shortcut(shortcut: KeySpec | str | None) -> str:
     """Return the readable label of a shortcut (``"Ctrl+S"``, ``"Ctrl+Shift+Z"``, ``"F5"``).
 
-    Accepts a :class:`KeySpec` or its canonical notation (``KeySpec.parse``); Tk
-    binding syntax is not accepted. The tolerate suffix is not shown.
+    * :class:`KeySpec` -> its canonical notation without the tolerate suffix.
+    * ``str`` -> a **display text** chosen by the consumer (also localized, e.g.
+      ``"Entf"``, ``"Strg+T"``, ``"Leertaste"``), normalized by the display rules of
+      :func:`_normalize_display_text`; it is not parsed as ``KeySpec`` syntax.
 
     Raises:
-        ValueError: For a string outside the ``KeySpec`` notation.
+        ValueError: For Tk binding syntax (``"<Control-s>"``) -- consumers describe
+            keys as ``KeySpec`` or display text, never as Tk sequences.
     """
     if shortcut is None or shortcut == "":
         return ""
-    spec = shortcut if isinstance(shortcut, KeySpec) else KeySpec.parse(str(shortcut).strip())
-    return str(KeySpec(spec.key, spec.modifiers, (), character=spec.character))
+    if isinstance(shortcut, KeySpec):
+        return str(KeySpec(shortcut.key, shortcut.modifiers, (), character=shortcut.character))
+    text = str(shortcut).strip()
+    if text.startswith("<") and text.endswith(">"):
+        raise ValueError(f"Tk binding syntax is not a shortcut label: {text!r}")
+    return _normalize_display_text(text)
 
 
 def format_shortcut_label(symbol_label: str, shortcut: KeySpec | str | None = None) -> str:

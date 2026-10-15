@@ -39,3 +39,10 @@ def test_humanize_shortcut_rejects_tk_syntax():
 def test_compose_action_label_icon_and_shortcut():
     label = compose_action_label("Save", icon="💾", shortcut="Ctrl+S")
     assert label == "💾 Save [Ctrl+S]"
+
+
+def test_humanize_shortcut_passes_localized_display_text():
+    assert humanize_shortcut("Entf") == "Entf"
+    assert humanize_shortcut("strg+t") == "Strg+T"
+    assert humanize_shortcut("Leertaste") == "Leertaste"
+    assert compose_hover_text("Löschen", "Entf") == "Löschen\nShortcut: Entf"
