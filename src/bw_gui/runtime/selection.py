@@ -78,6 +78,19 @@ def _states(widget: Any) -> list[_State]:
     return registry.setdefault(str(widget), [])
 
 
+def _existing_states(widget: Any) -> list[_State]:
+    """States of *widget*'s hooks for a mutation, without creating anything.
+
+    A widget without selection hooks has nothing to notify -- also a test double that
+    is not attached to a Tk interpreter (no ``_root``); the mutation itself still runs.
+    """
+    try:
+        registry = runtime_for(widget).peek("selection_states")
+    except AttributeError:
+        return []
+    return list(registry.get(str(widget), ())) if registry else []
+
+
 def _subscribe(
     widget: Any,
     initial: tuple,
@@ -166,7 +179,7 @@ def on_combobox_select(combobox: Any, handler: Callable[[ComboboxSelectionChange
 
 def _after_sync_mutation(widget: Any, current: tuple, notify: bool) -> None:
     """Listbox/Combobox: Tk emits no event for programmatic changes -- update and maybe report now."""
-    for state in list(_states(widget)):
+    for state in _existing_states(widget):
         previous, state.last = state.last, current
         if notify and current != previous and state.report is not None:
             state.report(previous, current)
@@ -198,7 +211,7 @@ class _TreeviewSelection:
         mutate()
         after = tuple(str(item) for item in treeview.selection())
         if after != before:
-            for state in _states(treeview):
+            for state in _existing_states(treeview):
                 state.pending.append((after, notify))
 
     @staticmethod
