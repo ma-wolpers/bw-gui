@@ -8,6 +8,7 @@ pointer `state` bits. Consumers bind semantic hooks and never see `event.delta`,
 |---|---|
 | `bw_gui.contracts.pointer` | pure: `wheel_steps`, `StepAccumulator`, `WheelEvent`, `ClickEvent`, `DragEvent`, `Axis`, `Button`, `CancelReason`, `wheel_axis` |
 | `bw_gui.runtime.pointer` | Tk side: `bind_wheel`, `bind_click`, `bind_drag`, `on_global_click` |
+| `bw_gui.runtime.pointer_group` | `PointerGroup`: one shared tag for many widgets (tables, grids) |
 | `bw_gui.runtime.scroll_resolver` | the single wheel handler for `ScrollableFrame` on the router-owned `all` tag |
 
 Every hook binds on the widget's `bwkeys:<path>` tag (before its class bindings) and returns a `Subscription`.
@@ -33,6 +34,10 @@ Every hook binds on the widget's `bwkeys:<path>` tag (before its class bindings)
 
 - On a double click, `count=1` fires for the first press and `count=2` for the second.
 - Without a `count=2` subscription, the second press is a normal `count=1` press.
+
+## Pointer groups (many widgets, one behaviour)
+
+`PointerGroup(anchor, name)` binds each gesture once on its own tag `bwptr:<name>:<n>`; `group.add(widget)` only inserts that tag into the member's bindtags (after the widget path and its `bwkeys` tag, before the class tag -- the same position as `bind_click`), `group.discard(widget)` removes it. `group.on_click(handler, *, button, count)` and `group.on_wheel(handler)` behave like `bind_click`/`bind_wheel`; `ClickEvent.widget`/`WheelEvent.widget` is the member that received the event. Differences by design: one wheel accumulator per group and no per-member lifecycle (destroyed members just disappear). Members of a group with a wheel handler count as wheel-subscribed for the scroll resolver (rule 2). Use it for tables that rebuild many cells; measured with 2000 cells: adding members costs about a third of raw `widget.bind`, while per-widget `bind_click`+`bind_wheel` cost ~45 µs more to bind and ~130 µs more to destroy per widget.
 
 ## Global click observer
 

@@ -81,9 +81,14 @@ def _wheel_registry(widget: Any) -> dict[str, int]:
 
 
 def wheel_subscribed(widget: Any) -> bool:
-    """True if *widget* has an active ``bind_wheel`` subscription (scroll resolver rule 2)."""
-    registry = runtime_for(widget).peek("wheel_widgets")
-    return bool(registry and registry.get(str(widget)))
+    """True if *widget* has an active ``bind_wheel`` subscription or is a member of a
+    pointer group with a wheel handler (scroll resolver rule 2)."""
+    runtime = runtime_for(widget)
+    registry = runtime.peek("wheel_widgets")
+    if registry and registry.get(str(widget)):
+        return True
+    group_tags = runtime.peek("wheel_group_tags")
+    return bool(group_tags) and any(tag in group_tags for tag in widget.bindtags())
 
 
 def bind_wheel(widget: Any, handler: Callable[[WheelEvent], object]) -> Subscription:

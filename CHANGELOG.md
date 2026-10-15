@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- `bw_gui.runtime.PointerGroup(anchor, name)`: one shared pointer tag for many widgets (`add`/`discard`, `on_click`, `on_wheel`; `docs/POINTER_CONTRACT.md`) -- for grids and tables that rebuild many cells, without per-widget tags, channels or `<Destroy>` bookkeeping. Members count as wheel-subscribed for the scroll resolver.
 - `bw_gui.runtime.on_global_click(anchor, handler, *, button=PRIMARY)`: interpreter-wide click observer on the `all` router (cannot consume; replaces consumer `bind_all("<Button-1>")`), documented in `docs/POINTER_CONTRACT.md`.
 - `bw_gui.testing.keys.press_key(widget, keysym, *, char="", state=0) -> bool`: headless key press through every bw-gui keyboard dispatcher on the widget's bindtags (widget binder, `on_key`, window binder, `all` router) in Tk order, without OS keyboard focus; returns whether a dispatcher reported `HANDLED`. Native class bindings are not simulated.
 - **Overlay stack** (`docs/OVERLAY_STACK_CONTRACT.md`, `bw_gui.runtime.overlay_stack`): one per-interpreter stack with categories `MODAL_DIALOG`/`NON_MODAL_POPUP`/`MENU`/`TRANSIENT`; scrollable popups, the settings dialog, menu popups, tooltips, the drag ghost and native dialogs (`_run_modal`, as modal invocation without toplevel) register themselves. Presets `blocking(w, include_menus=..., include_non_modal=...)` and `modal_affecting_mode(w)` for binders' `dialog_open`. `ScrollablePopupWindow` closes on Escape through a window binder.
