@@ -211,4 +211,5 @@ A widget accepts text input when a key without shortcut modifier would insert or
   - The `TK_DEFAULT` wrapping is verified with a deliberately nasty fake default on a virtual event. Virtual events reach widgets without focus.
 - **Real Tk key routing (opt-in):** `tests/test_shortcut_binder_tk.py` with `TK_FOCUS_TESTS=1`.
 - **Consumer repos:** import the `bw_gui.testing.background_windows` hooks in `tests/conftest.py`.
+- **Consumer key tests without focus:** `bw_gui.testing.keys.press_key(widget, keysym, *, char="", state=0)` walks the widget's bindtags in Tk order and calls each bw-gui dispatcher (found via `bind <tag> <KeyPress>`) until one reports `HANDLED`. Native class bindings are not simulated, so `on_key(phase="after")` also runs where a native class binding would have broken.
 - **Live keyboard (opt-in):** `BW_GUI_LIVE_KEYBOARD=1 pytest -m live_keyboard tests/live`.
