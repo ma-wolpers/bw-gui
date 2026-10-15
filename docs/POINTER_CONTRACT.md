@@ -75,3 +75,14 @@ The candidate is the **nearest registered `ScrollableFrame` along the widget hie
 3. **Nearest overflowing frame:** the nearest frame that overflows on its axis scrolls by the accumulated whole notches. A frame that does not overflow passes the wheel outward (deliberate change). There is no chaining at the content end.
 4. **Own frame parts:** wheel events on a frame's outer frame or own scrollbar resolve to that frame (bugfix 9).
 5. **No candidate:** nothing happens.
+
+## Hover and canvas items
+
+`bind_hover(widget, *, on_enter=None, on_leave=None, on_motion=None)` (`bw_gui.runtime.pointer_hover`) reports `HoverEvent(x, y, x_root, y_root, widget)` for the pointer entering, moving over and leaving the widget, for its own events only. It replaces consumer `<Enter>`/`<Leave>`/`<Motion>` bindings. Hover is never consumed, so handler results are ignored.
+
+`bind_canvas_item(canvas, tag, *, on_click=None, on_double_click=None, on_enter=None, on_leave=None)` puts primary-button and hover hooks on the canvas items with `tag` (or an item id) and replaces consumer `canvas.tag_bind(...)`.
+
+- Like `tag_bind` without `add`, a new hook for the same tag and kind **replaces** the previous one, so re-rendering a graph rebinds its tags without piling up. The replaced callback is released, and removing a replaced subscription is a no-op.
+- A double click reports `on_click` for the first press and `on_double_click` for the second, using Tk's multi-click recognition as in `bind_click`.
+- Tk runs canvas item bindings independently of the widget's bindtags. An item hook therefore cannot stop widget-level pointer hooks, and its result is ignored (1:1 to `tag_bind`).
+

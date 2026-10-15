@@ -13,12 +13,38 @@ from .overlay_stack import (
 )
 from .pointer import bind_click, bind_drag, bind_wheel, on_global_click
 from .pointer_group import PointerGroup
+from .pointer_hover import bind_canvas_item, bind_hover
 from .root_host import TkRootHost, create_root
 from .shortcuts import ApplicationShortcutBinder, ShortcutRegistration, WindowShortcutBinder, detect_backend
 from .text_input import accepts_text_input, register_text_input
+from .selection import (
+    combobox_selection,
+    listbox_selection,
+    on_activate,
+    on_combobox_select,
+    on_listbox_select,
+    on_treeview_select,
+    treeview_selection,
+)
+from .widget_events import on_destroy, on_focus_change, on_resize, on_tab_changed, on_text_modified, on_visibility
 from .widget_keys import WidgetShortcutBinder, on_key
 
 __all__ = [
+    "bind_canvas_item",
+    "bind_hover",
+    "combobox_selection",
+    "listbox_selection",
+    "on_activate",
+    "on_combobox_select",
+    "on_destroy",
+    "on_focus_change",
+    "on_listbox_select",
+    "on_resize",
+    "on_tab_changed",
+    "on_text_modified",
+    "on_treeview_select",
+    "on_visibility",
+    "treeview_selection",
     "BwBaseWindow",
     "fonts",
     "ui",

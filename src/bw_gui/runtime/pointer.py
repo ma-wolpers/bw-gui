@@ -66,10 +66,16 @@ def _bind(widget: Any, sequence: str, func: Callable[[Any], object]) -> Subscrip
 
 
 def _track(widget: Any, subscription: Subscription) -> Subscription:
-    """Invalidate *subscription* when *widget* is destroyed."""
+    """Invalidate *subscription* when *widget* is destroyed.
+
+    Matched by Tk path, not identity: *widget* may be a wrapper that delegates ``bind``
+    and ``str`` to its toplevel (``ScrollablePopupWindow``), while ``event.widget`` is the
+    real Tk widget.
+    """
+    path = str(widget)
 
     def _on_destroy(event: Any) -> None:
-        if event.widget is widget:
+        if str(event.widget) == path:
             subscription._invalidate()
 
     widget.bind("<Destroy>", _on_destroy, add="+")
