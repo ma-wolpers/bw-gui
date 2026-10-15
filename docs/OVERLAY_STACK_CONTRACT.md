@@ -26,11 +26,13 @@ There is no global "anything open" default. Every app picks a preset explicitly:
 | Preset | Semantics | Used by |
 |---|---|---|
 | `blocking(w)` | a modal dialog is open | – |
-| `blocking(w, include_menus=True)` | modal dialog or menu popup | Blattwerk, aiza, Kursplaner |
-| `blocking(w, include_non_modal=True)` | modal dialog or any non-modal popup | Korrektor |
+| `blocking(w, include_menus=True)` | modal dialog or menu popup | Blattwerk, aiza, Kursplaner, Korrektor |
+| `blocking(w, include_non_modal=True)` | modal dialog or any non-modal popup | – (no consumer) |
 | `modal_affecting_mode(w)` | modal with `PopupPolicy.affects_mode` | – (no consumer) |
 
 Kursplaner: its former scan counted every visible direct child toplevel of the main window as blocking unless it was explicitly tracked as non-blocking. Menu popups are direct children of the root, so they counted; the non-blocking tool windows (Kompetenznetz, loading hint, shortcut debug window) register as `NON_MODAL_POPUP`. Hence `blocking(include_menus=True)`, not `modal_affecting_mode` (every Kursplaner modal popup affected the mode anyway).
+
+Korrektor: same shape. Its former `PopupPolicyRegistry` plus scan counted every visible direct child toplevel (menu popups included) except the shortcut debug window. Blocking popups register as `MODAL_DIALOG` (raw toplevels through `_register_popup_window`), the debug window as `NON_MODAL_POPUP`, so the preset is `blocking(include_menus=True)`; `include_non_modal` would have made the debug window block. Escape from the main window closes the most recent non-`TRANSIENT` entry with a toplevel (former `active_popup()`).
 
 `overlay_state(w)` returns `OverlayState(modal_dialog, menu_open, non_modal_popups, modal_affecting_mode, entries)`.
 

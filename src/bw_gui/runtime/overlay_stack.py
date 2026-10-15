@@ -146,9 +146,10 @@ def overlay_state(widget: Any) -> OverlayState:
 def blocking(widget: Any, *, include_menus: bool = False, include_non_modal: bool = False) -> Callable[[], bool]:
     """Preset for a binder's ``dialog_open``: modal dialogs, optionally menus/non-modal popups.
 
-    Presets reproducing today's app semantics: Blattwerk, aiza and Kursplaner count menu
-    popups as dialogs (``include_menus=True``); Korrektor counts every visible toplevel
-    (``include_non_modal=True``). Transient overlays never count.
+    Presets reproducing today's app semantics: Blattwerk, aiza, Kursplaner and Korrektor
+    count menu popups as dialogs (``include_menus=True``). ``include_non_modal`` has no
+    consumer today (Korrektor's characterization showed its non-blocking tool window
+    must not count). Transient overlays never count.
     """
 
     def _is_open() -> bool:
