@@ -43,7 +43,7 @@ Every hook binds on the widget's `bwkeys:<path>` tag (before its class bindings)
 
 `on_global_click(anchor, handler, *, button=PRIMARY, owner=None) -> Subscription` observes every press of `button` in all toplevels of the interpreter. It runs on the `all` router as an observer: it sees the press only if no earlier bindtag consumed it, and it can never consume the press (the handler result is ignored). Typical use: commit an inline edit when the user clicks elsewhere. It replaces consumer `bind_all("<Button-1>", ...)`.
 
-Lifetime: without `owner` the subscription lives as long as the interpreter (the router does). `owner=<widget>` bounds it to that widget: on the owner's `<Destroy>` the observer is **removed** from the router (`remove()`, not only invalidated, because the router outlives the owner). A descendant's destroy does not end it. The owner does not filter presses; a dialog that only cares about presses inside itself filters on `ClickEvent.widget`.
+Lifetime: without `owner` the subscription lives as long as the interpreter (the router does). `owner=<widget>` (or a wrapper that delegates `bind`/`str` to one, such as `ScrollablePopupWindow`; matched by Tk path) bounds it to that widget: on the owner's `<Destroy>` the observer is **removed** from the router (`remove()`, not only invalidated, because the router outlives the owner). A descendant's destroy does not end it. The owner does not filter presses; a dialog that only cares about presses inside itself filters on `ClickEvent.widget`.
 
 ## Drag
 

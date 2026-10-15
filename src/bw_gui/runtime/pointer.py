@@ -172,7 +172,8 @@ def on_global_click(
         anchor: Any widget of the interpreter.
         handler: ``handler(ClickEvent)``.
         button: Mouse button to observe.
-        owner: Optional widget whose lifetime bounds the subscription: when *owner* is
+        owner: Optional widget (or a wrapper delegating ``bind``/``str`` to one, like
+            ``ScrollablePopupWindow``) whose lifetime bounds the subscription: when it is
             destroyed, the observer is removed from the router (``remove()``, not just
             invalidated -- the router outlives the owner). Without an owner the
             subscription lives as long as the interpreter. The owner only bounds the
@@ -190,10 +191,13 @@ def on_global_click(
 
     subscription = router_for(anchor).register_event(f"<Button-{int(button)}>", _observe)
     if owner is not None:
+        owner_path = str(owner)
 
-        def _on_owner_destroy(event: Any, *, _owner: Any = owner) -> None:
-            # A toplevel's own tag also sees its descendants' <Destroy>: filter on the owner.
-            if event.widget is _owner:
+        def _on_owner_destroy(event: Any) -> None:
+            # A toplevel's own tag also sees its descendants' <Destroy>: filter on the
+            # owner's Tk path (not identity -- the owner may be a wrapper that delegates
+            # ``bind``/``str`` to its toplevel, e.g. ``ScrollablePopupWindow``).
+            if str(event.widget) == owner_path:
                 subscription.remove()
 
         owner.bind("<Destroy>", _on_owner_destroy, add="+")

@@ -211,3 +211,23 @@ def test_on_global_click_owner_bounds_the_subscription(_shared_tk_root):
         assert seen == [canvas]
     finally:
         other.destroy()
+
+
+def test_on_global_click_owner_may_be_a_delegating_wrapper(_shared_tk_root):
+    """Popup wrappers delegate ``bind``/``str`` to their toplevel; the owner match is by path."""
+    from bw_gui.runtime import on_global_click
+
+    class _Wrapper:
+        def __init__(self, toplevel):
+            self._top = toplevel
+
+        def __getattr__(self, name):
+            return getattr(self._top, name)
+
+        def __str__(self):
+            return str(self._top)
+
+    top = ui.Toplevel(_shared_tk_root)
+    subscription = on_global_click(_shared_tk_root, lambda event: None, owner=_Wrapper(top))
+    top.destroy()
+    assert not subscription.active
