@@ -25,7 +25,7 @@ There is no global "anything open" default. Every app picks a preset explicitly:
 
 | Preset | Semantics | Used by |
 |---|---|---|
-| `blocking(w)` | a modal dialog is open | – |
+| `blocking(w)` | a modal dialog is open | Kartograph (its former scan classified menu popups as non-blocking) |
 | `blocking(w, include_menus=True)` | modal dialog or menu popup | Blattwerk, aiza, Kursplaner, Korrektor |
 | `blocking(w, include_non_modal=True)` | modal dialog or any non-modal popup | – (no consumer) |
 | `modal_affecting_mode(w)` | modal with `PopupPolicy.affects_mode` | – (no consumer) |
