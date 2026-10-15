@@ -162,3 +162,24 @@ def test_pointer_subscriptions_invalidate_on_destroy(_shared_tk_root):
     subs = [bind_wheel(widget, lambda e: None), bind_click(widget, lambda e: None), bind_drag(widget)]
     top.destroy()
     assert not any(s.active for s in subs)
+
+
+def test_on_global_click_observes_presses_in_every_toplevel(_shared_tk_root):
+    from bw_gui.runtime import on_global_click
+
+    top = ui.Toplevel(_shared_tk_root)
+    canvas = ui.Canvas(top)
+    canvas.pack()
+    top.update()
+    seen: list[object] = []
+    subscription = on_global_click(_shared_tk_root, lambda event: seen.append(event.widget) or EventResult.HANDLED)
+    try:
+        canvas.event_generate("<ButtonPress-1>", x=3, y=3)
+        top.update()
+        assert seen == [canvas]
+        subscription.remove()
+        canvas.event_generate("<ButtonPress-1>", x=3, y=3)
+        top.update()
+        assert seen == [canvas]
+    finally:
+        top.destroy()

@@ -7,7 +7,7 @@ pointer `state` bits. Consumers bind semantic hooks and never see `event.delta`,
 | Module | Responsibility |
 |---|---|
 | `bw_gui.contracts.pointer` | pure: `wheel_steps`, `StepAccumulator`, `WheelEvent`, `ClickEvent`, `DragEvent`, `Axis`, `Button`, `CancelReason`, `wheel_axis` |
-| `bw_gui.runtime.pointer` | Tk side: `bind_wheel`, `bind_click`, `bind_drag` |
+| `bw_gui.runtime.pointer` | Tk side: `bind_wheel`, `bind_click`, `bind_drag`, `on_global_click` |
 | `bw_gui.runtime.scroll_resolver` | the single wheel handler for `ScrollableFrame` on the router-owned `all` tag |
 
 Every hook binds on the widget's `bwkeys:<path>` tag (before its class bindings) and returns a `Subscription`.
@@ -33,6 +33,10 @@ Every hook binds on the widget's `bwkeys:<path>` tag (before its class bindings)
 
 - On a double click, `count=1` fires for the first press and `count=2` for the second.
 - Without a `count=2` subscription, the second press is a normal `count=1` press.
+
+## Global click observer
+
+`on_global_click(anchor, handler, *, button=PRIMARY) -> Subscription` observes every press of `button` in all toplevels of the interpreter. It runs on the `all` router as an observer: it sees the press only if no earlier bindtag consumed it, and it can never consume the press (the handler result is ignored). Typical use: commit an inline edit when the user clicks elsewhere. It replaces consumer `bind_all("<Button-1>", ...)`.
 
 ## Drag
 

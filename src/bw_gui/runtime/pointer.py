@@ -36,7 +36,7 @@ from ._key_channel import detect_backend, gesture_slot
 from ._tk_identity import interpreter_root, runtime_for
 from .widget_keys import ensure_widget_tag
 
-__all__ = ["bind_click", "bind_drag", "bind_wheel", "wheel_subscribed"]
+__all__ = ["bind_click", "bind_drag", "bind_wheel", "on_global_click", "wheel_subscribed"]
 
 
 def _tk(result: object) -> str | None:
@@ -145,6 +145,35 @@ def bind_click(
     sequence = f"<ButtonPress-{int(button)}>" if count == 1 else f"<Double-ButtonPress-{int(button)}>"
     subscription = _bind(widget, sequence, lambda e: _tk(handler(_click_event(e, button, count, widget, backend))))
     return _track(widget, subscription)
+
+
+def on_global_click(
+    anchor: Any, handler: Callable[[ClickEvent], object], *, button: Button = Button.PRIMARY
+) -> Subscription:
+    """Observe every press of *button* anywhere in *anchor*'s interpreter (all toplevels).
+
+    Runs on the ``all`` router as an **observer** (``POINTER_CONTRACT.md``): it sees the
+    press after the widget, class and toplevel bindtags, only if none of them consumed
+    it, and it can never consume the press itself -- the handler's result is ignored.
+    Typical use: commit an inline edit when the user clicks somewhere else. The
+    ``ClickEvent.widget`` is the widget that received the press.
+
+    Args:
+        anchor: Any widget of the interpreter.
+        handler: ``handler(ClickEvent)``.
+        button: Mouse button to observe.
+
+    Returns:
+        A subscription; it ends with the interpreter (``remove()`` ends it earlier).
+    """
+    from .key_router import router_for
+
+    backend = detect_backend(anchor)
+
+    def _observe(event: Any) -> None:
+        handler(_click_event(event, button, 1, getattr(event, "widget", None), backend))
+
+    return router_for(anchor).register_event(f"<Button-{int(button)}>", _observe)
 
 
 class _DragSession:
