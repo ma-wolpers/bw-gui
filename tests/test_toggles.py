@@ -221,3 +221,38 @@ def test_matrix_cell_hides_text_but_keeps_label(root) -> None:
 def test_takes_keyboard_focus(root) -> None:
     switch = Switch(root, text="x", variable=ui.BooleanVar(master=root), on_change=lambda _: None)
     assert str(switch.cget("takefocus")) in ("", "ttk::takefocus")
+
+
+def test_modified_space_is_no_toggle_activation_class_binding(root) -> None:
+    Switch(root, text="x", variable=ui.BooleanVar(master=root), on_change=lambda _: None)
+    for sequence in ("<Control-Key-space>", "<Alt-Key-space>"):
+        script = str(root.tk.call("bind", "TCheckbutton", sequence))
+        assert script and "break" not in script  # no-op, the key travels on to app shortcuts
+
+
+@pytest.mark.parametrize("cls", [Switch, Checkbox])
+def test_space_toggles_but_ctrl_space_reaches_app_shortcuts_instead(root, cls) -> None:
+    """With the focus on a toggle, plain Space activates it; Ctrl+Space does not, and the
+    application-wide (``all``) binding still sees the key."""
+    calls: list[bool] = []
+    app_keys: list[str] = []
+    kwargs = {"on_change": calls.append} if cls is Switch else {"on_select": calls.append}
+    toggle = cls(root, text="x", variable=ui.BooleanVar(master=root), **kwargs)
+    toggle.pack()
+    root.bind_all("<Control-Key-space>", lambda _e: app_keys.append("ctrl+space"), add="+")
+    try:
+        root.deiconify()
+        root.update()
+        toggle.focus_force()
+        root.update()
+        if root.focus_get() is not toggle:
+            pytest.skip("no OS keyboard focus available")
+        toggle.event_generate("<Control-Key-space>", when="now")
+        root.update()
+        assert calls == [] and app_keys == ["ctrl+space"]
+        toggle.event_generate("<Key-space>", when="now")
+        root.update()
+        assert calls == [True]
+    finally:
+        root.unbind_all("<Control-Key-space>")
+        root.withdraw()

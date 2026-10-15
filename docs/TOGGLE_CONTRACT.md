@@ -228,6 +228,11 @@ listener: after changing `tk scaling`, call `configure_ttk_theme` (normally via
 
 - **Native ttk interaction** is retained because the widgets *are*
   `ttk.Checkbutton`s: Tab focus traversal, Space activation, disabled state. Tested.
+- **Space is exact**: only plain Space (Shift tolerated) activates a focused toggle. Ctrl+Space and
+  Alt+Space (aqua: Cmd/Option+Space) are not an activation - Tk's own `<Key-space>` class binding would
+  match them (minimum-set matching); more specific no-op class bindings on `TCheckbutton` (installed by
+  the first toggle) override it without `break`, so the keys reach window/application shortcuts
+  (`KEYBINDING_CONTRACT.md`, exact modifiers). Tested with real focus (skipped without OS focus).
 - **Screen readers**: Tk 8.6 on Windows exposes no usable screen-reader semantics for
   ttk widgets, before and after this change. Not tested, out of scope; the image-based
   indicator neither improves nor worsens it.
