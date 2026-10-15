@@ -146,8 +146,8 @@ def overlay_state(widget: Any) -> OverlayState:
 def blocking(widget: Any, *, include_menus: bool = False, include_non_modal: bool = False) -> Callable[[], bool]:
     """Preset for a binder's ``dialog_open``: modal dialogs, optionally menus/non-modal popups.
 
-    Presets reproducing today's app semantics: Blattwerk and aiza count menu popups as
-    dialogs (``include_menus=True``); Korrektor counts every visible toplevel
+    Presets reproducing today's app semantics: Blattwerk, aiza and Kursplaner count menu
+    popups as dialogs (``include_menus=True``); Korrektor counts every visible toplevel
     (``include_non_modal=True``). Transient overlays never count.
     """
 
@@ -163,7 +163,11 @@ def blocking(widget: Any, *, include_menus: bool = False, include_non_modal: boo
 
 
 def modal_affecting_mode(widget: Any) -> Callable[[], bool]:
-    """Preset with Kursplaner's ``has_mode_blocking_popup`` semantics (modal + ``affects_mode``)."""
+    """Preset: a modal dialog whose policy ``affects_mode`` is open (``PopupPolicyRegistry.has_mode_blocking_popup``).
+
+    Currently no consumer: Kursplaner's characterization showed that its former scan also
+    counted menu popups, so it uses ``blocking(include_menus=True)``.
+    """
     return lambda: overlay_state(widget).modal_affecting_mode
 
 

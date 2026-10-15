@@ -10,8 +10,8 @@ and the toplevel scans consumer apps used to do.
 
 | Category | Who registers | Gating |
 |---|---|---|
-| `MODAL_DIALOG` | `ScrollablePopupWindow` (grabs), `TabbedSettingsDialog`, native message/file/choice dialogs via `_run_modal` | yes |
-| `NON_MODAL_POPUP` | consumer tool windows | only with the `include_non_modal` preset |
+| `MODAL_DIALOG` | `ScrollablePopupWindow` (default `overlay_category`), `TabbedSettingsDialog`, native message/file/choice dialogs via `_run_modal` | yes |
+| `NON_MODAL_POPUP` | `ScrollablePopupWindow(overlay_category=NON_MODAL_POPUP)` and consumer tool windows via `register_overlay` | only with the `include_non_modal` preset |
 | `MENU` | `CustomMenuBar` popups and description flyouts | only with the `include_menus` preset |
 | `TRANSIENT` | `HoverTooltip`, drag ghost | never |
 
@@ -26,9 +26,11 @@ There is no global "anything open" default. Every app picks a preset explicitly:
 | Preset | Semantics | Used by |
 |---|---|---|
 | `blocking(w)` | a modal dialog is open | – |
-| `blocking(w, include_menus=True)` | modal dialog or menu popup | Blattwerk, aiza |
+| `blocking(w, include_menus=True)` | modal dialog or menu popup | Blattwerk, aiza, Kursplaner |
 | `blocking(w, include_non_modal=True)` | modal dialog or any non-modal popup | Korrektor |
-| `modal_affecting_mode(w)` | modal with `PopupPolicy.affects_mode` | Kursplaner |
+| `modal_affecting_mode(w)` | modal with `PopupPolicy.affects_mode` | – (no consumer) |
+
+Kursplaner: its former scan counted every visible direct child toplevel of the main window as blocking unless it was explicitly tracked as non-blocking. Menu popups are direct children of the root, so they counted; the non-blocking tool windows (Kompetenznetz, loading hint, shortcut debug window) register as `NON_MODAL_POPUP`. Hence `blocking(include_menus=True)`, not `modal_affecting_mode` (every Kursplaner modal popup affected the mode anyway).
 
 `overlay_state(w)` returns `OverlayState(modal_dialog, menu_open, non_modal_popups, modal_affecting_mode, entries)`.
 

@@ -41,6 +41,7 @@ class ScrollablePopupWindow:
         apply_window_theme: Callable[[ui.Misc, str | None], None] | None = None,
         configure_ttk_theme: Callable[[ui.Misc, str | None], None] | None = None,
         request_close_confirmation: Callable[[], bool] | None = None,
+        overlay_category: OverlayCategory = OverlayCategory.MODAL_DIALOG,
     ):
         """Build the popup chrome, optionally wrapping the content area in its own scroll surface.
 
@@ -57,7 +58,20 @@ class ScrollablePopupWindow:
                 mousewheel captures. When ``False``, ``self.content`` is a
                 plain Frame packed directly into the popup, and no
                 ``ScrollableFrame``/mousewheel handler is created at all.
+            overlay_category: How the popup registers in the interpreter's overlay
+                stack (``OVERLAY_STACK_CONTRACT.md``). ``MODAL_DIALOG`` (default) for
+                dialogs that block the main window's shortcuts; ``NON_MODAL_POPUP``
+                for tool windows the user works next to (e.g. a graph the main window
+                keeps editing alongside) -- those gate shortcuts only under the
+                ``include_non_modal`` preset. Escape handling and ``active_popup()``
+                are the same for both.
+
+        Raises:
+            ValueError: *overlay_category* is ``MENU`` or ``TRANSIENT`` (not a popup window).
         """
+        overlay_category = OverlayCategory(overlay_category)
+        if overlay_category not in (OverlayCategory.MODAL_DIALOG, OverlayCategory.NON_MODAL_POPUP):
+            raise ValueError(f"ScrollablePopupWindow registers as MODAL_DIALOG or NON_MODAL_POPUP, not {overlay_category}")
         self._popup_window = ui.Toplevel(master)
         self.title(title)
         self.geometry(geometry)
@@ -99,7 +113,7 @@ class ScrollablePopupWindow:
         setattr(self._popup_window, "_bw_scrollable_popup", self)
         self._overlay = register_overlay(
             self._popup_window,
-            OverlayCategory.MODAL_DIALOG,
+            overlay_category,
             toplevel=self._popup_window,
             policy=PopupPolicy(policy_id="bw_gui.scrollable_popup"),
         )

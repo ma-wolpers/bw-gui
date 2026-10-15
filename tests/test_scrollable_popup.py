@@ -238,3 +238,27 @@ def test_escape_closes_popup_built_on_scrollable_frame(root):
     root.update()
 
     assert not popup.winfo_exists()
+
+
+def test_overlay_category_registers_non_modal_tool_windows(root):
+    """``overlay_category`` decides the stack category; presets follow it, Escape does not."""
+    from bw_gui.runtime.overlay_stack import OverlayCategory, blocking, overlay_state
+
+    tool = ScrollablePopupWindow(
+        root, title="T", geometry="200x120", minsize=(100, 80), overlay_category=OverlayCategory.NON_MODAL_POPUP
+    )
+    root.update()
+    state = overlay_state(root)
+    assert (state.modal_dialog, state.non_modal_popups) == (False, 1)
+    assert blocking(root)() is False and blocking(root, include_non_modal=True)() is True
+    assert ScrollablePopupWindow.active_popup() is tool
+    tool._request_close()
+    assert overlay_state(root).non_modal_popups == 0
+
+
+@pytest.mark.parametrize("category", ["menu", "transient"])
+def test_overlay_category_rejects_non_window_categories(root, category):
+    from bw_gui.runtime.overlay_stack import OverlayCategory
+
+    with pytest.raises(ValueError):
+        ScrollablePopupWindow(root, title="T", geometry="200x120", minsize=(100, 80), overlay_category=OverlayCategory(category))
