@@ -153,23 +153,33 @@ def bind_click(
 
 
 def on_global_click(
-    anchor: Any, handler: Callable[[ClickEvent], object], *, button: Button = Button.PRIMARY
+    anchor: Any,
+    handler: Callable[[ClickEvent], object],
+    *,
+    button: Button = Button.PRIMARY,
+    owner: Any | None = None,
 ) -> Subscription:
     """Observe every press of *button* anywhere in *anchor*'s interpreter (all toplevels).
 
     Runs on the ``all`` router as an **observer** (``POINTER_CONTRACT.md``): it sees the
     press after the widget, class and toplevel bindtags, only if none of them consumed
     it, and it can never consume the press itself -- the handler's result is ignored.
-    Typical use: commit an inline edit when the user clicks somewhere else. The
-    ``ClickEvent.widget`` is the widget that received the press.
+    Typical use: commit an inline edit when the user clicks somewhere else, or close a
+    dialog's selection overlay on a click outside it. The ``ClickEvent.widget`` is the
+    widget that received the press.
 
     Args:
         anchor: Any widget of the interpreter.
         handler: ``handler(ClickEvent)``.
         button: Mouse button to observe.
+        owner: Optional widget whose lifetime bounds the subscription: when *owner* is
+            destroyed, the observer is removed from the router (``remove()``, not just
+            invalidated -- the router outlives the owner). Without an owner the
+            subscription lives as long as the interpreter. The owner only bounds the
+            lifetime; it does not filter presses (filter on ``ClickEvent.widget``).
 
     Returns:
-        A subscription; it ends with the interpreter (``remove()`` ends it earlier).
+        A subscription; ``remove()`` ends it earlier (idempotent).
     """
     from .key_router import router_for
 
@@ -178,7 +188,16 @@ def on_global_click(
     def _observe(event: Any) -> None:
         handler(_click_event(event, button, 1, getattr(event, "widget", None), backend))
 
-    return router_for(anchor).register_event(f"<Button-{int(button)}>", _observe)
+    subscription = router_for(anchor).register_event(f"<Button-{int(button)}>", _observe)
+    if owner is not None:
+
+        def _on_owner_destroy(event: Any, *, _owner: Any = owner) -> None:
+            # A toplevel's own tag also sees its descendants' <Destroy>: filter on the owner.
+            if event.widget is _owner:
+                subscription.remove()
+
+        owner.bind("<Destroy>", _on_owner_destroy, add="+")
+    return subscription
 
 
 class _DragSession:

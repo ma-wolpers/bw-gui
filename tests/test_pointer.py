@@ -183,3 +183,31 @@ def test_on_global_click_observes_presses_in_every_toplevel(_shared_tk_root):
         assert seen == [canvas]
     finally:
         top.destroy()
+
+
+def test_on_global_click_owner_bounds_the_subscription(_shared_tk_root):
+    """With ``owner`` the observer leaves the router when the owner is destroyed --
+    a child's destroy (same toplevel tag) does not end it."""
+    from bw_gui.runtime import on_global_click
+
+    dialog = ui.Toplevel(_shared_tk_root)
+    other = ui.Toplevel(_shared_tk_root)
+    canvas = ui.Canvas(other)
+    canvas.pack()
+    child = ui.Frame(dialog)
+    other.update()
+    seen: list[object] = []
+    subscription = on_global_click(_shared_tk_root, lambda event: seen.append(event.widget), owner=dialog)
+    try:
+        child.destroy()
+        assert subscription.active
+        canvas.event_generate("<ButtonPress-1>", x=3, y=3)
+        other.update()
+        assert seen == [canvas]
+        dialog.destroy()
+        assert not subscription.active
+        canvas.event_generate("<ButtonPress-1>", x=3, y=3)
+        other.update()
+        assert seen == [canvas]
+    finally:
+        other.destroy()
