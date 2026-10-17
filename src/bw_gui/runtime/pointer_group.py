@@ -1,4 +1,4 @@
-"""Shared pointer behaviour for many widgets on one bw-gui tag (``POINTER_CONTRACT.md``).
+"""Shared pointer and focus behaviour for many widgets on one bw-gui tag (``POINTER_CONTRACT.md``).
 
 ``bind_click``/``bind_wheel`` give each widget its own ``bwkeys:<path>`` tag, a key
 channel and ``<Destroy>`` bookkeeping. That is right for single widgets, but a table
@@ -9,7 +9,8 @@ A :class:`PointerGroup` binds each gesture **once** on its own tag
 ``bwptr:<name>:<n>``; :meth:`PointerGroup.add` only inserts that tag into a member's
 bindtags (directly after the widget path and its ``bwkeys`` tag, before the class
 tag -- the same position as ``bind_click``). Handlers receive the usual
-``ClickEvent``/``WheelEvent`` whose ``widget`` is the member that got the event.
+``ClickEvent``/``WheelEvent``/``FocusChange`` whose ``widget`` is the member that got the
+event (focus: table cells that commit on focus loss pay the same per-widget cost).
 
 Semantics equal ``bind_click``/``bind_wheel`` (``HANDLED`` stops the Tk event, Tk's own
 multi-click recognition for ``count=2``, normalised wheel steps); differences, by
@@ -26,6 +27,7 @@ from typing import Any, Callable
 from bw_gui.contracts.key_modifiers import modifiers_from_event
 from bw_gui.contracts.pointer import Axis, Button, ClickEvent, StepAccumulator, WheelEvent, wheel_steps
 from bw_gui.contracts.subscription import Subscription
+from bw_gui.contracts.widget_events import FocusChange
 
 from ._key_channel import detect_backend
 from ._tk_identity import interpreter_root, runtime_for
@@ -149,6 +151,37 @@ class PointerGroup:
             for part in parts:
                 part.remove()
             tags.discard(self.tag)
+
+        return Subscription(_remove)
+
+    def on_focus_change(
+        self,
+        *,
+        on_gained: Callable[[FocusChange], object] | None = None,
+        on_lost: Callable[[FocusChange], object] | None = None,
+    ) -> Subscription:
+        """Report keyboard focus gained/lost by any member (``FocusChange.widget`` = the member).
+
+        Same semantics as ``on_focus_change`` of a single widget (every Tk focus event,
+        whatever its notify detail; the result is ignored), but bound once for the whole
+        group -- for tables whose cells commit on focus loss. Several callbacks of the
+        same kind run in subscription order.
+        """
+        if on_gained is None and on_lost is None:
+            raise ValueError("on_focus_change needs on_gained and/or on_lost")
+        parts: list[Subscription] = []
+        for sequence, callback, gained in (("<FocusIn>", on_gained, True), ("<FocusOut>", on_lost, False)):
+            if callback is None:
+                continue
+
+            def _on_focus(event: Any, *, _callback=callback, _gained=gained) -> None:
+                _callback(FocusChange(_gained, event.widget))
+
+            parts.append(self._bind(sequence, _on_focus))
+
+        def _remove() -> None:
+            for part in parts:
+                part.remove()
 
         return Subscription(_remove)
 

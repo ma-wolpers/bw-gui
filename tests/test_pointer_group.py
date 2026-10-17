@@ -73,3 +73,27 @@ def test_add_is_idempotent_and_sits_before_the_class_tag(_shared_tk_root):
     finally:
         group.dispose()
         top.destroy()
+
+
+def test_group_focus_change_reports_the_member(_shared_tk_root):
+    """on_focus_change is bound once for the group; callbacks of one kind run in order."""
+    from bw_gui.runtime import PointerGroup, ui
+
+    top = ui.Toplevel(_shared_tk_root)
+    entries = [ui.Entry(top) for _ in range(3)]
+    for entry in entries:
+        entry.pack()
+    top.update()
+    seen = []
+    group = PointerGroup(top, "focus-test")
+    group.on_focus_change(on_gained=lambda c: seen.append(("in", str(c.widget))))
+    group.on_focus_change(on_lost=lambda c: seen.append(("commit", str(c.widget))))
+    group.on_focus_change(on_lost=lambda c: seen.append(("out", str(c.widget))))
+    for entry in entries:
+        group.add(entry)
+    try:
+        entries[1].event_generate("<FocusIn>")
+        entries[1].event_generate("<FocusOut>")
+        assert seen == [("in", str(entries[1])), ("commit", str(entries[1])), ("out", str(entries[1]))]
+    finally:
+        top.destroy()

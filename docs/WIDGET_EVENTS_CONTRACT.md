@@ -78,4 +78,4 @@ A guard forbids, in apps:
 - lifecycle and virtual-event bindings
 - raw selection mutations (`selection_set`, `select_set`, `selection_add`/`remove`/`toggle`, `selection_clear`/`select_clear` with a range argument, `Combobox.current(<index>)`)
 
-The three levels of the guard (semantic rule, detected AST patterns, known false negatives and positives) are documented with the guard itself.
+The guard is `bw_gui.testing.tk_usage_guard` (`find_offenders(app_root) == {}` in each app's test suite; deliberate exceptions carry `# bw-tk: <reason>` and are counted by `opt_outs`). Its three levels (semantic rule, detected AST patterns, known false negatives and positives) are documented in the module itself.

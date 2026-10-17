@@ -27,11 +27,17 @@ RULE = (
 
 def _is_state_access(node: ast.AST, aliases: frozenset[str] = frozenset()) -> bool:
     """True for ``x.state``, ``getattr(x, "state"[, default])``, ``int(...)`` of those,
-    and plain names in *aliases* (local variables assigned from such an access)."""
+    plain names in *aliases* (local variables assigned from such an access), and
+    ``a or b``/``a and b``/``a if c else b`` with such an access in a value branch --
+    e.g. ``int(getattr(event, "state", 0) or 0)`` (bug 4: the ``BoolOp`` hid the access)."""
     if isinstance(node, ast.Attribute) and node.attr == "state":
         return True
     if isinstance(node, ast.Name) and node.id in aliases:
         return True
+    if isinstance(node, ast.BoolOp):
+        return any(_is_state_access(value, aliases) for value in node.values)
+    if isinstance(node, ast.IfExp):
+        return _is_state_access(node.body, aliases) or _is_state_access(node.orelse, aliases)
     if isinstance(node, ast.Call):
         func = node.func
         if isinstance(func, ast.Name) and func.id == "getattr" and len(node.args) >= 2:

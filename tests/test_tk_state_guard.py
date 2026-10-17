@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from bw_gui.testing.tk_state_guard import find_offenders, raw_state_bitmask_lines
 
 
@@ -52,3 +54,17 @@ def test_files_with_utf8_bom_are_parsed(tmp_path):
     sample = tmp_path / "bom.py"
     sample.write_bytes("﻿y = e.state & 4\n".encode("utf-8"))
     assert raw_state_bitmask_lines(sample) == [1]
+
+
+@pytest.mark.parametrize(
+    "assignment",
+    [
+        "state = int(getattr(event, 'state', 0) or 0)",
+        "state = event.state or 0",
+        "state = event.state if event is not None else 0",
+    ],
+)
+def test_alias_through_boolop_or_ifexp_is_found(tmp_path, assignment):
+    """Bug 4: an alias assigned through ``or``/``and``/``if-else`` used to hide the access."""
+    path = _write(tmp_path, "module.py", "def f(event):", "    " + assignment, "    return state & 0x4")
+    assert raw_state_bitmask_lines(path) == [3]
