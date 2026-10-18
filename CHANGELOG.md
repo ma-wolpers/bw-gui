@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Theme listeners** (`docs/THEME_CONTRACT.md`): `register_theme_listener(callback, *, owner)` runs after the styles of every `configure_ttk_theme` call, exactly once, in registration order with isolated errors; owner-bound lifetime (`WeakMethod`, finalizer). Requests during the listener phase are deferred (last wins), equal states dropped, cycles reported as `RuntimeError`, at most 8 follow-up switches.
 - `PointerGroup.on_focus_change(*, on_gained, on_lost)`: focus hooks bound once for all members (table cells committing on focus loss).
 - `bw_gui.testing.tk_usage_guard`: shared AST guard for consumer apps (rules `bind`, `sequence`, `break`, `event-field`, `selection`; `find_offenders`, `opt_outs` for `# bw-tk: <reason>` lines), with its three levels (semantic rule, detected patterns, known false negatives/positives) documented in the module.
 - `bw_gui.runtime.reset_text_modified(text)`: declares programmatic `Text` content (e.g. a loaded document) as the unmodified baseline, so `on_text_modified` does not report the load (`docs/WIDGET_EVENTS_CONTRACT.md`).
@@ -47,6 +48,7 @@ All notable changes to this project will be documented in this file.
 - `WrappedTextField.load(value)`: loads the initial content of an editing session. It replaces the text, then clears the undo/redo stacks, resets the modified flag (this can fire `<<Modified>>` if the flag was set) and puts the cursor at the start. Ctrl+Z right after opening no longer empties the field. `set()` is unchanged and stays undoable, for replacements during editing.
 
 ### Fixed
+- `icon_button` recolors through a theme listener per button; its registry no longer keeps destroyed buttons alive (weak keys instead of a global list).
 - `tk_state_guard` now also finds a state alias assigned through `or`/`and`/`if-else`, e.g. `state = int(getattr(event, "state", 0) or 0)` (bug 4).
 - `Checkbox`/`Switch`: only plain Space (Shift tolerated) activates a focused toggle. Tk's class binding `TCheckbutton <Key-space>` also fired for Ctrl+Space/Alt+Space (Cmd/Option on aqua), against the exact-modifier keyboard contract - a focused "finished" switch swallowed an app's Ctrl+Space shortcut and toggled itself instead. More specific no-op class bindings (installed once per interpreter by the first toggle, no `break`) let those keys travel on to window and application shortcuts.
 - Pointer hooks invalidate their subscription on the destroy of a wrapper owner (e.g. `ScrollablePopupWindow`) too: the destroy match is by Tk path instead of identity.

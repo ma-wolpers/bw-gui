@@ -45,6 +45,7 @@ and a color-tint seed; bw_gui computes the foreground hex internally.
 from __future__ import annotations
 
 import tkinter as tk
+import weakref
 from tkinter import ttk
 from typing import Callable
 
@@ -70,8 +71,9 @@ __all__ = [
     "theme_scrollbar",
 ]
 
-# Registry of icon buttons for automatic recoloring on every theme switch.
-_icon_button_registry: list[dict] = []
+# Icon buttons -> their recolor recipe (weak keys: a destroyed, unreferenced button
+# disappears; recoloring runs through a theme listener per button).
+_icon_button_registry: "weakref.WeakKeyDictionary[ttk.Button, dict]" = weakref.WeakKeyDictionary()
 
 
 def theme_canvas(canvas: tk.Canvas, theme_key: str | None = None) -> None:
@@ -482,7 +484,7 @@ def _recolor_photo(base: tk.PhotoImage, fg_hex: str) -> tk.PhotoImage:
 
     Creates a new ``tk.PhotoImage`` filled with *fg_hex*, then restores the
     original transparency mask pixel by pixel so icon shapes are preserved.
-    Used internally by ``icon_button`` and ``_reapply_icon_buttons``; not part
+    Used internally by ``icon_button`` and ``_reapply_icon_button``; not part
     of the public API.
 
     Args:
@@ -509,27 +511,26 @@ def _recolor_photo(base: tk.PhotoImage, fg_hex: str) -> tk.PhotoImage:
     return recolored
 
 
-def _reapply_icon_buttons() -> None:
-    """Recolor all registered icon buttons to match the current active theme.
+def _reapply_icon_button(button: ttk.Button) -> None:
+    """Recolor one registered icon button for the current theme (its theme listener).
 
-    Iterates ``_icon_button_registry``, recomputes the foreground color for
-    each registered tint using the current global theme, creates a new
-    ``PhotoImage`` with the updated color, and updates the button's ``image``
-    option.  Called automatically by ``configure_ttk_theme`` after every theme
-    switch.  Consumer code never calls this directly.
+    Recomputes the foreground for the button's tint seed, creates a recolored
+    ``PhotoImage`` and applies it. A destroyed button is skipped.
     """
-    for entry in _icon_button_registry:
-        color_tint = entry["color_tint"]
-        if color_tint is None:
-            fg = get_theme()["fg_primary"]
-        else:
-            fg = tinted_foreground(color_tint, degree=entry["degree"], base_token=entry["base_token"])
-        new_photo = _recolor_photo(entry["base_photo"], fg)
-        entry["current_photo"] = new_photo
-        try:
-            entry["button"].configure(image=new_photo)
-        except tk.TclError:
-            pass
+    entry = _icon_button_registry.get(button)
+    if entry is None:
+        return
+    color_tint = entry["color_tint"]
+    if color_tint is None:
+        fg = get_theme()["fg_primary"]
+    else:
+        fg = tinted_foreground(color_tint, degree=entry["degree"], base_token=entry["base_token"])
+    new_photo = _recolor_photo(entry["base_photo"], fg)
+    entry["current_photo"] = new_photo
+    try:
+        button.configure(image=new_photo)
+    except tk.TclError:
+        pass
 
 
 def recolor_photo(
@@ -644,9 +645,9 @@ def icon_button(
     (image, command, optional color seed) — all color computation and icon
     recoloring stays in bw_gui permanently.
 
-    On every ``configure_ttk_theme`` call, bw_gui iterates all registered icon
-    buttons and updates their images to match the new theme.  No consumer code
-    is needed for theme switching.
+    Each button registers a theme listener (owner: the button, see
+    ``docs/THEME_CONTRACT.md``), so every ``configure_ttk_theme`` call recolors it
+    for the new theme.  No consumer code is needed for theme switching.
 
     Args:
         parent:       Parent widget.
@@ -677,14 +678,23 @@ def icon_button(
     colored = _recolor_photo(photo_image, fg)
 
     btn = ttk.Button(parent, image=colored, command=command, **button_kwargs)
-    _icon_button_registry.append({
-        "button": btn,
+    _icon_button_registry[btn] = {
         "base_photo": photo_image,
         "color_tint": color_tint,
         "degree": degree,
         "base_token": base_token,
         "current_photo": colored,
-    })
+    }
+    button_ref = weakref.ref(btn)  # the listener must not keep its owner alive
+
+    def _on_theme(_change: object) -> None:
+        button = button_ref()
+        if button is not None:
+            _reapply_icon_button(button)
+
+    from ._theme_listeners import register_theme_listener  # late: avoids a cycle
+
+    register_theme_listener(_on_theme, owner=btn)
     return btn
 
 
@@ -714,9 +724,9 @@ def retain_icon_override(button: ttk.Button, photo: tk.PhotoImage) -> bool:
         applied; ``False`` if *button* was never created via ``icon_button()``
         (nothing is applied in that case — the caller likely has a bug).
     """
-    for entry in _icon_button_registry:
-        if entry["button"] is button:
-            entry["override_photo"] = photo
-            button.configure(image=photo)
-            return True
-    return False
+    entry = _icon_button_registry.get(button)
+    if entry is None:
+        return False
+    entry["override_photo"] = photo
+    button.configure(image=photo)
+    return True

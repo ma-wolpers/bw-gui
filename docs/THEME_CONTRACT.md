@@ -68,3 +68,19 @@ column_lzk_bg  = tinted_color("success_soft", degree=0.72, base_token="panel_str
 The seed colour (`"#7C3AED"`) is domain knowledge owned by the consumer; the
 colour math stays in bw-gui.  This pattern works automatically across all 15
 registered themes, including dark themes, with no branching in consumer code.
+
+## Theme lifecycle: listeners
+
+`configure_ttk_theme(root, theme_key)` first applies the ttk styles, then runs the theme listeners **exactly once** (`bw_gui.theming._theme_listeners`).
+
+- **`register_theme_listener(callback, *, owner) -> Subscription`** calls `callback(ThemeChange(theme_key, intensity, is_dark))` after every switch while `owner` lives.
+  - `owner` is mandatory and must be weak-referenceable; `None` or a non-weakref-able object raises `TypeError`.
+  - A bound method is held as `WeakMethod`. Any other callable is held strongly and removed when `owner` is finalized, so it must **not** capture `owner` strongly (documented limit, tested).
+  - `remove()` ends a registration earlier and is idempotent.
+- **Order:** styles first, then the listeners over a snapshot in registration order. A listener added during the phase runs from the next switch on. A listener that raises does not stop the others; the error goes to the root's `report_callback_exception`.
+- **Re-entrancy (decision 24):** a `configure_ttk_theme` call during the listener phase is deferred. The last request wins and runs once, completely (styles and listeners), after the phase. A deferred request equal to the state just applied (theme key and intensity) is dropped. Within one sequence of follow-up switches bw-gui remembers the applied states: a request that repeats one of them is a cycle, so the sequence stops with a reported `RuntimeError` and the last applied state stays. Independently, at most `MAX_FOLLOW_UPS = 8` follow-up switches run. That number is only a safety limit against endless sequences of *different* states and has no other meaning; normal use never reaches it.
+- **Who listens inside bw-gui:**
+  - **Icon buttons** (`icon_button`): one listener per button with the button as owner. The registry has weak keys, so a destroyed, unreferenced button disappears (formerly a global list held every button strongly).
+  - **Native scrollbars** (`bw_gui.runtime.widgets.Scrollbar`, see `SCROLLABILITY_CONTRACT.md`).
+- **Not a listener, on purpose:** the Checkbox/Switch indicator images (`_toggle_styles`) are reconfigured **in place** during the style phase (`PhotoImage.configure(data=...)`). Every widget and menu entry that shows them follows the switch without a listener, so a listener would add nothing.
+

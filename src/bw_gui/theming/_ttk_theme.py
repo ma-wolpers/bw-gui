@@ -139,12 +139,27 @@ def configure_ttk_theme(root: tk.Misc, theme_key: str | None = None) -> None:
         background for any ``tk.Canvas`` created after this call, so bare canvases
         match the surface color without explicit configuration.
 
+    After the styles, theme listeners run exactly once (``register_theme_listener``,
+    ``docs/THEME_CONTRACT.md``): native scrollbars, icon buttons and every consumer
+    listener follow the switch. A call made while listeners run is deferred and applied
+    once afterwards (last request wins; cycles are detected and reported).
+
     Args:
         root:      Any Tk widget (used to create the ttk.Style instance and to
                    call ``option_add``).
         theme_key: Active theme key.  Falls back to ``DEFAULT_THEME`` if None or
                    unknown.
     """
+    from ._theme_listeners import defer_theme_request, notify_theme_changed  # late: avoids a cycle
+
+    if defer_theme_request(root, theme_key):
+        return
+    _configure_styles(root, theme_key)
+    notify_theme_changed(root, theme_key, apply=_configure_styles)
+
+
+def _configure_styles(root: tk.Misc, theme_key: str | None) -> None:
+    """Apply the ttk style baseline of *theme_key* (the style part of ``configure_ttk_theme``)."""
     _set_current_theme(theme_key)
     theme = get_theme(theme_key)
     style = ttk.Style(root)
@@ -421,6 +436,3 @@ def configure_ttk_theme(root: tk.Misc, theme_key: str | None = None) -> None:
     from ._toggle_styles import configure_toggle_styles  # late import avoids circular dependency
     configure_toggle_styles(root, style, theme)
 
-    # Recolor all registered icon buttons for the new theme.
-    from ._widget_utils import _reapply_icon_buttons  # late import avoids circular dependency
-    _reapply_icon_buttons()
