@@ -34,6 +34,8 @@ Kursplaner: its former scan counted every visible direct child toplevel of the m
 
 Korrektor: same shape. Its former `PopupPolicyRegistry` plus scan counted every visible direct child toplevel (menu popups included) except the shortcut debug window. Blocking popups register as `MODAL_DIALOG` (raw toplevels through `_register_popup_window`), the debug window as `NON_MODAL_POPUP`, so the preset is `blocking(include_menus=True)`; `include_non_modal` would have made the debug window block. Escape from the main window closes the most recent non-`TRANSIENT` entry with a toplevel (former `active_popup()`).
 
+`modal_affecting_mode(w)` and `blocking(w, include_non_modal=True)` have no consumer since the 2026-10 characterizations; they stay part of the contract on purpose (decision 2026-10-18: document, do not remove).
+
 `topmost_window(w)` returns the toplevel Escape may close from the main window: the most recent entry with a toplevel that is not `TRANSIENT` and whose policy allows `close_on_escape` (no policy = allowed); native invocations are skipped. It replaces the consumer registries' `active_popup()` (Korrektor, Blattwerk).
 
 `overlay_state(w)` returns `OverlayState(modal_dialog, menu_open, non_modal_popups, modal_affecting_mode, entries)`.
