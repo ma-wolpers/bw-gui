@@ -146,3 +146,20 @@ def test_check_repo_reports_doc_problems_and_explicit_paths(tmp_path):
     errors = check_repo(tmp_path, "docs/ARCHITECTURE.md", paths=["big.py", "other.py"])
     assert errors[0] == "docs/ARCHITECTURE.md: exception for `x.py` has no justification"
     assert len(errors) == 2 and errors[1].startswith("other.py: 350")
+
+
+def test_exception_table_rows_under_a_dated_heading():
+    """Kursplaner style: table under "GRENZE(dateigroesse): Benannte Ausnahmen (Stand ...)"."""
+    markdown = "\n".join([
+        "## 28) Dateigroessen-Limit",
+        "### GRENZE(dateigroesse): Benannte Ausnahmen (Stand 2026-08-04)",
+        "| Datei | Executable Lines | Begruendung |",
+        "|---|---|---|",
+        "| `kursplaner/a.py` | 1617 (2026-10-17) | Buendelt die Aktionen |",
+        "| `kursplaner/b.py` | 776 |  |",
+        "## 29) Weiter",
+        "| `kursplaner/c.py` | 400 | ausserhalb |",
+    ])
+    exceptions, problems = parse_exceptions(markdown)
+    assert exceptions == {"kursplaner/a.py": "Buendelt die Aktionen"}
+    assert problems == ["exception for `kursplaner/b.py` has no justification"]

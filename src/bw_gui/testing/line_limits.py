@@ -17,12 +17,17 @@ Two escape hatches, both explicit:
   exempt entirely. The check refuses the marker on a file that defines functions or
   classes, so the marker cannot hide logic.
 * **Documented exceptions** are listed in the repo's architecture document under a
-  heading titled ``Ausnahmen 300-Zeilen-Regel`` (German docs) or ``Line-limit exceptions``
-  (English docs) as one bullet per file::
+  heading titled (or starting with) ``Ausnahmen 300-Zeilen-Regel`` (German docs),
+  ``Line-limit exceptions`` (English docs) or ``GRENZE(dateigroesse): Benannte Ausnahmen``
+  (Kursplaner, title followed by a date), either as one bullet per file::
 
       - `app/core/foo.py` — Begruendung, warum die Datei nicht zerlegt wird
 
-  A bullet without a justification is itself an error.
+  or as one table row per file, path in the first cell and justification in the last::
+
+      | `app/core/foo.py` | 312 (2026-10-17) | Begruendung |
+
+  An entry without a justification is itself an error.
 
 One implementation for every consumer::
 
@@ -52,9 +57,14 @@ from pathlib import Path
 LINE_LIMIT = 300
 _BOM = chr(0xFEFF)  # UTF-8 byte-order mark as decoded text
 DATA_ONLY_MARKER = "# line-limit: data-only"
-DEFAULT_EXCEPTION_HEADINGS = ("Ausnahmen 300-Zeilen-Regel", "Line-limit exceptions")
+DEFAULT_EXCEPTION_HEADINGS = (
+    "Ausnahmen 300-Zeilen-Regel",
+    "Line-limit exceptions",
+    "GRENZE(dateigroesse): Benannte Ausnahmen",
+)
 
 _EXCEPTION_BULLET = re.compile(r"^\s*[-*]\s+`(?P<path>[^`]+)`\s*(?:[—–:-]+\s*(?P<reason>.*))?$")
+_EXCEPTION_ROW = re.compile(r"^\s*\|\s*`(?P<path>[^`]+)`\s*\|(?P<rest>.*)\|\s*$")
 _HEADING = re.compile(r"^(?P<hashes>#{1,6})\s+(?P<title>.+?)\s*$")
 
 
@@ -150,10 +160,13 @@ def parse_exceptions(
 ) -> tuple[dict[str, str], list[str]]:
     """Read the documented exceptions from the architecture document.
 
-    The section starts at the Markdown heading whose title is one of ``headings`` (any level)
-    and ends at the next heading of the same or a higher level. Each bullet of the form
-    ``- `path` — reason`` registers one exception; ``—``, ``–``, ``-`` or ``:`` may separate
-    path and reason.
+    The section starts at the Markdown heading whose title is one of ``headings`` or starts
+    with one of them followed by a space (e.g. a trailing ``(Stand 2026-08-04)``), at any
+    level, and ends at the next heading of the same or a higher level. Each bullet of the
+    form ``- `path` — reason`` registers one exception (``—``, ``–``, ``-`` or ``:`` may
+    separate path and reason); so does each table row whose first cell is a backticked
+    path, the justification being its last cell (header and separator rows have no
+    backticked path and are skipped; an empty last cell is a missing justification).
 
     Returns:
         ``(exceptions, problems)``: ``exceptions`` maps the repo-relative POSIX path to
@@ -168,16 +181,23 @@ def parse_exceptions(
             level = len(heading_match.group("hashes"))
             if section_level is not None and level <= section_level:
                 break
-            if heading_match.group("title").strip() in headings:
+            title = heading_match.group("title").strip()
+            if any(title == heading or title.startswith(heading + " ") for heading in headings):
                 section_level = level
             continue
         if section_level is None:
             continue
         bullet = _EXCEPTION_BULLET.match(line)
-        if not bullet:
+        row = None if bullet else _EXCEPTION_ROW.match(line)
+        if bullet:
+            path, reason = bullet.group("path"), (bullet.group("reason") or "")
+        elif row:
+            cells = [cell.strip() for cell in row.group("rest").split("|")]
+            path, reason = row.group("path"), cells[-1]
+        else:
             continue
-        path = bullet.group("path").strip().replace("\\", "/")
-        reason = (bullet.group("reason") or "").strip()
+        path = path.strip().replace("\\", "/")
+        reason = reason.strip()
         if not reason:
             problems.append(f"exception for `{path}` has no justification")
             continue
