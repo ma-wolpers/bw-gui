@@ -68,7 +68,6 @@ __all__ = [
     "theme_label_tinted",
     "theme_widget_border",
     "theme_listbox",
-    "theme_scrollbar",
 ]
 
 # Icon buttons -> their recolor recipe (weak keys: a destroyed, unreferenced button
@@ -168,34 +167,6 @@ def theme_listbox(listbox: tk.Listbox, theme_key: str | None = None) -> None:
         highlightthickness=1,
         highlightbackground=theme["border"],
         highlightcolor=theme["focus_ring"],
-    )
-
-
-def theme_scrollbar(scrollbar: tk.Scrollbar, theme_key: str | None = None) -> None:
-    """Apply theme colors to a raw ``tk.Scrollbar`` widget.
-
-    Prefer ``ttk.Scrollbar`` (which is styled automatically by
-    ``configure_ttk_theme()``) where possible.  Use this helper only for raw
-    ``tk.Scrollbar`` instances that cannot be replaced by their ttk counterpart
-    — typically those attached to a ``tk.Text`` or ``tk.Listbox`` that the
-    ttk scrollbar geometry manager cannot parent correctly.
-
-    Sets thumb (``bg``), trough (``troughcolor``), and active thumb
-    (``activebackground``) colors; removes the border and highlight ring since
-    scrollbars are not focusable.  When ``theme_key`` is omitted or ``None``,
-    the globally tracked current theme is used automatically.
-
-    Args:
-        scrollbar: The scrollbar widget to configure.
-        theme_key: Explicit theme override; omit to use the global current theme.
-    """
-    theme = get_theme(theme_key)
-    scrollbar.configure(
-        bg=theme["panel_strong"],
-        troughcolor=theme["bg_surface"],
-        activebackground=theme["accent_soft"],
-        highlightthickness=0,
-        borderwidth=0,
     )
 
 

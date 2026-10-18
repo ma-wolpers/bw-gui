@@ -197,3 +197,19 @@ blattwerk, namenfit, Kursplaner):
 - Do not add a third shared scroll primitive to bw-gui. `ScrollableFrame`
   is the scroll mechanism; `ScrollablePopupWindow` is the popup host built
   on it; that is the complete set.
+
+## Scrollbars: one native primitive (decision 1)
+
+Every scrollbar of bw-gui and its apps is `bw_gui.runtime.widgets.Scrollbar` (`bw_gui.runtime.scrollbar.Scrollbar`). `widgets` is a facade over `tkinter.ttk` (`runtime/_ttk_facade.py`): all public ttk names stay available, and only `Scrollbar` is replaced. A coverage test enforces both.
+
+- **Type:** a native `tk.Scrollbar`, not `ttk.Scrollbar`. On Windows that is the slim system scrollbar instead of the clam scrollbar with arrow buttons.
+- **Options:** `orient`, `command` and `takefocus` (`bool` or `None`), plus the inherited geometry managers and `set`/`get`. Any other option, whether in the constructor, in `configure`/`config` or by item assignment, raises `TypeError`. Inventory 2026-10-18: apps used `orient`, `command` and `takefocus`; `style=` appeared only in the bw-gui settings dialog, which now uses `ScrollableFrame`; Kartograph's `highlightthickness`/`borderwidth`/`relief` belonged to its own raw tk scrollbars, which are gone.
+- **`takefocus=None`** keeps the measured behaviour of the former ttk scrollbars: Tab traversal skipped them, and it skips a native scrollbar by default. `True`/`False` force focusability.
+- **Theme:** each scrollbar has a theme listener (`THEME_CONTRACT.md`, owned by the scrollbar, ending with the widget).
+  - On win32 a dark theme switches the native control to dark mode (`runtime/_win_dark_controls.py`, `SetWindowTheme(hwnd, "DarkMode_Explorer")`), and a light theme restores the default.
+  - Spike: `winfo_id()` is the native `ScrollBar` HWND; the trough measured (23, 23, 23) instead of (240, 240, 240) after the next `update()`.
+  - On other platforms the theme colours apply: thumb `panel_strong`, trough `bg_surface`, active `accent_soft`.
+- **Wheel:** both the native and the former ttk scrollbar class scroll on their own wheel bindings, so a notch over a `ScrollableFrame`'s scrollbar moves further than over its content. This is 1:1 with before (parity test) and recorded as an open decision.
+- **ttk `TScrollbar` styles** stay configured for scrollbars that ttk itself creates (e.g. a combobox popdown).
+- **Guard:** `bw_gui.testing.scrollbar_guard` (apps create no `ttk`/`tk`/`ui.Scrollbar`; its three levels are documented in the module).
+

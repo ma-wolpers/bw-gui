@@ -8,6 +8,7 @@ Private module; import via ``bw_gui.dialogs.settings_dialog`` or
 from __future__ import annotations
 
 from bw_gui.runtime.overlay_stack import OverlayCategory, register_overlay
+from bw_gui.widgets.scrollable_frame import ScrollableFrame
 from bw_gui.runtime import ui, widgets
 from bw_gui.runtime.platform import center_window_over_parent
 from bw_gui.theming import apply_window_theme, configure_ttk_theme
@@ -151,7 +152,7 @@ class TabbedSettingsDialog:
         self.sections_listbox = ui.Listbox(side, exportselection=False, height=24, width=28)
         self.sections_listbox.grid(row=0, column=0, sticky="ns")
 
-        scroll = widgets.Scrollbar(side, orient="vertical", command=self.sections_listbox.yview, style="Vertical.TScrollbar")
+        scroll = widgets.Scrollbar(side, orient="vertical", command=self.sections_listbox.yview)
         scroll.grid(row=0, column=1, sticky="ns")
         self.sections_listbox.configure(yscrollcommand=scroll.set)
 
@@ -167,19 +168,13 @@ class TabbedSettingsDialog:
         content.rowconfigure(0, weight=1)
         content.columnconfigure(0, weight=1)
 
-        self.content_canvas = ui.Canvas(content, highlightthickness=0)
-        self.content_canvas.grid(row=0, column=0, sticky="nsew")
-
-        scroll = widgets.Scrollbar(content, orient="vertical", command=self.content_canvas.yview, style="Vertical.TScrollbar")
-        scroll.grid(row=0, column=1, sticky="ns")
-        self.content_canvas.configure(yscrollcommand=scroll.set)
-
-        self.content_frame = widgets.Frame(self.content_canvas, style="Settings.Panel.TFrame", padding=(6, 2, 10, 10))
-        self.content_window_id = self.content_canvas.create_window((0, 0), window=self.content_frame, anchor="nw")
-
-        self.content_frame.bind("<Configure>", self._on_content_configure)
-        self.content_canvas.bind("<Configure>", self._on_canvas_configure)
-        self.content_canvas.bind("<MouseWheel>", self._on_mouse_wheel)
+        # The bw-gui scroll SSOT: viewport, width tracking, scrollbar visibility and wheel
+        # dispatch (scroll resolver) come from ScrollableFrame instead of a local canvas.
+        self._content_scroll = ScrollableFrame(content, style="Settings.Panel.TFrame")
+        self._content_scroll.grid(row=0, column=0, sticky="nsew")
+        self.content_canvas = self._content_scroll.canvas
+        self.content_frame = widgets.Frame(self._content_scroll.content, style="Settings.Panel.TFrame", padding=(6, 2, 10, 10))
+        self.content_frame.pack(fill="both", expand=True)
 
     def _build_buttons(self, root) -> None:
         """Build the Cancel / Apply / Save button row at the bottom of the dialog."""
@@ -370,23 +365,3 @@ class TabbedSettingsDialog:
             self._on_commit({**self._committed_values, **live})
         self.result = None
         self.window.destroy()
-
-    def _on_content_configure(self, _event=None) -> None:
-        """Update the canvas scroll region when the inner frame resizes."""
-        bbox = self.content_canvas.bbox("all")
-        if bbox is not None:
-            self.content_canvas.configure(scrollregion=bbox)
-
-    def _on_canvas_configure(self, event) -> None:
-        """Keep the inner frame the same width as the canvas viewport."""
-        self.content_canvas.itemconfigure(self.content_window_id, width=event.width)
-
-    def _on_mouse_wheel(self, event) -> None:
-        """Scroll the content canvas on mouse-wheel events."""
-        delta = 0
-        if hasattr(event, "delta"):
-            delta = int(event.delta)
-        if delta == 0:
-            return
-        steps = -1 * int(delta / 120) if delta % 120 == 0 else (-1 if delta > 0 else 1)
-        self.content_canvas.yview_scroll(steps, "units")

@@ -52,6 +52,7 @@ from ._theme_manager import (
     tinted_color,
     tinted_foreground,
 )
+from ._theme_listeners import ThemeChange, register_theme_listener
 from ._widget_utils import (
     canvas_domain_fill,
     canvas_domain_outline,
@@ -68,13 +69,14 @@ from ._widget_utils import (
     theme_label_tinted,
     theme_label_token,
     theme_listbox,
-    theme_scrollbar,
     theme_text,
     theme_text_tinted,
     theme_widget_border,
 )
 
 __all__ = [
+    "ThemeChange",
+    "register_theme_listener",
     # Theme configuration
     "configure_ttk_theme",
     "configure_tinted_button_style",
@@ -95,7 +97,6 @@ __all__ = [
     "theme_label_tinted",
     "theme_widget_border",
     "theme_listbox",
-    "theme_scrollbar",
     # Canvas item drawing primitives
     "canvas_fill",
     "canvas_tinted_fill",

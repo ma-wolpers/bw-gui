@@ -71,7 +71,7 @@ registered themes, including dark themes, with no branching in consumer code.
 
 ## Theme lifecycle: listeners
 
-`configure_ttk_theme(root, theme_key)` first applies the ttk styles, then runs the theme listeners **exactly once** (`bw_gui.theming._theme_listeners`).
+`configure_ttk_theme(root, theme_key)` first applies the ttk styles, then runs the theme listeners **exactly once** (`bw_gui.theming.register_theme_listener`, implemented in `_theme_listeners`).
 
 - **`register_theme_listener(callback, *, owner) -> Subscription`** calls `callback(ThemeChange(theme_key, intensity, is_dark))` after every switch while `owner` lives.
   - `owner` is mandatory and must be weak-referenceable; `None` or a non-weakref-able object raises `TypeError`.

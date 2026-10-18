@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Native scrollbars with dark mode** (`docs/SCROLLABILITY_CONTRACT.md`): `bw_gui.runtime.widgets.Scrollbar` is now the bw-gui scrollbar primitive -- the slim native scrollbar (no clam arrow buttons) that follows the theme by itself: on Windows a dark theme switches the system control to dark mode, elsewhere the theme colours apply. Every other ttk name in `widgets` is unchanged.
+- `bw_gui.testing.scrollbar_guard`: AST guard for consumer apps (no `ttk`/`tk`/`ui.Scrollbar`), with its three levels documented in the module.
+- `ThemeChange` and `register_theme_listener` are exported from `bw_gui.theming`.
 - **Theme listeners** (`docs/THEME_CONTRACT.md`): `register_theme_listener(callback, *, owner)` runs after the styles of every `configure_ttk_theme` call, exactly once, in registration order with isolated errors; owner-bound lifetime (`WeakMethod`, finalizer). Requests during the listener phase are deferred (last wins), equal states dropped, cycles reported as `RuntimeError`, at most 8 follow-up switches.
 - `PointerGroup.on_focus_change(*, on_gained, on_lost)`: focus hooks bound once for all members (table cells committing on focus loss).
 - `bw_gui.testing.tk_usage_guard`: shared AST guard for consumer apps (rules `bind`, `sequence`, `break`, `event-field`, `selection`; `find_offenders`, `opt_outs` for `# bw-tk: <reason>` lines), with its three levels (semantic rule, detected patterns, known false negatives/positives) documented in the module.
@@ -47,6 +50,9 @@ All notable changes to this project will be documented in this file.
 - `WrappedTextField.get_raw()`: returns the exact text (`Text.get("1.0", "end-1c")`) without any normalization. No stripping, no line-ending conversion, no Unicode normalization. Round trip `get_raw() == s` after `load(s)`/`set(s)`, tested with `\r`, `\r\n`, NUL, U+2028, emoji/ZWJ sequences, combining characters, surrounding whitespace and long lines. Meant for raw editing such as Merkweiser notes; `get()` keeps stripping.
 - `WrappedTextField.load(value)`: loads the initial content of an editing session. It replaces the text, then clears the undo/redo stacks, resets the modified flag (this can fire `<<Modified>>` if the flag was set) and puts the cursor at the start. Ctrl+Z right after opening no longer empties the field. `set()` is unchanged and stays undoable, for replacements during editing.
 
+### Removed
+- `bw_gui.theming.theme_scrollbar`: scrollbars colour themselves now (no consumer used it).
+
 ### Fixed
 - `icon_button` recolors through a theme listener per button; its registry no longer keeps destroyed buttons alive (weak keys instead of a global list).
 - `tk_state_guard` now also finds a state alias assigned through `or`/`and`/`if-else`, e.g. `state = int(getattr(event, "state", 0) or 0)` (bug 4).
@@ -60,6 +66,8 @@ All notable changes to this project will be documented in this file.
 - `docs/QUICKSTART.md`: the "If `import bw_gui` fails" checklist no longer names a machine-specific absolute path, so it holds for any clone location. It now describes the sibling-folder lookup (`../bw-gui/src`, then `../../bw-gui/src`, then a stale local copy) that `ensure_bw_gui_on_path()` actually performs. The "See also" list no longer links to the non-existent `MENUBAR.md`, `THEMING.md`, `DIALOGS.md`, `WIDGETS.md` and `LAUFKERN.md`. It points to `ARCHITECTURE.md`, `THEME_CONTRACT.md`, `TOGGLE_CONTRACT.md`, `SCROLLABILITY_CONTRACT.md` and the source packages `src/bw_gui/menu|dialogs|widgets|laufkern/` instead.
 
 ### Changed
+- **Breaking:** `widgets.Scrollbar` accepts only `orient`, `command` and `takefocus` (`bool | None`); any other option (`style=`, colours, sizes) raises `TypeError`. Tab traversal skips scrollbars as before.
+- Settings dialog: the content area scrolls through `ScrollableFrame` (wheel over the whole panel, scrollbar only when needed).
 - `bw_gui.testing.line_limits` also reads exception **tables** (path in the first cell, justification in the last) and headings that start with a known title (e.g. `GRENZE(dateigroesse): Benannte Ausnahmen (Stand ...)`), so Kursplaner's documented exceptions are recognised.
 - Self guard (`tests/test_bw_gui_self_guard.py`): only `runtime/key_router.py` uses `bind_all`, and no bw-gui module binds a specific key sequence. `KEYBINDING_AUDIT.md` lists the behaviour changes per app of the keyboard migration; `TK_USAGE_INVENTORY.md` has the 2026-10-17 recount (all AST guard findings 0).
 - Keyboard contract applied inside bw-gui itself: the text prompt and choice dialogs bind Enter/Escape through a window binder (the stdlib's raw bindings on the dialog are removed, Escape is consumed at the dialog), the choice buttons and `WrappedTextField` word delete (Ctrl+Backspace/Ctrl+Delete, Shift tolerated) use widget binders; `ScrollablePopupWindow._request_close`/`_handle_escape_request`/`_on_escape_close` no longer return Tk's `"break"` (the binder consumes the key).
