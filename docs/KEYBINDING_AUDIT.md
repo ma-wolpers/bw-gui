@@ -1,4 +1,35 @@
-# Keybinding Audit: activating `allow_modifiers` (2026-09-27)
+# Keybinding Audit
+
+## Keyboard contract migration: behaviour changes per app (2026-10)
+
+All apps moved from Tk sequences and hand-built runtime contexts to the keyboard contract
+(`KEYBINDING_CONTRACT.md`): `KeySpec` with **exact** modifiers, `EventResult`, the three
+binders and `on_key`. Rules applied in every migration:
+
+- **Named keys** that an app bound without an own Shift variant tolerate Shift (Tk's
+  minimum-set matching made `<Escape>` fire with Shift+Escape); everything else is exact.
+  Extra Ctrl/Alt no longer reach a binding (deliberate change 9 of the plan).
+- **Character keys** are exact; a Shift variant is an explicit extra `KeySpec`. CapsLock
+  and NumLock never take part in matching.
+- **Keypad** Enter and digits/plus/minus act like the main block.
+- `<KeyRelease>` became `on_key(phase="after")`: it runs only for keys no shortcut consumed.
+
+Behaviour changes users can notice (each app's CHANGELOG has the user-facing wording):
+
+| App | Change |
+|---|---|
+| Kursplaner | Ctrl+Alt+letter no longer triggers Ctrl shortcuts; Alt+↑/↓ no longer navigate; Ctrl+Shift+E/D/O work without CapsLock; Ctrl+Z of "Stundenplanänderung" only while that window is open (bug 2). Lesson dialogs: Ctrl+↑/↓ move the text cursor, Ctrl+Tab moves on natively, keypad Enter confirms; ↑/↓ in "Inhalte"/"Methodik" now work (the former KeyRelease refresh reset the selection). |
+| Korrektor | Alt+← no longer pages like ←; Ctrl+Alt+N no longer creates an exam; Ctrl+Shift+D/O work without CapsLock; NumLock no longer turns a drag into an Alt-drag (bug 1). |
+| Blattwerk | Ctrl+Alt+E no longer exports; Ctrl+Shift+H/S/F/D/O work without CapsLock, CapsLock no longer blocks single-letter shortcuts; NumLock no longer counts as Alt; keypad digits/plus/minus work; completion order after Enter/Tab; the colour-profile tooltip no longer blocks shortcuts (overlay stack). |
+| Kartograph | Ctrl/Alt+arrow no longer move the grid selection; keypad Enter confirms dialogs; symbol-dialog digits fixed (bug 3); the seating-plan preview no longer blocks main-window shortcuts. |
+| Namenfit | Ctrl+Shift+D/O fire exactly with those keys; single-letter shortcuts are no text input in read-only fields. |
+| aiza | Enter sends, Shift+Enter inserts a newline (window and input binders). |
+
+Popup gating moved to the overlay stack (`OVERLAY_STACK_CONTRACT.md`) with a
+characterization test per app (former scan vs. preset); the only deliberate deviations
+are listed there and in the app logs.
+
+## Activating `allow_modifiers` (2026-09-27)
 
 `KeyBindingDefinition.allow_modifiers` has been part of the contract for a long time,
 but `evaluate_runtime` never enforced it. Before enforcing it, every consumer was
@@ -42,10 +73,8 @@ This is considered intended: a modified key is a different shortcut.
 - **Consequence:** shortcuts on AltGr characters are never blocked, so no special
   rule is needed.
 
-## Findings recorded for the follow-up plan
+## Findings recorded for the follow-up plan (resolved 2026-10)
 
-- **Hand-built runtime contexts:** Blattwerk, Korrektor, Kursplaner and aiza still
-  build their own runtime contexts and wrap `bind` themselves. That is binder logic
-  duplicated in the apps, and they receive no modifier gating until they move to
-  `WindowShortcutBinder`. This is tracked in the Wunschliste (bw-gui), together with
-  `TK_USAGE_INVENTORY.md`.
+- **Hand-built runtime contexts** (Blattwerk, Korrektor, Kursplaner, aiza): resolved --
+  all of them use the bw-gui binders now (see the migration table above); the runtime
+  context for diagnostics comes from `binder.build_context()`.

@@ -1,4 +1,33 @@
-# Inventory: Direct Tk Usage in Consumer Apps (2026-09-27)
+# Inventory: Direct Tk Usage in Consumer Apps
+
+## Status 2026-10-17 (after the keyboard, pointer, overlay and widget-events migration)
+
+The same regex categories as the 2026-09-27 baseline below, plus the AST guards that now
+run in every app's test suite (`tk_usage_guard`, `tk_state_guard`):
+
+| Category | Kartograph | Blattwerk | Korrektor | Kursplaner | Namenfit | aiza |
+|---|---|---|---|---|---|---|
+| Keyboard `bind(...)` outside the binder | 1* | 1* | 0 | 1* | 0 | 0 |
+| Mouse `bind(...)` (Button/Motion/Wheel/Enter/Leave) | 0 | 0 | 0 | 2* | 0 | 0 |
+| Focus/Configure/Map `bind(...)` | 0 | 0 | 0 | 0 | 0 | 0 |
+| Virtual-event `bind("<<...>>")` | 0 | 0 | 0 | 0 | 0 | 0 |
+| `bind_all(...)` | 0 | 0 | 0 | 0 | 0 | 0 |
+| `.keysym` / `.char` reads | 0 | 0 | 0 | 0 | 0 | 0 |
+| `import tkinter` | 2 files** | 0 | 0 | 0 | 0 | 0 |
+| `tk_usage_guard` findings (AST) | 0 | 0 | 0 | 0 | 0 | 0 |
+| `tk_state_guard` findings (AST) | 0 | 0 | 0 | 0 | 0 | 0 |
+
+\* Regex hits in docstrings that describe the former code (e.g. "früher
+`widget.bind("<Button-1>")`"); the AST guard skips docstrings and reports none.
+\** Developer benchmark scripts under `kartograph/app/tools/` (not part of the GUI).
+
+Every consumer GUI now goes through `KEYBINDING_CONTRACT.md` (binders, `on_key`),
+`POINTER_CONTRACT.md` (`bind_click`/`bind_drag`/`bind_wheel`/`on_global_click`,
+`PointerGroup`, `bind_hover`, `bind_canvas_item`), `OVERLAY_STACK_CONTRACT.md` (popup
+gating, Escape target) and `WIDGET_EVENTS_CONTRACT.md` (lifecycle, selection,
+activation). Deliberate exceptions would carry `# bw-tk: <reason>`; there are none.
+
+## Baseline 2026-09-27
 
 Principle E in `ARCHITECTURE.md` says apps need no Tk knowledge. Where an app still
 needs it, a bw-gui contract is missing. This inventory lists the direct Tk usage that
@@ -31,14 +60,17 @@ Binary controls (`Checkbutton`, `add_checkbutton`) are covered separately by the
 toggle contract (`TOGGLE_CONTRACT.md`): all consumers migrate to
 `Checkbox`/`Switch`, enforced by `bw_gui.testing.checkbutton_guard`.
 
-## Proposed contracts (follow-up)
+## Proposed contracts (follow-up) and what implemented them
 
-| Gap | Proposed bw-gui contract |
-|---|---|
-| Keyboard binds outside the binder; hand-built runtime contexts | Migrate to `WindowShortcutBinder` (+ `mode_provider`); widget-local key handling (e.g. arrow keys on a canvas) as a binder variant scoped to one widget |
-| `.keysym`/`.char` interpretation (typing, navigation) | Semantic key-event model (`KeyEvent(keysym, char, modifiers)`) produced by bw-gui |
-| Mouse binds with modifier semantics (Ctrl+click, Shift+click, wheel) | Pointer-gesture contract (click/drag/wheel with `KeyModifiers`, normalised wheel delta per backend) |
-| Focus/Configure/Map binds | Lifecycle/focus-change hooks on bw-gui widgets |
-| Virtual events (`<<ListboxSelect>>`, `<<TreeviewSelect>>` ...) | Intent callbacks on the bw-gui widget wrappers |
-| `bind_all` (global handlers) | Explicit cross-window scope contract, only if genuinely needed |
-| Remaining `tkinter` imports | Replace with `bw_gui.runtime` primitives; add missing primitives |
+The right column was the 2026-09-27 proposal; the status column shows the contract that
+closed the gap.
+
+| Gap | Proposed bw-gui contract | Status 2026-10-17 |
+|---|---|---|
+| Keyboard binds outside the binder; hand-built runtime contexts | Migrate to `WindowShortcutBinder` (+ `mode_provider`); widget-local key handling (e.g. arrow keys on a canvas) as a binder variant scoped to one widget | `WindowShortcutBinder`/`ApplicationShortcutBinder`/`WidgetShortcutBinder` with `KeySpec` (`KEYBINDING_CONTRACT.md`) |
+| `.keysym`/`.char` interpretation (typing, navigation) | Semantic key-event model (`KeyEvent(keysym, char, modifiers)`) produced by bw-gui | `KeyEvent(key, text, modifiers)`, `on_key(phase)` |
+| Mouse binds with modifier semantics (Ctrl+click, Shift+click, wheel) | Pointer-gesture contract (click/drag/wheel with `KeyModifiers`, normalised wheel delta per backend) | `bind_click`/`bind_drag`/`bind_wheel`, `PointerGroup`, `bind_hover`, `bind_canvas_item` (`POINTER_CONTRACT.md`) |
+| Focus/Configure/Map binds | Lifecycle/focus-change hooks on bw-gui widgets || Lifecycle/focus-change hooks on bw-gui widgets | `on_resize`, `on_focus_change`, `on_visibility`, `on_destroy`, `on_text_modified`, `on_tab_changed` (`WIDGET_EVENTS_CONTRACT.md`) |
+| Virtual events (`<<ListboxSelect>>`, `<<TreeviewSelect>>` ...) | Intent callbacks on the bw-gui widget wrappers || Intent callbacks on the bw-gui widget wrappers | `on_listbox_select`/`on_treeview_select`/`on_combobox_select` + mutation objects, `on_activate` |
+| `bind_all` (global handlers) | Explicit cross-window scope contract, only if genuinely needed | `ApplicationShortcutBinder` (`all` router), `on_global_click`; consumer `bind_all` is gone |
+| Remaining `tkinter` imports | Replace with `bw_gui.runtime` primitives; add missing primitives | no GUI module imports `tkinter` any more |
