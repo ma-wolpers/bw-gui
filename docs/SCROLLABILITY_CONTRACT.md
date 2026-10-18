@@ -209,7 +209,7 @@ Every scrollbar of bw-gui and its apps is `bw_gui.runtime.widgets.Scrollbar` (`b
   - On win32 a dark theme switches the native control to dark mode (`runtime/_win_dark_controls.py`, `SetWindowTheme(hwnd, "DarkMode_Explorer")`), and a light theme restores the default.
   - Spike: `winfo_id()` is the native `ScrollBar` HWND; the trough measured (23, 23, 23) instead of (240, 240, 240) after the next `update()`. Opt-in live check: `BW_GUI_LIVE_DISPLAY=1 pytest -m live_display tests/live` (`tests/live/test_live_dark_scrollbar.py`).
   - On other platforms the theme colours apply: thumb `panel_strong`, trough `bg_surface`, active `accent_soft`.
-- **Wheel:** both the native and the former ttk scrollbar class scroll on their own wheel bindings, so a notch over a `ScrollableFrame`'s scrollbar moves further than over its content. This is 1:1 with before (parity test) and recorded as an open decision.
+- **Wheel over a `ScrollableFrame`'s own scrollbar** (user decision 2026-10-18): one notch scrolls exactly `SCROLLBAR_WHEEL_FACTOR = 3` times as far as over the content. The frame subscribes its scrollbar with `bind_wheel`; that handler runs before Tk's `Scrollbar` class binding and returns `HANDLED` while the content overflows, so the class binding (4 units per notch on win32) no longer adds to bw-gui's step. Formerly both ran and a notch moved 5 times as far, by accident. Touchpad fractions add up through `whole_steps`. Other scrollbars (e.g. next to a `Treeview` or `Listbox`) keep Tk's own wheel behaviour.
 - **ttk `TScrollbar` styles** stay configured for scrollbars that ttk itself creates (e.g. a combobox popdown).
 - **Guard:** `bw_gui.testing.scrollbar_guard` (apps create no `ttk`/`tk`/`ui.Scrollbar`; its three levels are documented in the module).
 

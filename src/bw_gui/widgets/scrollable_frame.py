@@ -1,6 +1,12 @@
 from __future__ import annotations
 
+from bw_gui.contracts import EventResult
 from bw_gui.runtime import ui, widgets
+
+# One wheel notch over a frame's own scrollbar scrolls this many times as far as over
+# its content (user decision 2026-10-18: noticeably faster, but by rule -- formerly Tk's
+# scrollbar class binding added its own 4 units to bw-gui's 1 by accident).
+SCROLLBAR_WHEEL_FACTOR = 3
 
 
 class ScrollableFrame(widgets.Frame):
@@ -69,7 +75,9 @@ class ScrollableFrame(widgets.Frame):
     combobox) and widgets with their own ``bind_wheel`` take precedence; a frame
     that does not overflow passes the wheel to the next outer frame. Each frame
     registers its outer frame, canvas and scrollbar and unregisters on destroy, so
-    instances never interfere regardless of how many are visible.
+    instances never interfere regardless of how many are visible. Over the frame's own
+    scrollbar a notch scrolls ``SCROLLBAR_WHEEL_FACTOR`` times as far as over the
+    content (`_on_scrollbar_wheel`).
     """
 
     def __init__(self, master, *, orient: str = "vertical", **frame_kwargs) -> None:
@@ -133,7 +141,32 @@ class ScrollableFrame(widgets.Frame):
         """
         from bw_gui.runtime.scroll_resolver import scroll_resolver_for
 
+        from bw_gui.runtime.pointer import bind_wheel
+
         self._wheel_registration = scroll_resolver_for(self).register(self, [self, self.canvas, self._scrollbar])
+        self._scrollbar_wheel = bind_wheel(self._scrollbar, self._on_scrollbar_wheel)
+
+    def _on_scrollbar_wheel(self, event) -> EventResult:
+        """Scroll ``SCROLLBAR_WHEEL_FACTOR`` times the content distance per notch over the scrollbar.
+
+        Runs on the scrollbar's pointer tag, before Tk's ``Scrollbar`` class binding;
+        ``HANDLED`` stops that binding (and the resolver), so the distance is exactly the
+        factor times the notches, never a sum of two bindings. Touchpad fractions add up
+        through ``whole_steps`` like over the content. A frame that does not overflow
+        returns ``NOT_HANDLED`` (its scrollbar is hidden then anyway), and the resolver
+        passes the wheel outwards as usual.
+
+        Args:
+            event: The ``WheelEvent`` over the scrollbar.
+
+        Returns:
+            ``HANDLED`` while the content overflows, otherwise ``NOT_HANDLED``.
+        """
+        if not self.overflows():
+            return EventResult.NOT_HANDLED
+        if event.whole_steps:
+            self.scroll_units(event.whole_steps * SCROLLBAR_WHEEL_FACTOR)
+        return EventResult.HANDLED
 
     def _on_destroy(self, event=None) -> None:
         if event is not None and getattr(event, "widget", self) is not self:

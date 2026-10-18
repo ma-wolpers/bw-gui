@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import gc
-import sys
 import tkinter as tk
 from tkinter import ttk
 
@@ -61,7 +60,7 @@ def test_follows_theme_switches_with_native_dark_mode_on_win32(top, monkeypatch)
     monkeypatch.setattr(scrollbar_module.sys, "platform", "win32")
     monkeypatch.setattr(scrollbar_module, "set_native_dark_mode", lambda widget, dark: calls.append(dark) or True)
     configure_ttk_theme(top, "mono_day")
-    bar = widgets.Scrollbar(top)
+    _bar = widgets.Scrollbar(top)  # kept referenced while the theme switches
     configure_ttk_theme(top, "mono_night")
     configure_ttk_theme(top, "porcelain")
     assert calls == [False, True, False]
@@ -90,31 +89,34 @@ def test_listener_ends_with_the_widget(top, monkeypatch):
     assert calls == []
 
 
-def _wheel_distances(top, monkeypatch, scrollbar_class):
-    """(over the canvas, over the frame's scrollbar) after one wheel notch."""
-    import bw_gui.runtime._ttk_facade as facade
-
-    monkeypatch.setattr(facade, "Scrollbar", scrollbar_class, raising=False)
+def _scrolled_units(top, *deltas, over_bar):
+    """Units a fresh 60-row ScrollableFrame scrolls for wheel *deltas* over its canvas or bar."""
     frame = ScrollableFrame(top)
     frame.pack(fill="both", expand=True)
     for i in range(60):
         tk.Label(frame.content, text=f"row {i}").pack()
     top.update()
-    frame.canvas.event_generate("<MouseWheel>", delta=-120)
+    frame.canvas.configure(yscrollincrement=10)
+    target = frame._scrollbar if over_bar else frame.canvas
+    for delta in deltas:
+        target.event_generate("<MouseWheel>", delta=delta)
     top.update()
-    over_canvas = frame.canvas.yview()[0]
-    frame.canvas.yview_moveto(0.0)
-    top.update()
-    frame._scrollbar.event_generate("<MouseWheel>", delta=-120)
-    top.update()
-    over_bar = frame.canvas.yview()[0]
+    units = round(frame.canvas.canvasy(0) / 10)
     frame.destroy()
-    return round(over_canvas, 4), round(over_bar, 4)
+    return units
 
 
-def test_wheel_over_the_frame_scrollbar_behaves_like_the_former_ttk_scrollbar(top, monkeypatch):
-    """1:1 with the former ttk scrollbar. Both class bindings scroll on their own, so over the
-    scrollbar a notch moves further than over the content (pre-existing; open decision)."""
-    from bw_gui.runtime.scrollbar import Scrollbar
+@pytest.mark.parametrize(("deltas", "notches"), [((-120,), 1), ((-120, -120), 2), ((-60, -60), 1), ((-60,), 0)])
+def test_wheel_over_the_frame_scrollbar_scrolls_exactly_the_factor_times_the_content(top, deltas, notches):
+    """Decision 2026-10-18: over the scrollbar faster by rule (formerly 4 + 1 units by accident).
 
-    assert _wheel_distances(top, monkeypatch, Scrollbar) == _wheel_distances(top, monkeypatch, ttk.Scrollbar)
+    Touchpad fractions add up to whole notches like over the content; half a notch scrolls nothing.
+    """
+    from bw_gui.widgets.scrollable_frame import SCROLLBAR_WHEEL_FACTOR
+
+    assert _scrolled_units(top, *deltas, over_bar=False) == notches
+    assert _scrolled_units(top, *deltas, over_bar=True) == SCROLLBAR_WHEEL_FACTOR * notches
+
+
+def test_wheel_up_over_the_scrollbar_at_the_top_scrolls_nothing(top):
+    assert _scrolled_units(top, 120, over_bar=True) == 0
