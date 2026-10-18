@@ -22,6 +22,7 @@ testpaths = ["tests"]
 pythonpath = ["src"]
 markers = [
   "live_keyboard: sends real key strokes (win32, opt-in via BW_GUI_LIVE_KEYBOARD=1)",
+  "live_display: reads screen pixels of a topmost test window (win32, opt-in via BW_GUI_LIVE_DISPLAY=1)",
 ]
 
 [tool.hatch.build.targets.wheel]

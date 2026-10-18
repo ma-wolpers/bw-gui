@@ -207,7 +207,7 @@ Every scrollbar of bw-gui and its apps is `bw_gui.runtime.widgets.Scrollbar` (`b
 - **`takefocus=None`** keeps the measured behaviour of the former ttk scrollbars: Tab traversal skipped them, and it skips a native scrollbar by default. `True`/`False` force focusability.
 - **Theme:** each scrollbar has a theme listener (`THEME_CONTRACT.md`, owned by the scrollbar, ending with the widget).
   - On win32 a dark theme switches the native control to dark mode (`runtime/_win_dark_controls.py`, `SetWindowTheme(hwnd, "DarkMode_Explorer")`), and a light theme restores the default.
-  - Spike: `winfo_id()` is the native `ScrollBar` HWND; the trough measured (23, 23, 23) instead of (240, 240, 240) after the next `update()`.
+  - Spike: `winfo_id()` is the native `ScrollBar` HWND; the trough measured (23, 23, 23) instead of (240, 240, 240) after the next `update()`. Opt-in live check: `BW_GUI_LIVE_DISPLAY=1 pytest -m live_display tests/live` (`tests/live/test_live_dark_scrollbar.py`).
   - On other platforms the theme colours apply: thumb `panel_strong`, trough `bg_surface`, active `accent_soft`.
 - **Wheel:** both the native and the former ttk scrollbar class scroll on their own wheel bindings, so a notch over a `ScrollableFrame`'s scrollbar moves further than over its content. This is 1:1 with before (parity test) and recorded as an open decision.
 - **ttk `TScrollbar` styles** stay configured for scrollbars that ttk itself creates (e.g. a combobox popdown).
