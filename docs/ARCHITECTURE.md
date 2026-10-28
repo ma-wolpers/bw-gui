@@ -148,6 +148,10 @@ re-exports the moved names, so import paths stay stable:
 | `runtime/_win_monitors.py` | the only Win32 monitor-geometry adapter |
 | `runtime/screen_placement.py` | Tk side of placement (`get_monitor_info`, `place_overlay_now`); see `SCREEN_PLACEMENT_CONTRACT.md` |
 | `testing/line_limits.py` | 300-executable-line check shared by all repos (counting rule, data-only marker, exception section) |
+| `runtime/idle_render.py` | `IdleRenderScheduler`: change-driven rendering, one render per idle cycle, cancelled with its owner |
+| `widgets/canvas_item_pool.py` | `CanvasItemPool`: reusable canvas items that send Tk only differences |
+| `widgets/data_grid/` | `DataGrid` (`_grid.py`), regions (`_region.py`), Tk-free layout/visibility/clipping (`_model.py`); see `DATA_GRID_CONTRACT.md` |
+| `testing/tcl_calls.py` | `count_tcl_calls`: deterministic Tcl-call budgets for tests and benchmarks |
 
 ### Line-limit exceptions
 

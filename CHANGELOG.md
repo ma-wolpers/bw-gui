@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **DataGrid** (`bw_gui.widgets.data_grid`, `docs/DATA_GRID_CONTRACT.md`): virtualised canvas table with LEFT | SCROLL | RIGHT regions, two user-resizable splitters, one shared vertical position, cell cursor + row band + active-column marker, sort indicator, global column-width zoom, click/double-click/header events and `cell_bbox` for inline editors. Binds no keys; consumers bind on `key_widgets`. A cursor move costs a small constant number of Tcl calls regardless of the column count (a `ttk.Treeview` re-lays out the whole table on every visible change).
+- `IdleRenderScheduler` (`bw_gui.runtime.idle_render`): mark renders dirty, one run per idle cycle in first-marked order, `flush_now()`, cancelled when the owner widget is destroyed.
+- `CanvasItemPool` (`bw_gui.widgets.canvas_item_pool`): reuse canvas items across render passes and send only changed coordinates/options; unused items are hidden.
+- `bw_gui.testing.tcl_calls.count_tcl_calls`: count the real Tcl calls of an action for deterministic budget tests.
 - **Native scrollbars with dark mode** (`docs/SCROLLABILITY_CONTRACT.md`): `bw_gui.runtime.widgets.Scrollbar` is now the bw-gui scrollbar primitive -- the slim native scrollbar (no clam arrow buttons) that follows the theme by itself: on Windows a dark theme switches the system control to dark mode, elsewhere the theme colours apply. Every other ttk name in `widgets` is unchanged.
 - `bw_gui.testing.scrollbar_guard`: AST guard for consumer apps (no `ttk`/`tk`/`ui.Scrollbar`), with its three levels documented in the module.
 - `ThemeChange` and `register_theme_listener` are exported from `bw_gui.theming`.
