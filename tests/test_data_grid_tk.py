@@ -130,3 +130,24 @@ def test_sort_indicator_and_key_widgets(make_grid):
     assert "▼ Nachname" in titles
     assert grid.key_widgets == tuple(v.body for v in grid.regions.values())
     assert grid.region_of_column("g") is Region.RIGHT and grid.region_of_widget(left.body) is Region.LEFT
+
+
+def test_see_before_first_resize_is_applied_once_the_size_is_known(_shared_tk_root):
+    window = ui.Toplevel(_shared_tk_root)
+    window.geometry("1200x500+0+0")
+    try:
+        grid = DataGrid(window)
+        grid.frame.pack(fill="both", expand=True)
+        cols = _columns(40)
+        grid.set_columns(cols)
+        grid.set_rows([GridRow(f"r{i}", {c.key: "x" for c in cols}) for i in range(ROWS)])
+        grid.set_cursor("r0", "d0")
+        grid.see("r0", "d0")  # still 1x1: must not scroll against a 1-pixel viewport
+        window.update()
+        window.update()
+        assert grid.regions[Region.SCROLL].x_offset == 0
+        grid.see("r0", "d39")
+        window.update()
+        assert grid.regions[Region.SCROLL].x_offset > 0
+    finally:
+        window.destroy()

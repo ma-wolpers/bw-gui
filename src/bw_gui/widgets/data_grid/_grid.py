@@ -22,6 +22,7 @@ from ...runtime import fonts
 from ...runtime import widgets as tui
 from ...runtime.idle_render import IdleRenderScheduler
 from ...theming import ThemeChange, register_theme_listener
+from ...theming._theme_manager import get_theme
 from ._model import (
     GridColumn,
     GridRow,
@@ -81,6 +82,7 @@ class DataGrid:
         self._sort: tuple[str | None, bool] = (None, True)
         self._scale = 1.0
         self._split_done = False
+        self._pending_see: tuple[str, str | None] | None = None
         # Owner-bound *and* widget-bound: a destroyed grid must stop listening even if a
         # reference keeps the Python object alive.
         theme_subscription = register_theme_listener(self._on_theme, owner=self)
@@ -111,25 +113,28 @@ class DataGrid:
         self._mark_content()
 
     def set_width_scale(self, scale: float) -> None:
-        """Scale all column widths at once (global column-width zoom)."""
-        self._scale = max(0.3, min(4.0, float(scale)))
+        """Scale all column widths at once (global column-width zoom); an unchanged value is a no-op."""
+        clamped = max(0.3, min(4.0, float(scale)))
+        if clamped == self._scale:
+            return
+        self._scale = clamped
         self._relayout()
 
     # -- viewport --------------------------------------------------------------
 
     def see(self, row_id: str, column_key: str | None = None) -> None:
-        """Scroll so that the row (and, if given, the column) is visible."""
+        """Scroll so that the row (and, if given, the column) is visible.
+
+        Before the grid has its real size (viewport 1×1 right after creation),
+        scrolling would be computed against a 1-pixel window; the target is
+        then kept and applied on the first render with a real size.
+        """
+        if not self._has_real_size():
+            self._pending_see = (row_id, column_key)
+            self._mark_content()
+            return
         before = (self._top_row, tuple(view.x_offset for view in self.regions.values()))
-        index = self._index_by_id.get(row_id)
-        if index is not None:
-            fit = fully_visible_row_count(self._body_height(), self._row_h)
-            if index < self._top_row:
-                self._top_row = index
-            elif index >= self._top_row + fit:
-                self._top_row = self._clamped_top(index - fit + 1)
-        if column_key is not None:
-            for view in self.regions.values():
-                view.ensure_column_visible(column_key)
+        self._apply_see(row_id, column_key)
         if (self._top_row, tuple(view.x_offset for view in self.regions.values())) != before:
             self._mark_content()
 
@@ -175,6 +180,23 @@ class DataGrid:
 
     # -- internals --------------------------------------------------------------
 
+    def _has_real_size(self) -> bool:
+        """Whether every region has received its first real size from a resize event."""
+        return all(view.viewport != (1, 1) for view in self.regions.values())
+
+    def _apply_see(self, row_id: str, column_key: str | None) -> None:
+        """Adjust ``top_row`` and the region x offsets so the target is visible (no render)."""
+        index = self._index_by_id.get(row_id)
+        if index is not None:
+            fit = fully_visible_row_count(self._body_height(), self._row_h)
+            if index < self._top_row:
+                self._top_row = index
+            elif index >= self._top_row + fit:
+                self._top_row = self._clamped_top(index - fit + 1)
+        if column_key is not None:
+            for view in self.regions.values():
+                view.ensure_column_visible(column_key)
+
     def _relayout(self) -> None:
         """Rebuild every region's layout from the columns and the width scale."""
         for region, view in self.regions.items():
@@ -199,17 +221,20 @@ class DataGrid:
     def _render_content(self) -> None:
         """Full visible pass in all regions plus the vertical scrollbar."""
         self._initial_split()
-        state = self._state()
+        if self._pending_see is not None and self._has_real_size():
+            pending, self._pending_see = self._pending_see, None
+            self._apply_see(*pending)
+        state, theme = self._state(), get_theme()
         for view in self.regions.values():
-            view.render_content(state)
+            view.render_content(state, theme)
         total = max(1, len(self._rows))
         self._vbar.set(self._top_row / total, min(1.0, (self._top_row + self._body_height() / self._row_h) / total))
 
     def _render_markers(self) -> None:
         """Move only band, cursor and active-column marker in all regions."""
-        state = self._state()
+        state, theme = self._state(), get_theme()
         for view in self.regions.values():
-            view.render_markers(state)
+            view.render_markers(state, theme)
 
     def _initial_split(self) -> None:
         """Once the grid has a width: LEFT/RIGHT get their natural widths (RIGHT at most 45 %)."""

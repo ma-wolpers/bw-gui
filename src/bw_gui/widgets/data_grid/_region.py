@@ -16,7 +16,6 @@ from typing import Any, Callable, Mapping, Sequence
 from ...runtime import on_resize, ui
 from ...runtime import widgets as tui
 from ...theming import theme_canvas
-from ...theming._theme_manager import get_theme
 from ..canvas_item_pool import CanvasItemPool
 from ._model import GridRow, RegionLayout, TextClipper, clamp_offset
 
@@ -125,12 +124,12 @@ class RegionView:
         theme_canvas(self.header)
         theme_canvas(self.body)
 
-    def render_content(self, state: RenderState) -> None:
+    def render_content(self, state: RenderState, theme: Mapping[str, str]) -> None:
         """Full visible pass: header titles/lines and all cell texts (then the markers).
 
         Needed when rows, columns, scroll offsets, sorting or the theme change.
+        *theme* is fetched once per grid render (resolving it is not free).
         """
-        theme = get_theme()
         columns = self.layout.visible(self.x_offset, self.viewport[0])
         self._render_header(theme, columns, state)
         self._cells.begin()
@@ -143,15 +142,14 @@ class RegionView:
                 self._place_text(self._cells, column.anchor, x0, x1, y, cells.get(column.key, ""), theme["fg_primary"])
         self._cells.end()
         self._sync_hbar()
-        self.render_markers(state)
+        self.render_markers(state, theme)
 
-    def render_markers(self, state: RenderState) -> None:
+    def render_markers(self, state: RenderState, theme: Mapping[str, str]) -> None:
         """Only the moving parts: selection band, cell cursor, active-column marker (≤ 3 items).
 
         Text colours never depend on the selection (the band uses a soft accent
         under unchanged text), so moving the selection never touches cell texts.
         """
-        theme = get_theme()
         width = self.viewport[0]
         self._band.begin()
         self._cursor.begin()

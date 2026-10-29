@@ -24,8 +24,8 @@ of milliseconds at ~40 columns), a canvas only repaints the damaged area.
 | `set_rows([GridRow(row_id, {key: text})])` | rows in display order (consumer sorts) | content |
 | `set_cursor(row_id, column_key)` | selection band on the row, cell cursor and header marker on the column | markers |
 | `set_sort_indicator(column_key, ascending)` | ▲/▼ in that header | content |
-| `set_width_scale(f)` | global column-width zoom (all widths × f) | content |
-| `see(row_id, column_key=None)` | scroll so the row/column is visible | content only if something scrolled |
+| `set_width_scale(f)` | global column-width zoom (all widths × f); unchanged value = no-op, so callers may pass it on every state update | content |
+| `see(row_id, column_key=None)` | scroll so the row/column is visible; before the grid has its real size the target is kept and applied on the first real-size render | content only if something scrolled |
 | `cell_bbox(row_id, column_key)` | `(body_widget, x, y, w, h)` after `see` + `flush_now` (inline editors) | — |
 
 All calls only *mark* a render (`IdleRenderScheduler`): one render per idle
