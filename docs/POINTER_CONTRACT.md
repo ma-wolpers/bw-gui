@@ -14,6 +14,7 @@ pointer `state` bits. Consumers bind semantic hooks and never see `event.delta`,
 Every hook binds on the widget's `bwkeys:<path>` tag (before its class bindings) and returns a `Subscription`.
 
 - **Lifecycle:** `remove()` is idempotent, and the subscription is invalidated when the widget is destroyed.
+- **Ownership:** each hook's Tcl command belongs to the widget, not to the interpreter root, so a handler and whatever its closure references are released together with the widget (`widget.destroy()` deletes the command after `<Destroy>` was delivered). The public `bind_class` would register on the root; bw-gui uses tkinter's `Misc._bind` on the widget in exactly one place (`pointer._bind`), pinned by a test.
 - **Handler return:** handlers return `EventResult`. `HANDLED` stops the Tk event, which also keeps an enclosing `ScrollableFrame` from scrolling.
 
 ## Wheel

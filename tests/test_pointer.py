@@ -164,6 +164,47 @@ def test_pointer_subscriptions_invalidate_on_destroy(_shared_tk_root):
     assert not any(s.active for s in subs)
 
 
+def test_destroyed_widget_releases_its_handlers(_shared_tk_root):
+    """Handlers reference their widget; after destroy() nothing may keep it alive.
+
+    Pins the widget-owned command of ``_bind`` (tkinter ``Misc._bind``): with the
+    public ``bind_class`` the command sat on the root and leaked the widget.
+    """
+    import gc
+    import weakref
+
+    from bw_gui.runtime import on_resize
+
+    top = ui.Toplevel(_shared_tk_root)
+    widget = ui.Canvas(top)
+    bind_wheel(widget, lambda e: widget)
+    bind_click(widget, lambda e: widget)
+    bind_drag(widget, on_start=lambda e: widget)
+    on_resize(widget, lambda e: widget)
+    commands_before = len(_shared_tk_root._tclCommands or [])
+    ref = weakref.ref(widget)
+    top.destroy()
+    del widget
+    gc.collect()
+    assert ref() is None
+    assert len(_shared_tk_root._tclCommands or []) <= commands_before
+
+
+def test_removing_a_binding_deletes_its_command(_shared_tk_root):
+    widget = ui.Canvas(_shared_tk_root)
+    try:
+        def handler(_event):
+            return None
+
+        subscription = bind_click(widget, handler)
+        owned = [name for name in widget._tclCommands if "_on_destroy" not in name]
+        assert len(owned) == 1  # the binding's command lives on the widget, not on the root
+        subscription.remove()
+        assert owned[0] not in widget._tclCommands
+    finally:
+        widget.destroy()
+
+
 def test_on_global_click_observes_presses_in_every_toplevel(_shared_tk_root):
     from bw_gui.runtime import on_global_click
 

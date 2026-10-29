@@ -33,7 +33,7 @@ from bw_gui.contracts.pointer import (
 from bw_gui.contracts.subscription import CompositeSubscription, Subscription
 
 from ._key_channel import detect_backend, gesture_slot
-from ._tk_identity import interpreter_root, runtime_for
+from ._tk_identity import runtime_for
 from .widget_keys import ensure_widget_tag
 
 __all__ = ["bind_click", "bind_drag", "bind_wheel", "on_global_click", "wheel_subscribed"]
@@ -44,9 +44,18 @@ def _tk(result: object) -> str | None:
 
 
 def _bind(widget: Any, sequence: str, func: Callable[[Any], object]) -> Subscription:
-    """Bind *func* on the widget's bw-gui tag; removal unbinds exactly this script."""
+    """Bind *func* on the widget's bw-gui tag; removal unbinds exactly this script.
+
+    The Tcl command belongs to *widget*, not to the interpreter root: tkinter's
+    public ``bind_class`` registers it on the root, so a destroyed widget's handler
+    (and everything its closure references, usually the widget) lived until the
+    root was destroyed. ``Misc._bind`` on the widget is the same call as
+    ``bind_class`` with the widget as command owner; ``widget.destroy()`` deletes the
+    command after Tk delivered ``<Destroy>``. This is the only use of that internal
+    (pinned by ``test_pointer.py::test_destroyed_widget_releases_its_handlers``).
+    """
     tag = ensure_widget_tag(widget)
-    funcid = widget.bind_class(tag, sequence, func, add="+")
+    funcid = widget._bind(("bind", tag), sequence, func, True)
 
     def _remove() -> None:
         try:
@@ -55,10 +64,8 @@ def _bind(widget: Any, sequence: str, func: Callable[[Any], object]) -> Subscrip
             widget.tk.call("bind", tag, sequence, "\n".join(lines))
         except Exception:
             pass
-        # bind_class registers the command on the root's command list, so it must be
-        # deleted through the root (otherwise root.destroy fails later).
         try:
-            interpreter_root(widget).deletecommand(funcid)
+            widget.deletecommand(funcid)  # owned by the widget (see above)
         except Exception:
             pass
 
