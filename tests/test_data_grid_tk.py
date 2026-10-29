@@ -121,6 +121,39 @@ def test_wheel_and_see_scroll_rows(make_grid):
     assert f"d39:{ROWS - 1}" in _visible_texts(grid)
 
 
+def _last_row_fully_visible_in_every_region(grid) -> bool:
+    bottom = (len(grid._rows) - grid._top_row) * grid._row_h
+    return all(bottom <= view.viewport[1] for view in grid.regions.values())
+
+
+@pytest.mark.parametrize("how", ["wheel", "see", "keyboard_end"])
+def test_last_row_is_not_hidden_by_the_horizontal_scrollbar(make_grid, how):
+    grid, window = make_grid(40)  # dates overflow: only the SCROLL region shows a scrollbar
+    assert grid.regions[Region.SCROLL]._hbar_shown and not grid.regions[Region.LEFT]._hbar_shown
+    last = f"r{ROWS - 1}"
+    if how == "wheel":
+        grid._on_wheel(grid.regions[Region.SCROLL], _wheel(ROWS))
+    elif how == "see":
+        grid.see(last)
+    else:
+        grid.set_cursor(last, "d0")
+        grid.see(last, "d0")
+    window.update()
+    assert _last_row_fully_visible_in_every_region(grid)
+
+
+def test_scrollbar_appearing_at_the_bottom_keeps_the_last_row_visible(make_grid):
+    grid, window = make_grid(3)  # dates fit: no horizontal scrollbar yet
+    assert not grid.regions[Region.SCROLL]._hbar_shown
+    grid.see(f"r{ROWS - 1}")
+    window.update()
+    grid.set_width_scale(2.0)  # now the dates overflow and the scrollbar appears
+    window.update()
+    window.update()
+    assert grid.regions[Region.SCROLL]._hbar_shown
+    assert _last_row_fully_visible_in_every_region(grid)
+
+
 def test_cell_bbox_and_width_scale(make_grid):
     grid, window = make_grid()
     widget, x, y, w, h = grid.cell_bbox("r3", "first")

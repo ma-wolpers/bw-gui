@@ -13,6 +13,13 @@ of milliseconds at ~40 columns), a canvas only repaints the damaged area.
   their natural width (RIGHT at most 45 %), SCROLL the rest.
 - Every region has a header and a body; a horizontal scrollbar appears only
   while its content is wider than its pane. One vertical scrollbar for all.
+- A row counts as visible only if it is fully visible in **every** region, so the
+  vertical extent is the shortest body (a region with a horizontal scrollbar is
+  shorter). Scrolling to the end, `see()` and the vertical scrollbar therefore
+  never leave the last row under a scrollbar; when a body shrinks (the scrollbar
+  appears, window/splitter resize), the top row is re-clamped.
+- Wheel direction follows `WheelEvent.whole_steps` (positive = towards the
+  content end); Shift/horizontal swipe scrolls the region under the pointer.
 - Rows are one model for all regions (`top_row` is a single value), so the
   regions cannot drift apart vertically.
 

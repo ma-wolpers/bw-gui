@@ -68,7 +68,7 @@ class DataGrid:
         self.regions: dict[Region, RegionView] = {}
         for region in Region:
             view = RegionView(self._paned, font=self._font, clipper=clipper, row_height=self._row_h,
-                              header_height=head_h, on_viewport_change=self._mark_content)
+                              header_height=head_h, on_viewport_change=self._on_viewport_change)
             self._paned.add(view.frame, minsize=60, stretch="always" if region is Region.SCROLL else "never")
             self.regions[region] = view
             self._bind_pointer(region, view)
@@ -201,6 +201,16 @@ class DataGrid:
             view.set_layout(RegionLayout([c for c in self._columns if c.region is region], self._scale))
         self._mark_content()
 
+    def _on_viewport_change(self) -> None:
+        """A region body changed size (window, splitter, its scrollbar appearing): re-clamp, render.
+
+        Without re-clamping, a grid scrolled to the end would hide its last row
+        when the body gets shorter (e.g. the horizontal scrollbar appears).
+        """
+        if self._has_real_size():
+            self._top_row = self._clamped_top(self._top_row)
+        self._mark_content()
+
     def _mark_content(self) -> None:
         """Rows, columns, scrolling, zoom, sorting or theme changed: full visible pass next idle."""
         self._scheduler.mark("content", self._render_content)
@@ -246,8 +256,13 @@ class DataGrid:
         self._split_done = True
 
     def _body_height(self) -> int:
-        """Visible body height (the tallest region body; heights differ only by a scrollbar)."""
-        return max(view.viewport[1] for view in self.regions.values())
+        """Body height visible in *every* region (the shortest body).
+
+        Heights differ only by a horizontal scrollbar. A row counts as visible only
+        if no region hides it, so scrolling, ``see()`` and the vertical scrollbar
+        never leave the last row under a region's scrollbar.
+        """
+        return min(view.viewport[1] for view in self.regions.values())
 
     def _clamped_top(self, top: int) -> int:
         """Keep *top* so the last page is full."""
