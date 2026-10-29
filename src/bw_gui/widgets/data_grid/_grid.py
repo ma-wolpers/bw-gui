@@ -16,7 +16,7 @@ from __future__ import annotations
 from typing import Any, Callable, Sequence
 
 from ...contracts.events import EventResult
-from ...contracts.key_modifiers import KeyModifiers
+from ...contracts.pointer import Axis, wheel_axis
 from ...runtime import bind_click, bind_wheel, ui
 from ...runtime import fonts
 from ...runtime import widgets as tui
@@ -287,11 +287,15 @@ class DataGrid:
         return EventResult.HANDLED
 
     def _on_wheel(self, view: RegionView, event: Any) -> EventResult:
-        """Wheel scrolls rows; Shift+wheel scrolls the region horizontally."""
-        if isinstance(event.modifiers, KeyModifiers) and event.modifiers.shift:
-            view.scroll_x(-event.whole_steps * _WHEEL_PIXELS)
+        """Wheel scrolls rows; Shift+wheel scrolls the region horizontally.
+
+        ``whole_steps`` is positive towards the content end (``wheel_steps``), so it
+        is added: wheel down / swipe up shows later rows, like every other surface.
+        """
+        if wheel_axis(event) is Axis.HORIZONTAL:
+            view.scroll_x(event.whole_steps * _WHEEL_PIXELS)
         else:
-            self._top_row = self._clamped_top(self._top_row - event.whole_steps * _WHEEL_ROWS)
+            self._top_row = self._clamped_top(self._top_row + event.whole_steps * _WHEEL_ROWS)
         self._mark_content()
         return EventResult.HANDLED
 

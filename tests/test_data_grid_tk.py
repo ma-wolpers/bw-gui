@@ -11,6 +11,7 @@ from types import SimpleNamespace
 import pytest
 
 from bw_gui.contracts.key_modifiers import KeyModifiers
+from bw_gui.contracts.pointer import Axis, WheelEvent
 from bw_gui.runtime import ui
 from bw_gui.testing.tcl_calls import count_tcl_calls
 from bw_gui.widgets.data_grid import DataGrid, GridColumn, GridRow, Region
@@ -88,11 +89,30 @@ def test_clicks_map_to_row_and_column(make_grid):
     assert headers == ["first"]
 
 
+def _wheel(steps, *, shift=False):
+    return WheelEvent(steps=float(steps), whole_steps=steps, axis=Axis.VERTICAL, modifiers=KeyModifiers(shift=shift),
+                      x=0, y=0, x_root=0, y_root=0, widget=None)
+
+
+def test_shift_wheel_scrolls_right_towards_the_content_end(make_grid):
+    grid, window = make_grid()
+    body = grid.regions[Region.SCROLL]
+    window.update()
+    grid._on_wheel(body, _wheel(1, shift=True))
+    assert body.x_offset > 0 and grid._top_row == 0
+    grid._on_wheel(body, _wheel(-1, shift=True))
+    assert body.x_offset == 0
+
+
 def test_wheel_and_see_scroll_rows(make_grid):
     grid, window = make_grid()
     body = grid.regions[Region.SCROLL]
-    grid._on_wheel(body, SimpleNamespace(whole_steps=-2, modifiers=KeyModifiers()))
+    grid._on_wheel(body, _wheel(2))  # positive = towards the content end
     assert grid._top_row == 6
+    grid._on_wheel(body, _wheel(-1))
+    assert grid._top_row == 3
+    grid._on_wheel(body, _wheel(-5))
+    assert grid._top_row == 0
     grid.see("r0")
     assert grid._top_row == 0
     grid.see(f"r{ROWS - 1}", "d39")
