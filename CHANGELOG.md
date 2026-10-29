@@ -58,6 +58,7 @@ All notable changes to this project will be documented in this file.
 - `bw_gui.theming.theme_scrollbar`: scrollbars colour themselves now (no consumer used it).
 
 ### Fixed
+- `Scrollbar` meldet ihren Theme-Listener beim `<Destroy>` ab (vorher erst beim nächsten Theme-Wechsel; war der Interpreter da schon zerstört, warf die Prüfung `winfo_exists()` einen `TclError`).
 - `icon_button` recolors through a theme listener per button; its registry no longer keeps destroyed buttons alive (weak keys instead of a global list).
 - `tk_state_guard` now also finds a state alias assigned through `or`/`and`/`if-else`, e.g. `state = int(getattr(event, "state", 0) or 0)` (bug 4).
 - `Checkbox`/`Switch`: only plain Space (Shift tolerated) activates a focused toggle. Tk's class binding `TCheckbutton <Key-space>` also fired for Ctrl+Space/Alt+Space (Cmd/Option on aqua), against the exact-modifier keyboard contract - a focused "finished" switch swallowed an app's Ctrl+Space shortcut and toggled itself instead. More specific no-op class bindings (installed once per interpreter by the first toggle, no `break`) let those keys travel on to window and application shortcuts.

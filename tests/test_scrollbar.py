@@ -89,6 +89,14 @@ def test_listener_ends_with_the_widget(top, monkeypatch):
     assert calls == []
 
 
+def test_listener_is_removed_on_destroy_not_only_on_the_next_switch(top):
+    """Regression: with the interpreter already gone, a later winfo_exists() raised TclError."""
+    bar = widgets.Scrollbar(top)
+    assert bar._theme_subscription.active
+    bar.destroy()
+    assert not bar._theme_subscription.active
+
+
 def _scrolled_units(top, *deltas, over_bar):
     """Units a fresh 60-row ScrollableFrame scrolls for wheel *deltas* over its canvas or bar."""
     frame = ScrollableFrame(top)

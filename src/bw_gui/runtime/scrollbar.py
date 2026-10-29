@@ -24,6 +24,7 @@ import tkinter as tk
 from typing import Any
 
 from ._win_dark_controls import set_native_dark_mode
+from .widget_events import on_destroy
 
 __all__ = ["Scrollbar"]
 
@@ -72,6 +73,9 @@ class Scrollbar(tk.Scrollbar):
         from bw_gui.theming._theme_listeners import register_theme_listener  # late: theming imports runtime pieces
 
         self._theme_subscription = register_theme_listener(self._on_theme_changed, owner=self)
+        # Widget-bound: stop listening on <Destroy>, before the interpreter may be gone
+        # (a later winfo_exists() on a destroyed interpreter raises instead of returning 0).
+        on_destroy(self, lambda _widget: self._theme_subscription.remove())
         self._apply_theme()
 
     def configure(self, cnf: dict[str, Any] | None = None, **options: Any) -> Any:
