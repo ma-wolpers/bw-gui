@@ -129,6 +129,19 @@ def test_safety_limit_stops_endless_distinct_switches(root):
     assert len(root.reported) == 1 and str(MAX_FOLLOW_UPS) in str(root.reported[0])
 
 
+def test_widget_bound_listener_ends_on_destroy_while_the_object_is_still_referenced(root):
+    log: list[str] = []
+    frame = ui.Frame(root)
+    held = ui.Label(root)  # explicit widget= case: owner is not the widget
+    register_theme_listener(lambda change: log.append("frame"), owner=frame)
+    owner = _Owner([], "kept alive")
+    register_theme_listener(lambda change: log.append("held"), owner=owner, widget=held)
+    frame.destroy()
+    held.destroy()
+    configure_ttk_theme(root, "mono_night")
+    assert log == [] and root.reported == []
+
+
 def test_icon_buttons_follow_the_theme_and_are_held_weakly(root):
     photo = ui.PhotoImage(width=4, height=4)
     photo.put("#000000", to=(0, 0, 4, 4))

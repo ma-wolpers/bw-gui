@@ -103,6 +103,19 @@ def test_on_destroy_fires_for_the_widget_only(top):
     assert seen == [str(frame)] and not sub.active
 
 
+def test_on_destroy_does_not_keep_the_widget_alive(top):
+    import gc
+    import weakref
+
+    frame = ui.Frame(top)
+    on_destroy(frame, lambda w: w.winfo_name())  # handler references the widget
+    ref = weakref.ref(frame)
+    frame.destroy()
+    del frame
+    gc.collect()
+    assert ref() is None
+
+
 def test_on_text_modified_resets_the_flag_and_reports_every_change(top):
     text = ui.Text(top)
     text.pack()

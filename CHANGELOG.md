@@ -58,6 +58,8 @@ All notable changes to this project will be documented in this file.
 - `bw_gui.theming.theme_scrollbar`: scrollbars colour themselves now (no consumer used it).
 
 ### Fixed
+- Theme listeners end when their widget is destroyed, inside `register_theme_listener` itself (owner is a widget, or the new `widget=` argument). Before, `icon_button` listeners kept running after their button was destroyed. With a second interpreter that was already gone, every theme switch then raised `TclError: can't invoke "image" command: application has been destroyed`. The `on_destroy` special cases in `Scrollbar` and `DataGrid` are gone.
+- `on_destroy` no longer keeps its widget alive until the interpreter root is destroyed. Its binding moved from the bw tag (command owned by the root) to the widget's path tag (released with the widget).
 - `Scrollbar` meldet ihren Theme-Listener beim `<Destroy>` ab (vorher erst beim nächsten Theme-Wechsel; war der Interpreter da schon zerstört, warf die Prüfung `winfo_exists()` einen `TclError`).
 - `icon_button` recolors through a theme listener per button; its registry no longer keeps destroyed buttons alive (weak keys instead of a global list).
 - `tk_state_guard` now also finds a state alias assigned through `or`/`and`/`if-else`, e.g. `state = int(getattr(event, "state", 0) or 0)` (bug 4).

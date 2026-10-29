@@ -73,7 +73,8 @@ registered themes, including dark themes, with no branching in consumer code.
 
 `configure_ttk_theme(root, theme_key)` first applies the ttk styles, then runs the theme listeners **exactly once** (`bw_gui.theming.register_theme_listener`, implemented in `_theme_listeners`).
 
-- **`register_theme_listener(callback, *, owner) -> Subscription`** calls `callback(ThemeChange(theme_key, intensity, is_dark))` after every switch while `owner` lives.
+- **`register_theme_listener(callback, *, owner, widget=None) -> Subscription`** calls `callback(ThemeChange(theme_key, intensity, is_dark))` after every switch while `owner` lives.
+  - **Widget-bound lifetime:** the listener also ends on the `<Destroy>` of a Tk widget: `widget`, or `owner` itself if it is a widget. This is not only when the Python object is collected. A destroyed widget may still be referenced, or its interpreter may already be gone, and then `winfo_exists()` raises instead of returning 0. Consumers therefore never add their own `on_destroy` for this. Components whose owner is not a widget pass `widget=` (e.g. `DataGrid` passes its frame).
   - `owner` is mandatory and must be weak-referenceable; `None` or a non-weakref-able object raises `TypeError`.
   - A bound method is held as `WeakMethod`. Any other callable is held strongly and removed when `owner` is finalized, so it must **not** capture `owner` strongly (documented limit, tested).
   - `remove()` ends a registration earlier and is idempotent.

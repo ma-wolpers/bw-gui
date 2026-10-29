@@ -20,7 +20,7 @@ Hooks bind on the widget's own bw-gui tag (`bwkeys:<path>`) and see the widget's
 | `on_resize(w, handler, *, within=False)` | `ResizeEvent(width, height, x, y, widget)` after each geometry change | For a toplevel, a move also reports (screen `x`/`y`). |
 | `on_focus_change(w, *, on_gained=None, on_lost=None, within=False)` | `FocusChange(gained, widget)` | Every Tk focus event, whatever its notify detail (1:1 to a former raw binding). At least one callback is required. |
 | `on_visibility(w, *, on_shown=None, on_hidden=None)` | transitions of `winfo_viewable()` | See below. |
-| `on_destroy(w, handler)` | `handler(w)` once | Only for the widget itself, not its descendants. |
+| `on_destroy(w, handler)` | `handler(w)` once | Only for the widget itself, not its descendants. Bound on the widget's path tag, so the handler (and anything it references, usually the widget) is released together with the widget. |
 | `on_text_modified(text, handler)` | `handler(text)` after every content change | See below. |
 | `on_tab_changed(notebook, handler)` | `TabChange(index, tab_id, widget)` | Reports both user changes and `select()`. |
 

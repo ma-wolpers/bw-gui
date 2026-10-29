@@ -17,7 +17,7 @@ from typing import Any, Callable, Sequence
 
 from ...contracts.events import EventResult
 from ...contracts.key_modifiers import KeyModifiers
-from ...runtime import bind_click, bind_wheel, on_destroy, ui
+from ...runtime import bind_click, bind_wheel, ui
 from ...runtime import fonts
 from ...runtime import widgets as tui
 from ...runtime.idle_render import IdleRenderScheduler
@@ -83,10 +83,8 @@ class DataGrid:
         self._scale = 1.0
         self._split_done = False
         self._pending_see: tuple[str, str | None] | None = None
-        # Owner-bound *and* widget-bound: a destroyed grid must stop listening even if a
-        # reference keeps the Python object alive.
-        theme_subscription = register_theme_listener(self._on_theme, owner=self)
-        on_destroy(self.frame, lambda _widget: theme_subscription.remove())
+        # Ends with the grid's frame even if a reference keeps the Python object alive.
+        register_theme_listener(self._on_theme, owner=self, widget=self.frame)
 
     # -- data ------------------------------------------------------------------
 

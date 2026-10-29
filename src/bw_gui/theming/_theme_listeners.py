@@ -61,8 +61,21 @@ _entries: list[_Entry] = []
 _phase = {"dispatching": False, "pending": None}
 
 
-def register_theme_listener(callback: Callable[[ThemeChange], object], *, owner: object) -> Subscription:
+def register_theme_listener(
+    callback: Callable[[ThemeChange], object], *, owner: object, widget: Any = None
+) -> Subscription:
     """Call ``callback(ThemeChange)`` after every theme switch while *owner* lives.
+
+    The listener also ends with a Tk widget: *widget*, or *owner* itself if it
+    is a widget. It is removed on that widget's ``<Destroy>`` — not only when
+    the Python object is collected — so it never runs against widgets of an
+    interpreter that is already gone (``winfo_exists()`` would raise there).
+
+    Args:
+        callback: Receives the :class:`ThemeChange`.
+        owner: Weak-referenceable lifetime owner.
+        widget: Tk widget whose destruction ends the listener (default: *owner*
+            if it is a widget).
 
     Raises:
         TypeError: *owner* is ``None`` or not weak-referenceable.
@@ -87,6 +100,11 @@ def register_theme_listener(callback: Callable[[ThemeChange], object], *, owner:
     _entries.append(entry)
     subscription = Subscription(_remove)
     weakref.finalize(owner, subscription.remove)
+    bound = widget if widget is not None else owner
+    if hasattr(bound, "winfo_exists") and hasattr(bound, "bind"):
+        from bw_gui.runtime.widget_events import on_destroy  # late: runtime imports theming
+
+        on_destroy(bound, lambda _widget: subscription.remove())
     return subscription
 
 

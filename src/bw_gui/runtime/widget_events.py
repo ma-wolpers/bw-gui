@@ -44,6 +44,16 @@ def _bind_scope(widget: Any, sequence: str, func: Callable[[Any], None], *, with
         return _track(widget, _bind(widget, sequence, func))
     if not _is_toplevel(widget):
         raise ValueError("within=True is only supported for toplevel windows")
+    return _track(widget, _bind_path(widget, sequence, func))
+
+
+def _bind_path(widget: Any, sequence: str, func: Callable[[Any], None]) -> Subscription:
+    """Bind *func* on the widget's own path tag; removal unbinds exactly this script.
+
+    Unlike a bw-tag binding (``bind_class``: command owned by the interpreter root),
+    tkinter owns this command on *widget* and deletes it -- and thus the closure --
+    when the widget is destroyed.
+    """
     tag = str(widget)
     funcid = widget.bind(sequence, func, add="+")
 
@@ -55,7 +65,7 @@ def _bind_scope(widget: Any, sequence: str, func: Callable[[Any], None], *, with
         except Exception:
             pass
 
-    return _track(widget, Subscription(_remove))
+    return Subscription(_remove)
 
 
 def on_resize(widget: Any, handler: Callable[[ResizeEvent], object], *, within: bool = False) -> Subscription:
@@ -145,14 +155,19 @@ def on_visibility(
 
 
 def on_destroy(widget: Any, handler: Callable[[Any], object]) -> Subscription:
-    """Call ``handler(widget)`` once when *widget* itself is destroyed (not its descendants)."""
+    """Call ``handler(widget)`` once when *widget* itself is destroyed (not its descendants).
+
+    Bound on the path tag (``_bind_path``), not the bw tag: the handler's closure
+    usually references *widget*, and only a path binding is released together with
+    the widget (a bw-tag command would keep it alive until the root is destroyed).
+    """
     path = str(widget)
 
     def _on_destroy(event: Any) -> None:
         if str(event.widget) == path:
             handler(widget)
 
-    return _track(widget, _bind(widget, "<Destroy>", _on_destroy))
+    return _track(widget, _bind_path(widget, "<Destroy>", _on_destroy))
 
 
 def on_text_modified(text: Any, handler: Callable[[Any], object]) -> Subscription:
