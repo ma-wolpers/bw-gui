@@ -420,3 +420,20 @@ def test_page_keys_and_ctrl_arrows_leave_the_mode_for_native_motion(text, mc):
 def test_regions_are_public_read_only_values(text, mc):
     _three_lines(text, mc)
     assert all(isinstance(region, Region) for region in mc.regions)
+
+
+def test_consumer_shortcut_with_applies_when_leaves_the_key_to_the_controller(text, mc):
+    """A consumer shortcut sharing a key declares `applies_when`, so it does not count as executed."""
+    from bw_gui.contracts.key_spec import KeySpec
+    from bw_gui.runtime import WidgetShortcutBinder
+
+    binder = WidgetShortcutBinder(text)
+    binder.bind(
+        KeySpec.parse("Down"), lambda _e: None, binding_id="consumer.down", intent="consumer.down",
+        allow_when_text_input=True, applies_when=lambda _e: not mc.is_active(),
+    )
+    _load(text, "abc\nabc\nabc\n")
+    text.mark_set("insert", "1.1")
+    _click(text, "2.1")
+    assert press_key(text, "Down") is True
+    assert [text.index(f"1.0 + {head} chars") for head in _heads(mc)] == ["2.1", "3.1"]

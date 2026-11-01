@@ -33,6 +33,8 @@
 
 The consumer binds what belongs to its own key registry: `add_cursor(±1)` (e.g. Ctrl+Alt+↑/↓) and `handle_escape()`, which returns `True` when the mode consumed the key. Escape order: multi-cursor first, then the consumer's own uses.
 
+A consumer shortcut on a key the controller also uses (↑/↓, Tab, Enter, a character) must declare `applies_when=lambda _e: not controller.is_active()`. An executed widget shortcut suppresses `on_key` even if it returns `None` (`KEYBINDING_CONTRACT.md`), so the controller would never see the key.
+
 ## Normalisation
 
 - Identical carets collapse.
