@@ -4,7 +4,7 @@ Every consumer app loads bw-gui from a sibling checkout (``<repo>/../bw-gui/src`
 or ``../../bw-gui/src`` for apps nested one level deeper such as Kartograph).
 Old nested copies (``<repo>/bw-gui``) must never be picked up, otherwise
 development and tests silently run against different bw-gui versions. See
-``docs/CONSUMER_SETUP.md``.
+``docs/QUICKSTART.md``.
 
 Usage in a consumer test::
 
