@@ -145,6 +145,7 @@ re-exports the moved names, so import paths stay stable:
 | `contracts/key_spec.py`, `key_event.py`, `events.py`, `subscription.py` | semantic keyboard contract (no Tk) |
 | `runtime/_key_channel.py`, `key_router.py`, `shortcuts.py`, `widget_keys.py`, `text_input.py`, `_tk_identity.py` | keyboard dispatch; see `KEYBINDING_CONTRACT.md` |
 | `contracts/screen_geometry.py` | pure screen geometry (monitor selection, overlay placement, clamping); no Tk |
+| `contracts/multicursor.py`, `multicursor_history.py`; `runtime/multicursor.py`, `multicursor_text.py`, `multicursor_view.py` | several cursors in a `Text`: pure model and cursor history, then Tk adapter, drawing and controller (`MULTICURSOR_CONTRACT.md`) |
 | `runtime/_win_monitors.py` | the only Win32 monitor-geometry adapter |
 | `runtime/screen_placement.py` | Tk side of placement (`get_monitor_info`, `place_overlay_now`); see `SCREEN_PLACEMENT_CONTRACT.md` |
 | `testing/line_limits.py` | 300-executable-line check shared by all repos (counting rule, data-only marker, exception section) |

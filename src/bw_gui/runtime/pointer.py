@@ -19,7 +19,7 @@ from __future__ import annotations
 from typing import Any, Callable
 
 from bw_gui.contracts.events import EventResult, coerce_result
-from bw_gui.contracts.key_modifiers import modifiers_from_event
+from bw_gui.contracts.key_modifiers import KeyModifiers, UnknownModifiers, modifiers_from_event
 from bw_gui.contracts.pointer import (
     Axis,
     Button,
@@ -252,6 +252,7 @@ def bind_drag(
     button: Button = Button.PRIMARY,
     threshold: int = 0,
     cancel_on_escape: bool = False,
+    consume_when: Callable[[KeyModifiers | UnknownModifiers], bool] | None = None,
 ) -> Subscription:
     """Press-drag-release lifecycle on *widget* (``POINTER_CONTRACT.md``).
 
@@ -265,6 +266,10 @@ def bind_drag(
       key dispatcher, so it works wherever focus is in the toplevel).
     * Widget destroyed -> state silently discarded. An exception in a callback resets
       the drag (reported by Tk) and no further callback of this drag runs.
+    * ``consume_when`` makes the gesture exclusive for some modifiers: evaluated at
+      press; if it is true, press, motion and release stop the Tk event, so the widget's
+      class bindings (e.g. a ``Text`` starting its own selection) never see the gesture.
+      If it is false there is no drag at all and the press stays native.
     """
     backend = detect_backend(widget)
     state: dict[str, _DragSession | None] = {"session": None}
@@ -296,32 +301,39 @@ def bind_drag(
             session.escape = gesture_slot(widget).push(lambda: _cancel(CancelReason.ESCAPE))
         _call(on_start, session.make(event))
 
-    def _press(event: Any) -> None:
+    stop = "break" if consume_when is not None else None
+
+    def _press(event: Any) -> str | None:
+        if consume_when is not None and not consume_when(modifiers_from_event(event, backend)):
+            return None
         session = state["session"] = _DragSession(widget, event, backend)
         if threshold <= 0:
             _begin(session, event)
+        return stop
 
-    def _motion(event: Any) -> None:
+    def _motion(event: Any) -> str | None:
         session = state["session"]
         if session is None:
-            return
+            return None
         if not session.started:
             dx, dy = int(event.x_root) - session.start[0], int(event.y_root) - session.start[1]
             if max(abs(dx), abs(dy)) < threshold:
-                return
+                return stop
             _begin(session, event)
-            return
+            return stop
         _call(on_move, session.make(event))
+        return stop
 
-    def _release(event: Any) -> None:
+    def _release(event: Any) -> str | None:
         session = state["session"]
         if session is None:
-            return
+            return None
         started = session.started
         drag_event = session.make(event)
         _finish()
         if started:
             _call(on_end, drag_event)
+        return stop
 
     def _focus_out(event: Any) -> None:
         if state["session"] is not None and event.widget is widget.winfo_toplevel():

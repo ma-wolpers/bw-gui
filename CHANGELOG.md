@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Multi-cursor editing** (`bw_gui.runtime.attach_multicursor`, `docs/MULTICURSOR_CONTRACT.md`): several cursors and selections in a `Text`, with one undo step per key press and undo/redo that restores the cursors.
+- `bind_drag(..., consume_when=...)`: makes a drag exclusive for some modifiers, so class bindings do not see the gesture.
 - **DataGrid** (`bw_gui.widgets.data_grid`, `docs/DATA_GRID_CONTRACT.md`): virtualised canvas table with LEFT | SCROLL | RIGHT regions, two user-resizable splitters, one shared vertical position, cell cursor + row band + active-column marker, sort indicator, global column-width zoom, click/double-click/header events and `cell_bbox` for inline editors. Binds no keys; consumers bind on `key_widgets`. A cursor move costs a small constant number of Tcl calls regardless of the column count (a `ttk.Treeview` re-lays out the whole table on every visible change).
 - `IdleRenderScheduler` (`bw_gui.runtime.idle_render`): mark renders dirty, one run per idle cycle in first-marked order, `flush_now()`, cancelled when the owner widget is destroyed.
 - `CanvasItemPool` (`bw_gui.widgets.canvas_item_pool`): reuse canvas items across render passes and send only changed coordinates/options; unused items are hidden.

@@ -272,3 +272,20 @@ def test_on_global_click_owner_may_be_a_delegating_wrapper(_shared_tk_root):
     subscription = on_global_click(_shared_tk_root, lambda event: None, owner=_Wrapper(top))
     top.destroy()
     assert not subscription.active
+
+
+def test_consume_when_decides_at_press_and_stops_the_class_binding(canvas):
+    calls = []
+    native = []
+    canvas.bind_class("Canvas", "<ButtonPress-1>", lambda _e: native.append("press"), add="+")
+    bind_drag(
+        canvas, on_start=lambda _e: calls.append("start"), on_end=lambda _e: calls.append("end"),
+        consume_when=lambda modifiers: modifiers.control,
+    )
+    canvas.event_generate("<ButtonPress-1>", x=5, y=5)
+    canvas.event_generate("<ButtonRelease-1>", x=5, y=5)
+    assert calls == [] and native == ["press"]
+    canvas.event_generate("<ButtonPress-1>", x=5, y=5, state=0x4)
+    canvas.event_generate("<ButtonRelease-1>", x=5, y=5, state=0x104)
+    assert calls == ["start", "end"] and native == ["press"]
+    canvas.unbind_class("Canvas", "<ButtonPress-1>")

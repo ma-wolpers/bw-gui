@@ -48,12 +48,13 @@ Lifetime: without `owner` the subscription lives as long as the interpreter (the
 
 ## Drag
 
-`bind_drag(widget, *, on_start, on_move, on_end, on_cancel, button, threshold=0, cancel_on_escape=False)`:
+`bind_drag(widget, *, on_start, on_move, on_end, on_cancel, button, threshold=0, cancel_on_escape=False, consume_when=None)`:
 
 - **Press:** creates a candidate. `on_start` fires at press (threshold 0) or when the threshold is first exceeded.
 - **Grab:** Tk's implicit grab delivers motion and release across widget and window borders. bw-gui never calls `grab_set`.
 - **Release:** also outside the widget, gives `on_end` with valid root coordinates.
 - **Modifiers:** `start_modifiers` is frozen at press; `modifiers` is the current state.
+- **Exclusive gesture:** `consume_when(modifiers)` is evaluated at press. If true, press, motion and release stop the Tk event, so class bindings (a `Text` starting its own selection) never see the gesture. If false there is no drag and the press stays native.
 - **Cancel:**
   - Focus loss of the toplevel gives `on_cancel(FOCUS_LOST)`.
   - With `cancel_on_escape`, a temporary gesture subscription exists while the drag is active. Every bw-gui key dispatcher (`bwkeys:*`, toplevel, `all`) checks it before all roles, so an exact Escape cancels regardless of focus within the toplevel. The subscription is removed on end, cancel, exception and destroy, and it never appears in shortcut conflict analysis.

@@ -11,6 +11,7 @@ from .overlay_stack import (
     register_overlay,
     topmost_window,
 )
+from .multicursor import MultiCursorController, attach_multicursor
 from .pointer import bind_click, bind_drag, bind_wheel, on_global_click
 from .pointer_group import PointerGroup
 from .pointer_hover import bind_canvas_item, bind_hover
@@ -77,6 +78,8 @@ __all__ = [
     "topmost_window",
     "bind_click",
     "bind_drag",
+    "attach_multicursor",
+    "MultiCursorController",
     "bind_wheel",
     "on_global_click",
     "PointerGroup",
