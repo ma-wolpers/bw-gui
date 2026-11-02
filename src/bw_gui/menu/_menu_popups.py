@@ -9,13 +9,18 @@ from __future__ import annotations
 
 from typing import Callable
 import tkinter as tk
+from tkinter import font as tkfont
 
 from bw_gui.contracts.screen_geometry import Side, Size
 from bw_gui.runtime.screen_placement import place_overlay_now, widget_rect
 from bw_gui.theming._theme_manager import get_theme
 
+from ._menu_mnemonics import collect_mnemonics, mnemonic_row_texts
 from ._toggle_glyphs import glyph_image, glyph_row_pady, is_binary, menu_item_command, text_prefix
 from .menu_types import MenuItem
+
+_ROW_FONT = ("Segoe UI", 9)
+"""Font of every popup row; also measured for the mnemonic column, so both stay in sync."""
 
 
 def _is_description_slot_replaceable(popup_stack: list, target_level: int) -> bool:
@@ -100,6 +105,9 @@ class _MenuPopupsMixin:
         setattr(popup, "_bw_menu_scroll_host", scroll_host)
 
         navigable_rows: list[tuple[tk.Widget, MenuItem]] = []
+        # Validates the whole subtree (duplicates, invalid letters) before any row exists.
+        mnemonics = collect_mnemonics(items)
+        text_rows: list[tuple[tk.Label, str, str | None, int]] = []
 
         for item in items:
             if item.type == "separator":
@@ -119,7 +127,7 @@ class _MenuPopupsMixin:
                     padx=10,
                     pady=6,
                     wraplength=280,
-                    font=("Segoe UI", 9),
+                    font=_ROW_FONT,
                 )
                 setattr(description_label, "_bw_menu_row", True)
                 setattr(description_label, "_bw_menu_base_fg", theme["fg_muted"])
@@ -144,12 +152,13 @@ class _MenuPopupsMixin:
                 bg=theme["bg_surface"],
                 fg=fg,
                 padx=10,
-                pady=glyph_row_pady(body, glyph, base_pady=6, font=("Segoe UI", 9)),
-                font=("Segoe UI", 9),
+                pady=glyph_row_pady(body, glyph, base_pady=6, font=_ROW_FONT),
+                font=_ROW_FONT,
             )
             setattr(row, "_bw_menu_row", True)
             setattr(row, "_bw_menu_base_fg", fg)
             row.pack(fill="x")
+            text_rows.append((row, f"{prefix}{item.label}{suffix}", item.mnemonic, glyph.width() if glyph else 0))
 
             if item.type == "disabled":
                 continue
@@ -185,6 +194,8 @@ class _MenuPopupsMixin:
             else:
                 row.bind("<Button-1>", lambda _event, cmd=menu_item_command(item): self._execute_menu_command(cmd))
 
+        self._apply_mnemonic_column(body, text_rows)
+        setattr(popup, "_bw_menu_mnemonics", mnemonics)
         setattr(popup, "_bw_menu_navigable_rows", navigable_rows)
         setattr(popup, "_bw_menu_active_index", -1)
         setattr(popup, "_bw_menu_level", level)
@@ -237,6 +248,44 @@ class _MenuPopupsMixin:
                 intent=f"menu.popup.{name}",
                 allow_when_text_input=True,
             )
+        for letter, item in getattr(popup, "_bw_menu_mnemonics", {}).items():
+            self._bind_popup_mnemonic(binder, letter, item)
+
+    def _bind_popup_mnemonic(self, binder, letter: str, item: MenuItem) -> None:
+        """Bind one ``MenuItem.mnemonic`` letter on the popup's window binder.
+
+        Shift is part of a character key (``KeySpec`` contract), so the lower- and
+        the upper-case form are bound separately; Alt is tolerated, so a user still
+        holding Alt from opening the menu (Alt+I, then Alt+T) hits the item. The
+        handler returns ``HANDLED``: the popup binder sits before the ``all``
+        router, so the letter never also reaches the strip's Alt mnemonics (Alt+A
+        inside an open popup runs the item instead of opening another section).
+        """
+        from bw_gui.contracts.events import EventResult
+        from bw_gui.contracts.key_spec import KeySpec, Mod
+
+        def _run(_event, chosen=item):
+            self._execute_menu_command(menu_item_command(chosen))
+            return EventResult.HANDLED
+
+        for variant in sorted({letter.lower(), letter.upper()}):
+            binder.bind(
+                KeySpec.char(variant, (), (Mod.ALT,)),
+                _run,
+                binding_id=f"menu.popup.mnemonic.{variant}",
+                intent="menu.popup.mnemonic",
+                allow_when_text_input=True,
+            )
+
+    def _apply_mnemonic_column(self, body: tk.Widget, text_rows: list) -> None:
+        """Show each row's mnemonic right-aligned inside the row's own label (see ``mnemonic_row_texts``)."""
+        if not any(letter for _row, _text, letter, _extra in text_rows):
+            return
+        measure = tkfont.Font(root=body, font=_ROW_FONT).measure
+        texts = mnemonic_row_texts([(text, letter, extra) for _row, text, letter, extra in text_rows], measure)
+        for (row, _text, letter, _extra), text in zip(text_rows, texts):
+            if letter is not None:
+                row.configure(text=text)
 
     def _place_menu_popup(self, popup: tk.Toplevel, anchor_widget: tk.Widget, level: int) -> None:
         """Size the scroll host to its rows and position the popup on the anchor's monitor.

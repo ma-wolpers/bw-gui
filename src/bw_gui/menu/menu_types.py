@@ -25,6 +25,15 @@ class MenuItem:
     requested bool: ``mixed_click_target`` while mixed (default ``False`` for switch,
     ``True`` for checkbox), else ``not checked``. A ``checkbox`` item without
     ``on_toggle`` still calls its argument-less ``command`` (legacy form).
+
+    ``mnemonic``: optional single letter that runs this item from the keyboard. While
+    a popup is open, pressing the letter (case-insensitive, Alt may be held) runs the
+    matching item of that popup **or of any of its nested submenus**, exactly like a
+    click, and closes the menu. The letter is shown right-aligned in the item's row.
+    Letters are unique within the whole item tree of one strip section
+    (case-insensitive); a duplicate, a letter on a ``submenu``/``separator``/
+    ``disabled`` item or more than one character raises ``ValueError`` when the popup
+    opens (``_menu_mnemonics.collect_mnemonics``). ``None`` by default.
     """
 
     type: str  # "command", "separator", "disabled", "radio", "checkbox", "switch", "submenu"
@@ -36,6 +45,7 @@ class MenuItem:
     mixed: bool = False
     on_toggle: Callable[[bool], None] | None = None
     mixed_click_target: bool | None = None
+    mnemonic: str | None = None
 
 
 @dataclass(frozen=True)

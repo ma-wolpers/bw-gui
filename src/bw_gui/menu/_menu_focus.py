@@ -13,6 +13,8 @@ from bw_gui.contracts.key_spec import Mod
 from bw_gui.runtime._key_channel import KeyDispatch
 from bw_gui.runtime.key_router import ROLE_MENU_MNEMONIC, router_for
 
+from ._menu_mnemonics import normalize_mnemonic
+
 
 class _MenuFocusMixin:
     """Closes the menu on outside clicks/focus loss and handles Alt mnemonics."""
@@ -78,9 +80,9 @@ class _MenuFocusMixin:
         modifiers = identity.modifiers
         if not isinstance(modifiers, frozenset) or Mod.ALT not in modifiers or not identity.character:
             return EventResult.NOT_HANDLED
-        key = identity.character.casefold()
+        key = normalize_mnemonic(identity.character)
         for definition in self.definitions:
-            if definition.alt and definition.alt.casefold() == key:
+            if definition.alt and normalize_mnemonic(definition.alt) == key:
                 return self._on_mnemonic(definition)
         return EventResult.NOT_HANDLED
 

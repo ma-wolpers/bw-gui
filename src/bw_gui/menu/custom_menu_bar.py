@@ -40,6 +40,7 @@ from bw_gui.theming._theme_manager import get_theme
 
 from .menu_types import MenuDefinition, MenuItem  # noqa: F401 — re-exported for callers
 from ._menu_focus import _MenuFocusMixin
+from ._menu_mnemonics import check_unique_section_mnemonics
 from ._menu_popups import _MenuPopupsMixin, _is_description_slot_replaceable  # noqa: F401 - re-exported
 
 
@@ -78,6 +79,7 @@ class CustomMenuBar(_MenuPopupsMixin, _MenuFocusMixin):
         """
         self.root = root
         self.definitions = tuple(definitions)
+        check_unique_section_mnemonics(self.definitions)
         self.theme_key = theme_key
         self.strip: tk.Frame | None = None
         self._buttons: dict[str, tk.Button] = {}
@@ -97,6 +99,7 @@ class CustomMenuBar(_MenuPopupsMixin, _MenuFocusMixin):
             definitions: New ordered menu definitions.
         """
         self.definitions = tuple(definitions)
+        check_unique_section_mnemonics(self.definitions)
         if self.strip is not None and self.strip.winfo_exists():
             self.build()
 

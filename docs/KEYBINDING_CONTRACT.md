@@ -109,6 +109,7 @@ widget -> bwkeys:<path> -> Class -> bwkeys-after:<path> -> toplevel path -> all
 
 - **Why the toplevel path:** Tk adds it to the bindtags of every current and future descendant. A separate `bwwindow:*` tag would have to be inserted into every widget, including widgets created later, and Tk offers no hook for that.
 - **Effect on popups:** a binding on a popup's toplevel runs before `all`, so it beats `ApplicationShortcutBinder`. The main window's `WindowShortcutBinder` never sees popup events.
+  - Menu popups use this for `MenuItem.mnemonic`: the letter (lower- and upper-case spec, Alt tolerated) is bound on the popup's window binder and returns `HANDLED`, so Alt+A inside an open popup runs the item instead of reaching the strip's `MENU_MNEMONIC` role.
 
 ### The `all` router (`runtime/key_router.py`)
 

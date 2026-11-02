@@ -141,6 +141,7 @@ re-exports the moved names, so import paths stay stable:
 | `menu/custom_menu_bar.py` | `CustomMenuBar`: lifecycle, strip, theme refresh |
 | `menu/_menu_popups.py` | mixin: popups, rows, description flyouts, keyboard navigation |
 | `menu/_menu_focus.py` | mixin: focus watchdog, outside-click/Alt/focus handlers |
+| `menu/_menu_mnemonics.py` | pure mnemonic rules: normalisation, subtree search with uniqueness check, right-aligned letter column (no Tk) |
 | `menu/_toggle_glyphs.py`, `native_toggles.py` | binary menu entries (glyphs, click resolution, native-menu helpers) |
 | `contracts/key_spec.py`, `key_event.py`, `events.py`, `subscription.py` | semantic keyboard contract (no Tk) |
 | `runtime/_key_channel.py`, `key_router.py`, `shortcuts.py`, `widget_keys.py`, `text_input.py`, `_tk_identity.py` | keyboard dispatch; see `KEYBINDING_CONTRACT.md` |
