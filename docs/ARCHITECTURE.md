@@ -154,6 +154,7 @@ re-exports the moved names, so import paths stay stable:
 | `widgets/canvas_item_pool.py` | `CanvasItemPool`: reusable canvas items that send Tk only differences |
 | `widgets/data_grid/` | `DataGrid` (`_grid.py`), regions (`_region.py`), Tk-free layout/visibility/clipping (`_model.py`); see `DATA_GRID_CONTRACT.md` |
 | `testing/tcl_calls.py` | `count_tcl_calls`: deterministic Tcl-call budgets for tests and benchmarks |
+| `testing/tk_root.py` | `create_tk_root`: the one rule for real Tk roots in tests (retry the init race, skip only without a display) |
 
 ### Line-limit exceptions
 

@@ -22,11 +22,12 @@ import pytest
 from bw_gui.testing.background_windows import pytest_configure, pytest_unconfigure  # noqa: F401
 
 from bw_gui.runtime import ui
+from bw_gui.testing.tk_root import create_tk_root
 
 
 @pytest.fixture(scope="session")
 def _shared_tk_root():
-    window = ui.Tk()
+    window = create_tk_root(ui.Tk)
     window.geometry("400x300+0+0")
     window.deiconify()
     window.update()
@@ -40,12 +41,7 @@ def create_extra_tk(attempts: int = 3):
     Some tests need their own interpreter (e.g. to observe what is on the ``all``
     bindtag at router installation). Creating one next to the shared root
     intermittently fails on this Windows setup with ``init.tcl``/``tcl_findLibrary``
-    errors (see the module docstring); only those are retried.
+    errors (see the module docstring); retry and skip rules live in
+    :func:`bw_gui.testing.tk_root.create_tk_root`.
     """
-    for attempt in range(attempts):
-        try:
-            return ui.Tk()
-        except ui.TclError as exc:
-            if attempt == attempts - 1 or not any(m in str(exc) for m in ("tcl_findLibrary", "init.tcl", "tk.tcl")):
-                raise
-    raise AssertionError("unreachable")
+    return create_tk_root(ui.Tk, attempts=attempts)
