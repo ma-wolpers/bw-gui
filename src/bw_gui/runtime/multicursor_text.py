@@ -24,6 +24,8 @@ class TextSurface:
 
     def __init__(self, text: Any) -> None:
         self.text = text
+        self._mutations = 0
+        """Primitive changes (`delete`/`insert`) of the running transaction (see ``transact``)."""
 
     def content(self) -> str:
         return self.text.get("1.0", "end-1c")
@@ -80,27 +82,37 @@ class TextSurface:
         return self.offset(str(self.text.tk.call("::tk::TextClosestGap", str(self.text), x, y)))
 
     def apply_one(self, edit: Edit) -> None:
-        """Apply one edit (separate so a failure midway stays testable)."""
+        """Apply one edit (separate so a failure midway stays testable).
+
+        Counts each completed primitive change, so ``transact`` also rolls back
+        an edit whose ``delete`` succeeded before its ``insert`` failed.
+        """
         start = self.index(edit.start)
         if edit.end > edit.start:
             self.text.delete(start, self.index(edit.end))
+            self._mutations += 1
         if edit.text:
             self.text.insert(start, edit.text)
+            self._mutations += 1
 
     def transact(self, planned: Sequence[Edit]) -> None:
-        """Apply planned edits as exactly one undo step (see module docstring)."""
+        """Apply planned edits as exactly one undo step (see module docstring).
+
+        On a failure the transaction is undone only if something was actually
+        changed since its opening separator; otherwise Tk's undo would take back
+        the user's previous step instead.
+        """
         text = self.text
         previous = text.cget("autoseparators")
         text.configure(autoseparators=False)
-        applied = 0
+        self._mutations = 0
         try:
             text.edit_separator()
             for edit in application_order(planned):
                 self.apply_one(edit)
-                applied += 1
             text.edit_separator()
         except Exception:
-            if applied:
+            if self._mutations:
                 text.edit_separator()
                 try:
                     text.edit_undo()

@@ -62,6 +62,7 @@ All notable changes to this project will be documented in this file.
 - `bw_gui.theming.theme_scrollbar`: scrollbars colour themselves now (no consumer used it).
 
 ### Fixed
+- `TextSurface.transact` rolls back an edit whose `delete` succeeded before its `insert` failed (previously only fully applied edits counted, so the deleted text stayed gone). It still never undoes when nothing changed.
 - `DataGrid`: the last row could hide under a region's horizontal scrollbar. The visible height was the tallest region body (the one without a scrollbar), and the grid did not re-clamp when the scrollbar appeared at the bottom end. It is now the shortest body and is re-clamped on every body resize.
 - `DataGrid` scrolled in the wrong direction (mouse wheel, touch panning, Shift+wheel/horizontal swipe): it subtracted `whole_steps`, which is positive towards the content end. It now uses `wheel_axis` like every other surface.
 - Theme listeners end when their widget is destroyed, inside `register_theme_listener` itself (owner is a widget, or the new `widget=` argument). Before, `icon_button` listeners kept running after their button was destroyed. With a second interpreter that was already gone, every theme switch then raised `TclError: can't invoke "image" command: application has been destroyed`. The `on_destroy` special cases in `Scrollbar` and `DataGrid` are gone.

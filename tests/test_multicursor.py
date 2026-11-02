@@ -334,6 +334,21 @@ def test_failing_edit_rolls_the_transaction_back(text, mc, monkeypatch):
     press_key(text, "z", state=CTRL)  # kein Historieneintrag: bleibt normales Tk-Undo
 
 
+def test_failure_after_the_delete_of_an_edit_is_rolled_back(text, mc, monkeypatch):
+    # Früher zählte nur ein ganz angewandtes Edit: gelang das delete und scheiterte
+    # das insert, blieb der gelöschte Text weg.
+    _three_lines(text, mc)
+
+    def failing_insert(*_args):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(text, "insert", failing_insert)
+    with pytest.raises(RuntimeError):
+        mc.surface.transact([Edit(0, 3, "XYZ")])
+    monkeypatch.undo()
+    assert _value(text) == "aaa\nbbb\nccc\n"
+
+
 def test_failure_on_the_first_edit_does_not_undo_an_earlier_step(text, mc, monkeypatch):
     _three_lines(text, mc)
     _type(text, "X")
