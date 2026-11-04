@@ -10,6 +10,8 @@ from tkinter import simpledialog as _tk_simpledialog
 
 
 ModalCallback = Callable[[], Any]
+TextValidator = Callable[[str], "str | None"]
+"""Checks a prompt's text: an error message keeps the dialog open, ``None`` accepts it."""
 
 
 def _bind_dialog_keys(dialog: tk.Toplevel, *, on_enter: Callable[[], Any] | None, on_escape: Callable[[], Any]) -> None:
@@ -51,10 +53,29 @@ class _EscapeSafeQueryString(_tk_simpledialog._QueryString):
     the window binder the key is consumed at the dialog.
     """
 
+    def __init__(self, title: str, prompt: str, *, validate: TextValidator | None = None, **kwargs: Any) -> None:
+        """Store the optional validator, then build the stdlib dialog (which runs modally)."""
+        self._validate_text = validate
+        super().__init__(title, prompt, **kwargs)
+
     def buttonbox(self):
         """Build the stdlib OK/Cancel box, then move its Enter/Escape to the window binder."""
         super().buttonbox()
         _bind_dialog_keys(self, on_enter=self.ok, on_escape=self.cancel)
+
+    def validate(self) -> int:
+        """Stdlib check first; then the caller's validator -- an error keeps the dialog open.
+
+        Returns:
+            ``1`` to accept (the dialog closes with ``result``), ``0`` to stay open.
+        """
+        if not super().validate():
+            return 0
+        error = self._validate_text(self.result) if self._validate_text is not None else None
+        if error:
+            MessageDialogService().showwarning(self.title(), error, parent=self)
+            return 0
+        return 1
 
 
 def _resolve_parent(parent: object | None) -> object | None:
@@ -118,11 +139,28 @@ class MessageDialogService:
 class TextPromptDialogService:
     """Wrapper for simpledialog text prompts with popup policy tracking."""
 
-    def askstring(self, title: str, prompt: str, **kwargs: Any) -> str | None:
+    def askstring(
+        self, title: str, prompt: str, *, validate: TextValidator | None = None, **kwargs: Any
+    ) -> str | None:
+        """Ask for one line of text; ``None`` when cancelled.
+
+        Args:
+            title: Dialog title.
+            prompt: Label above the entry.
+            validate: Optional check of the entered text. It returns an error message
+                (shown as a warning; the dialog stays open with the text kept) or
+                ``None`` to accept. Consumers use it for rules like uniqueness instead
+                of re-opening the prompt in a loop.
+            **kwargs: Passed to the stdlib dialog (``initialvalue`` is inserted and
+                selected, ``parent``).
+
+        Returns:
+            The accepted text, or ``None`` on cancel.
+        """
         parent = kwargs.get("parent")
 
         def _show() -> str | None:
-            dialog = _EscapeSafeQueryString(title, prompt, **kwargs)
+            dialog = _EscapeSafeQueryString(title, prompt, validate=validate, **kwargs)
             return dialog.result
 
         return _run_modal(parent, title, _show)

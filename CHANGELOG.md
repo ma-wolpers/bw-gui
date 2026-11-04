@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- `TextPromptDialogService.askstring(..., validate=...)`: optional check of the entered text; an error message is shown as a warning and the prompt stays open with the text kept (replaces consumer re-prompt loops for rules like uniqueness).
 - `bw_gui.widgets.canvas_shapes`: `rounded_rect_points` (pure point list for a smoothed polygon, usable with `CanvasItemPool`) and `create_rounded_rectangle`; moved from Kursplaner so every app draws rounded boxes the same way.
 - **Menu item mnemonics** (`MenuItem.mnemonic`): a single letter that runs the item from the keyboard while its popup is open -- also from nested, still closed submenus, case-insensitive and with Alt still held. The letter is shown right-aligned in the row. Duplicate letters within one section's item tree raise `ValueError`, and so do duplicate `MenuDefinition.alt` letters in the strip (previously the second section was silently unreachable).
 - `tests/test_consumer_bw_libs_in_sync.py`: fails when the `bw_libs` copies in sibling programs differ; skipped without siblings.

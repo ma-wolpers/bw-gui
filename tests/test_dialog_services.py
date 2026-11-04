@@ -103,3 +103,59 @@ def test_escape_safe_query_string_keys_go_through_the_window_binder(_shared_tk_r
     finally:
         if dialog.winfo_exists():
             dialog.destroy()
+
+
+def _headless_prompt(monkeypatch, root, **kwargs):
+    """Build a real query dialog without its modal wait/grab; warnings are recorded."""
+    warnings: list[str] = []
+    monkeypatch.setattr(_EscapeSafeQueryString, "wait_window", lambda self, window=None: None)
+    monkeypatch.setattr(_EscapeSafeQueryString, "grab_set", lambda self: None)
+    monkeypatch.setattr(
+        dialog_service.MessageDialogService, "showwarning", lambda self, title, message, **kw: warnings.append(message)
+    )
+    return _EscapeSafeQueryString("Titel", "Name?", parent=root, **kwargs), warnings
+
+
+def test_validator_error_keeps_the_prompt_open_with_its_text(_shared_tk_root, monkeypatch):
+    dialog, warnings = _headless_prompt(
+        monkeypatch, _shared_tk_root, validate=lambda text: "gibt es schon" if text == "A" else None, initialvalue="A"
+    )
+    try:
+        dialog.ok()
+        assert warnings == ["gibt es schon"]
+        assert dialog.winfo_exists()
+        assert dialog.entry.get() == "A"
+        dialog.entry.delete(0, "end")
+        dialog.entry.insert(0, "B")
+        dialog.ok()
+        assert dialog.result == "B"
+        assert not dialog.winfo_exists()
+    finally:
+        if dialog.winfo_exists():
+            dialog.destroy()
+
+
+def test_initial_value_is_inserted_and_selected(_shared_tk_root, monkeypatch):
+    dialog, _warnings = _headless_prompt(monkeypatch, _shared_tk_root, initialvalue="Kopie")
+    try:
+        assert dialog.entry.get() == "Kopie"
+        assert dialog.entry.selection_present()
+    finally:
+        dialog.destroy()
+
+
+def test_askstring_forwards_the_validator(monkeypatch):
+    seen = {}
+
+    class _FakeQueryString:
+        def __init__(self, title, prompt, **kwargs):
+            seen.update(kwargs)
+            self.result = "x"
+
+    monkeypatch.setattr(dialog_service, "_EscapeSafeQueryString", _FakeQueryString)
+    monkeypatch.setattr(dialog_service.tk, "_default_root", _FakeModalParent())
+    def check(text):
+        return None
+
+    assert TextPromptDialogService().askstring("T", "P", validate=check) == "x"
+    assert seen["validate"] is check
