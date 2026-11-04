@@ -5,7 +5,18 @@ See ``docs/CARD_BOARD_CONTRACT.md``.
 
 from ._board import CardBoard
 from ._layout import BoardLayout, Hit, HitKind, TextWrapper, compute_layout, hit_test, insertion_line, slot_at
-from ._model import BoardCard, BoardCell, BoardLane, BoardRow, BoardSlot, Cursor, Direction, LaneKind, RowTint
+from ._model import (
+    BoardCard,
+    BoardCell,
+    BoardLane,
+    BoardRow,
+    BoardSlot,
+    CardTone,
+    Cursor,
+    Direction,
+    LaneKind,
+    RowTint,
+)
 from ._navigation import lane_entries, neighbor
 
 __all__ = [
@@ -16,6 +27,7 @@ __all__ = [
     "BoardRow",
     "BoardSlot",
     "CardBoard",
+    "CardTone",
     "Cursor",
     "Direction",
     "Hit",

@@ -58,6 +58,19 @@ class RowTint:
     base_token: str = "panel_strong"
 
 
+class CardTone(str, Enum):
+    """How a card stands out; the renderer maps each tone to theme tokens.
+
+    ``NORMAL`` is the plain card, ``EMPHASIS`` a softly filled card (e.g. the
+    leading card of a cell), ``WARNING`` a card with a warning outline (e.g. a
+    rule the consumer reports as violated).
+    """
+
+    NORMAL = "normal"
+    EMPHASIS = "emphasis"
+    WARNING = "warning"
+
+
 @dataclass(frozen=True)
 class BoardCard:
     """One card.
@@ -66,11 +79,13 @@ class BoardCard:
         key: Unique across the whole board (cursor, drag and callbacks use it).
         text: Card text; wrapped to the card width.
         badge: Optional short code shown in a small bubble at the card's side.
+        tone: How the card stands out (see :class:`CardTone`).
     """
 
     key: str
     text: str
     badge: str | None = None
+    tone: CardTone = CardTone.NORMAL
 
 
 @dataclass(frozen=True)
@@ -83,6 +98,9 @@ class BoardRow:
         cards: Cards per ``CARDS`` lane key, top to bottom. Missing lanes are empty.
         texts: Text per ``TEXT`` lane key. Missing lanes are empty.
         tint: Optional background tint of the whole row.
+        locked: A locked row takes nothing new: no "+" boxes, no drop slots,
+            its ``TEXT`` cells show no placeholder and open no editor. Its
+            cells stay selectable with the cursor.
     """
 
     key: str
@@ -90,6 +108,7 @@ class BoardRow:
     cards: Mapping[str, tuple[BoardCard, ...]] = field(default_factory=dict)
     texts: Mapping[str, str] = field(default_factory=dict)
     tint: RowTint | None = None
+    locked: bool = False
 
 
 @dataclass(frozen=True)

@@ -145,10 +145,10 @@ class CardBoard:
         return self._editor.cell
 
     def edit_text(self, cell: BoardCell) -> None:
-        """Open the inline editor of a ``TEXT`` cell (no-op for other cells)."""
+        """Open the inline editor of a ``TEXT`` cell (no-op for other cells and locked rows)."""
         layout = self._current_layout()
         box = layout.cells.get(cell) if layout is not None else None
-        if box is None or box.kind is not LaneKind.TEXT:
+        if box is None or box.kind is not LaneKind.TEXT or box.locked:
             return
         row = next(r for r in self._rows if r.key == cell.row_key)
         self._editor.open(cell, box.box, row.texts.get(cell.lane_key, ""), self._line_h)

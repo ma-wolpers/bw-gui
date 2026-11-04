@@ -14,6 +14,7 @@ from bw_gui.widgets.card_board import (
     BoardRow,
     BoardSlot,
     CardBoard,
+    CardTone,
     Direction,
     LaneKind,
     RowTint,
@@ -144,3 +145,40 @@ def test_theme_switch_rerenders_without_errors(make_board):
     configure_ttk_theme(board.frame, "light")
     board.flush_now()
     assert board._layout is not None
+
+
+def _card_items(board):
+    canvas = board.key_widget
+    return [item for item in board._renderer._pools["card"].items if canvas.itemcget(item, "state") != "hidden"]
+
+
+def test_card_tones_use_theme_tokens_and_follow_theme_switch(make_board):
+    from bw_gui.theming import configure_ttk_theme
+    from bw_gui.theming._theme_manager import get_theme
+
+    board = make_board()
+    board.set_rows((BoardRow("r", "R", {"left": (BoardCard("e", "E", tone=CardTone.EMPHASIS),
+                                                 BoardCard("w", "W", tone=CardTone.WARNING))}),))  # fmt: skip
+    canvas = board.key_widget
+    for theme_name in ("light", "dark"):
+        configure_ttk_theme(board.frame, theme_name)
+        board.flush_now()
+        theme = get_theme()
+        fills = {canvas.itemcget(item, "fill") for item in _card_items(board)}
+        outlines = {canvas.itemcget(item, "outline") for item in _card_items(board)}
+        assert theme["accent_soft"] in fills
+        assert theme["warning"] in outlines
+    configure_ttk_theme(board.frame, "light")
+
+
+def test_locked_row_text_cell_selects_but_does_not_edit(make_board):
+    seen = []
+    board = make_board(on_cursor_change=seen.append)
+    board.set_rows((BoardRow("lzk", "LZK", texts={"ideas": "fest"}, locked=True),))
+    board.flush_now()
+    x0, y0, x1, y1 = board._layout.cells[BoardCell("lzk", "ideas")].box
+    _event(board, "<ButtonPress-1>", int((x0 + x1) / 2), int((y0 + y1) / 2))
+    assert seen == [BoardCell("lzk", "ideas")]
+    assert board.editing_cell is None
+    board.edit_text(BoardCell("lzk", "ideas"))
+    assert board.editing_cell is None

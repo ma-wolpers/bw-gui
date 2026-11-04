@@ -16,9 +16,17 @@ from ...theming import tinted_color
 from ..canvas_item_pool import CanvasItemPool
 from ..canvas_shapes import rounded_rect_points
 from ._layout import CARD_PAD_X, CARD_PAD_Y, LABEL_WIDTH, PAD, BoardLayout, cursor_box, insertion_line
-from ._model import BoardSlot, Cursor, LaneKind
+from ._model import BoardSlot, CardTone, Cursor, LaneKind
 
 _RADIUS = 7
+
+# The one table of card looks: tone -> (fill, outline, outline width, badge fill), all theme tokens.
+# The badge fill differs from the card fill so a badge stays visible on an EMPHASIS card.
+_CARD_TONES: dict[CardTone, tuple[str, str, int, str]] = {
+    CardTone.NORMAL: ("bg_panel", "border", 1, "accent_soft"),
+    CardTone.EMPHASIS: ("accent_soft", "border", 1, "bg_panel"),
+    CardTone.WARNING: ("bg_panel", "warning", 2, "accent_soft"),
+}
 _STACK = ("row_bg", "grid_line", "label", "add_box", "add_text", "card", "card_text", "badge", "badge_text",
           "lane_text", "cursor", "drop_line")  # fmt: skip
 
@@ -115,14 +123,15 @@ class BoardRenderer:
         line_h = layout.line_height
         for card in layout.cards.values():
             x0, y0, x1, y1 = card.box
+            fill, outline, width, badge_fill = _CARD_TONES[card.tone]
             points = rounded_rect_points(x0, y0, x1, y1, radius=_RADIUS)
-            self._pools["card"].place(points, smooth=True, fill=theme["bg_panel"], outline=theme["border"])
+            self._pools["card"].place(points, smooth=True, fill=theme[fill], outline=theme[outline], width=width)
             for index, line in enumerate(card.lines):
                 self._text("card_text", x0 + CARD_PAD_X, y0 + CARD_PAD_Y + index * line_h, line, theme["fg_primary"])
             if card.badge_box is not None and card.badge:
                 bx0, by0, bx1, by1 = card.badge_box
                 badge_points = rounded_rect_points(bx0, by0, bx1, by1, radius=line_h)
-                self._pools["badge"].place(badge_points, smooth=True, fill=theme["accent_soft"], outline="")
+                self._pools["badge"].place(badge_points, smooth=True, fill=theme[badge_fill], outline="")
                 self._text("badge_text", (bx0 + bx1) / 2, (by0 + by1) / 2, card.badge, theme["fg_primary"], "center")
 
     def _render_header(self, layout: BoardLayout, theme: Mapping[str, str], height: int) -> None:

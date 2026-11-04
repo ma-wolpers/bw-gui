@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Callable, Mapping, Sequence
 
-from ._model import BoardCell, BoardLane, BoardRow, BoardSlot, Cursor, LaneKind, RowTint
+from ._model import BoardCell, BoardLane, BoardRow, BoardSlot, CardTone, Cursor, LaneKind, RowTint
 
 LABEL_WIDTH = 132
 PAD = 6
@@ -96,11 +96,15 @@ class CardBox:
     lines: tuple[str, ...]
     badge: str | None
     badge_box: Box | None
+    tone: CardTone = CardTone.NORMAL
 
 
 @dataclass(frozen=True)
 class CellBox:
-    """One cell: its box, its cards, its "+" box and (``TEXT`` lanes) its text lines."""
+    """One cell: its box, its cards, its "+" box and (``TEXT`` lanes) its text lines.
+
+    ``locked`` cells (of a locked row) have no "+" box and take no drop.
+    """
 
     cell: BoardCell
     kind: LaneKind
@@ -109,6 +113,7 @@ class CellBox:
     add_box: Box | None
     text_lines: tuple[str, ...]
     is_placeholder: bool
+    locked: bool = False
 
 
 @dataclass(frozen=True)
@@ -186,7 +191,7 @@ def compute_layout(
             x0, x1 = lane.x0 + PAD, lane.x1 - PAD
             if lane.kind is LaneKind.TEXT:
                 text = row.texts.get(lane.key, "")
-                shown = text or placeholders.get(lane.key, "")
+                shown = text or ("" if row.locked else placeholders.get(lane.key, ""))
                 lines = wrapper.wrap(shown, int(x1 - x0 - 2 * CARD_PAD_X))
                 bottoms.append(y + 2 * PAD + max(2, len(lines)) * line_height + 2 * CARD_PAD_Y)
                 pending.append((lane, (), None, lines, not text))
@@ -199,21 +204,26 @@ def compute_layout(
                 bottom = top + max(1, len(lines)) * line_height + 2 * CARD_PAD_Y
                 badge_box = (x1 - CARD_PAD_X - badge_w, top + CARD_PAD_Y, x1 - CARD_PAD_X, top + CARD_PAD_Y + line_height)
                 cell = BoardCell(row.key, lane.key)
-                cards[card.key] = CardBox(
-                    card.key, cell, index, (x0, top, x1, bottom), lines, card.badge, badge_box if badge_w else None
-                )
+                cards[card.key] = CardBox(card.key, cell, index, (x0, top, x1, bottom), lines, card.badge,
+                                          badge_box if badge_w else None, card.tone)  # fmt: skip
                 keys.append(card.key)
                 top = bottom + GAP
-            if keys:
-                add_box: Box = (x0, top, x0 + line_height + 2 * CARD_PAD_X, top + line_height + 2)
+            add_box: Box | None
+            if row.locked:
+                add_box = None
+                bottoms.append(top - GAP + PAD if keys else y + PAD)
+            elif keys:
+                add_box = (x0, top, x0 + line_height + 2 * CARD_PAD_X, top + line_height + 2)
             else:
                 add_box = (x0, top, x1, top + line_height + 2 * CARD_PAD_Y)
-            bottoms.append(add_box[3] + PAD)
+            if add_box is not None:
+                bottoms.append(add_box[3] + PAD)
             pending.append((lane, tuple(keys), add_box, (), False))
         row_bottom = max(bottoms)
         for lane, keys, add_box, lines, is_placeholder in pending:
             cell = BoardCell(row.key, lane.key)
-            cells[cell] = CellBox(cell, lane.kind, (lane.x0, y, lane.x1, row_bottom), keys, add_box, lines, is_placeholder)
+            cells[cell] = CellBox(cell, lane.kind, (lane.x0, y, lane.x1, row_bottom), keys, add_box, lines,
+                                  is_placeholder, row.locked)  # fmt: skip
         rows_out.append(RowBox(row.key, y, row_bottom, label_lines, row.tint))
         y = row_bottom
     right = lane_boxes[-1].x1 if lane_boxes else float(LABEL_WIDTH)
@@ -248,13 +258,14 @@ def slot_at(layout: BoardLayout, x: float, y: float) -> BoardSlot | None:
     """Insertion slot under (*x*, *y*): before the first card whose middle lies below *y*.
 
     Points above the first row or below the last row snap to that row, so
-    dragging slightly past the edge still targets the outermost row.
+    dragging slightly past the edge still targets the outermost row. Locked
+    cells have no slots.
     """
     if not layout.rows:
         return None
     y = min(max(y, layout.rows[0].y0), layout.rows[-1].y1 - 1)
     cell = _cell_at(layout, x, y)
-    if cell is None or layout.cells[cell].kind is not LaneKind.CARDS:
+    if cell is None or layout.cells[cell].kind is not LaneKind.CARDS or layout.cells[cell].locked:
         return None
     keys = layout.cells[cell].card_keys
     index = sum(1 for key in keys if (layout.cards[key].box[1] + layout.cards[key].box[3]) / 2 < y)

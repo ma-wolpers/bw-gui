@@ -16,10 +16,15 @@ between cells with a coloured **insertion line** that shows where the card would
 ## Model (`_model.py`, no Tk)
 
 - `BoardLane(key, title, kind=CARDS|TEXT, weight=1.0, placeholder="")`
-- `BoardRow(key, label, cards={lane: (BoardCard, …)}, texts={lane: str}, tint=RowTint | None)` –
+- `BoardRow(key, label, cards={lane: (BoardCard, …)}, texts={lane: str}, tint=RowTint | None, locked=False)` –
   rows in **display order** (top first). `label` may contain `\n` (first line primary, others muted).
-- `BoardCard(key, text, badge=None)` – `key` unique across the board; `badge` is a short code in
-  a bubble at the card's right side.
+  A **locked** row takes nothing new: no "+" boxes, no drop slots, its `TEXT` cells show no
+  placeholder and open no editor; its cells stay selectable with the cursor.
+- `BoardCard(key, text, badge=None, tone=CardTone.NORMAL)` – `key` unique across the board; `badge`
+  is a short code in a bubble at the card's right side. `tone` marks a card without colours in
+  the consumer: `EMPHASIS` (soft accent fill, e.g. the leading card of a cell), `WARNING`
+  (warning outline, e.g. a rule the consumer reports as violated). The one tone → token table
+  lives in `_render.py` and follows theme switches.
 - `BoardSlot(row_key, lane_key, index)` – insert before the card at `index` (`index == len` → end).
 - `Cursor = str | BoardCell | None` – a card key, or a cell (empty `CARDS` cell or `TEXT` cell).
 
@@ -38,7 +43,7 @@ between cells with a coloured **insertion line** that shows where the card would
 ## Gestures
 
 - Click on a card or an empty/text cell: cursor moves, `on_cursor_change(cursor)`; a `TEXT` cell
-  also opens the inline editor. Click on "+": `on_add(cell)`.
+  also opens the inline editor (not in a locked row). Click on "+": `on_add(cell)`.
 - Double click on a card: `on_card_activate(key)`.
 - Drag (threshold 4 px, Escape cancels): the line appears only over slots where
   `can_drop(key, slot)` is true; release there → `on_drop(key, slot)`. The board never moves the
