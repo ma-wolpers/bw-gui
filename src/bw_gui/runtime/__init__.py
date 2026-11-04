@@ -28,6 +28,7 @@ from .selection import (
     treeview_selection,
 )
 from .widget_events import (
+    event_in_toplevel,
     on_destroy,
     on_focus_change,
     on_resize,
@@ -45,6 +46,7 @@ __all__ = [
     "listbox_selection",
     "on_activate",
     "on_combobox_select",
+    "event_in_toplevel",
     "on_destroy",
     "on_focus_change",
     "on_listbox_select",

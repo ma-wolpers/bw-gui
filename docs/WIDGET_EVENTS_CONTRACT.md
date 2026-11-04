@@ -79,3 +79,7 @@ A guard forbids, in apps:
 - raw selection mutations (`selection_set`, `select_set`, `selection_add`/`remove`/`toggle`, `selection_clear`/`select_clear` with a range argument, `Combobox.current(<index>)`)
 
 The guard is `bw_gui.testing.tk_usage_guard` (`find_offenders(app_root) == {}` in each app's test suite; deliberate exceptions carry `# bw-tk: <reason>` and are counted by `opt_outs`). Its three levels (semantic rule, detected AST patterns, known false negatives and positives) are documented in the module itself.
+
+## `event_in_toplevel(event, toplevel)`
+
+Whether an event (`KeyEvent`, `ClickEvent`, Tk event; `widget` may be a path string) happened inside a given toplevel, compared by Tk path. Use it as `applies_when` of application-wide shortcuts so a key pressed in a non-modal tool window never runs the main window's action.

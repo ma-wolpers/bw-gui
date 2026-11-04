@@ -24,6 +24,7 @@ from bw_gui.contracts.widget_events import FocusChange, ResizeEvent, TabChange
 from .pointer import _bind, _track
 
 __all__ = [
+    "event_in_toplevel",
     "on_destroy",
     "on_focus_change",
     "on_resize",
@@ -212,3 +213,31 @@ def on_tab_changed(notebook: Any, handler: Callable[[TabChange], object]) -> Sub
         handler(TabChange(tabs.index(tab_id) if tab_id in tabs else None, tab_id, notebook))
 
     return _track(notebook, _bind(notebook, "<<NotebookTabChanged>>", _on_changed))
+
+
+def event_in_toplevel(event: Any, toplevel: Any) -> bool:
+    """Whether *event* happened in a widget of *toplevel* (not in another window).
+
+    For application-wide shortcuts that must only act for their own window, e.g.
+    ``ApplicationShortcutBinder.bind(..., applies_when=lambda e: event_in_toplevel(e,
+    main_window))``: a key pressed in a non-modal tool window then never runs the main
+    window's action. Compared by Tk path, so a wrapper that delegates ``str`` to its
+    toplevel (``ScrollablePopupWindow``) works as *toplevel*.
+
+    Args:
+        event: Any event with a ``widget`` (``KeyEvent``, ``ClickEvent``, Tk event);
+            ``widget`` may be a widget or a Tk path string.
+        toplevel: The window to test against.
+
+    Returns:
+        ``False`` when the event has no (live) widget.
+    """
+    widget = getattr(event, "widget", None)
+    if widget is None:
+        return False
+    try:
+        if isinstance(widget, str):
+            widget = toplevel.nametowidget(widget)
+        return str(widget.winfo_toplevel()) == str(toplevel)
+    except Exception:
+        return False

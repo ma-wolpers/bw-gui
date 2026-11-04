@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- `bw_gui.runtime.event_in_toplevel(event, toplevel)`: whether an event happened inside a given window (by Tk path) -- as `applies_when` of application-wide shortcuts, so keys in non-modal tool windows never run main-window actions (`docs/WIDGET_EVENTS_CONTRACT.md`).
 - **CardBoard** (`bw_gui.widgets.card_board`, `docs/CARD_BOARD_CONTRACT.md`): rows × lanes of ordered cards (optional code badge) plus free-text lanes with an inline editor; drag & drop shows a coloured insertion line only where the consumer's `can_drop` allows it; "+" boxes per cell; row tints through the theme; keyboard cursor with pure navigation (`move_cursor`, `neighbor`). Binds no keys -- consumers bind on `key_widget`. Tk-free layout, hit testing and slots for unit tests.
 - `TextPromptDialogService.askstring(..., validate=...)`: optional check of the entered text; an error message is shown as a warning and the prompt stays open with the text kept (replaces consumer re-prompt loops for rules like uniqueness).
 - `bw_gui.widgets.canvas_shapes`: `rounded_rect_points` (pure point list for a smoothed polygon, usable with `CanvasItemPool`) and `create_rounded_rectangle`; moved from Kursplaner so every app draws rounded boxes the same way.

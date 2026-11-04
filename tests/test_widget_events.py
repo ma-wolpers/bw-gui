@@ -186,3 +186,21 @@ def test_reset_text_modified_declares_a_load_as_unmodified(top):
     text.insert("end", "!")
     top.update()
     assert seen == ["changed"]
+
+
+def test_event_in_toplevel_matches_only_its_own_window(_shared_tk_root):
+    from types import SimpleNamespace
+
+    from bw_gui.runtime import event_in_toplevel, ui
+
+    first, second = ui.Toplevel(_shared_tk_root), ui.Toplevel(_shared_tk_root)
+    try:
+        inner = ui.Frame(first)
+        assert event_in_toplevel(SimpleNamespace(widget=inner), first) is True
+        assert event_in_toplevel(SimpleNamespace(widget=inner), second) is False
+        assert event_in_toplevel(SimpleNamespace(widget=str(inner)), first) is True
+        assert event_in_toplevel(SimpleNamespace(widget=None), first) is False
+        assert event_in_toplevel(SimpleNamespace(widget=".gibt.es.nicht"), first) is False
+    finally:
+        first.destroy()
+        second.destroy()
