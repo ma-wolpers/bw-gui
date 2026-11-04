@@ -153,6 +153,7 @@ re-exports the moved names, so import paths stay stable:
 | `runtime/idle_render.py` | `IdleRenderScheduler`: change-driven rendering, one render per idle cycle, cancelled with its owner |
 | `widgets/canvas_item_pool.py` | `CanvasItemPool`: reusable canvas items that send Tk only differences |
 | `widgets/canvas_shapes.py` | rounded rectangles (`rounded_rect_points`, `create_rounded_rectangle`) |
+| `widgets/card_board/` | `CardBoard` (`_board.py`), Tk-free model/layout/navigation (`_model.py`, `_layout.py`, `_navigation.py`), renderer and inline text editor; see `CARD_BOARD_CONTRACT.md` |
 | `widgets/data_grid/` | `DataGrid` (`_grid.py`), regions (`_region.py`), Tk-free layout/visibility/clipping (`_model.py`); see `DATA_GRID_CONTRACT.md` |
 | `testing/tcl_calls.py` | `count_tcl_calls`: deterministic Tcl-call budgets for tests and benchmarks |
 | `testing/tk_root.py` | `create_tk_root`: the one rule for real Tk roots in tests (retry the init race, skip only without a display) |
