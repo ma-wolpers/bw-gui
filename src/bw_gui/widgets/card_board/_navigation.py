@@ -47,9 +47,13 @@ def neighbor(layout: BoardLayout, cursor: Cursor, direction: Direction) -> Curso
         return None
     if direction in (Direction.UP, Direction.DOWN):
         entries = lane_entries(layout, cell.lane_key)
-        index = entries.index(cursor) if cursor in entries else entries.index(cell)
-        step = -1 if direction is Direction.UP else 1
-        target = index + step
+        if cursor in entries:
+            index = entries.index(cursor)
+            target = index + (-1 if direction is Direction.UP else 1)
+        else:
+            # A cell cursor on a cell that holds cards sits "before its first card".
+            first = entries.index(layout.cells[cell].card_keys[0])
+            target = first - 1 if direction is Direction.UP else first
         return entries[target] if 0 <= target < len(entries) else None
     lane_keys = [lane.key for lane in layout.lanes]
     target_lane = lane_keys.index(cell.lane_key) + (-1 if direction is Direction.LEFT else 1)

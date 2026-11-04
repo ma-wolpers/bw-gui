@@ -128,3 +128,10 @@ def test_navigation_left_right_lands_on_nearest_card_or_cell():
     assert neighbor(layout, "a", Direction.RIGHT) == BoardCell("r2", "right")
     assert neighbor(layout, BoardCell("r2", "right"), Direction.RIGHT) == BoardCell("r2", "ideas")
     assert neighbor(layout, "a", Direction.LEFT) is None
+
+
+def test_cell_cursor_on_a_filled_cell_sits_before_its_first_card():
+    layout = _layout(_rows())
+    filled = BoardCell("r1", "left")
+    assert neighbor(layout, filled, Direction.DOWN) == "c"
+    assert neighbor(layout, filled, Direction.UP) == "b"
