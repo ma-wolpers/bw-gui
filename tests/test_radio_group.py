@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from bw_gui.runtime import ui
+from bw_gui.runtime import ui, widgets
 from bw_gui.theming import configure_ttk_theme
 from bw_gui.theming._theme_manager import DEFAULT_THEME
 from bw_gui.widgets import RadioGroup
@@ -70,3 +70,11 @@ def test_variable_must_be_stringvar(root) -> None:
 def test_invalid_options_are_rejected(root, options) -> None:
     with pytest.raises(ValueError):
         RadioGroup(root, options=options, variable=ui.StringVar(master=root))
+
+
+def test_error_label_style_uses_the_danger_token(root) -> None:
+    """Validierungshinweise in Formularen (z. B. neben einer RadioGroup) nutzen ``Error.TLabel``."""
+    from bw_gui.theming._theme_manager import get_theme
+
+    style = widgets.Style(root)
+    assert str(style.lookup("Error.TLabel", "foreground")).lower() == get_theme(DEFAULT_THEME)["danger"].lower()

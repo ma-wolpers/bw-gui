@@ -107,8 +107,8 @@ def configure_ttk_theme(root: tk.Misc, theme_key: str | None = None) -> None:
         tabs; selected tab uses a stronger accent mix.
 
     *Labels*
-        ``TLabel`` (fg_primary), ``Muted.TLabel`` (fg_muted),
-        ``SectionTitle.TLabel``, ``SettingsHint.TLabel``,
+        ``TLabel`` (fg_primary), ``Muted.TLabel`` (fg_muted), ``Error.TLabel``
+        (danger; validation hints in forms), ``SectionTitle.TLabel``, ``SettingsHint.TLabel``,
         ``Title.TLabel`` (18pt bold), ``Status.TLabel`` (10pt bold).
 
     *Buttons*
@@ -256,6 +256,7 @@ def _configure_styles(root: tk.Misc, theme_key: str | None) -> None:
 
     style.configure("TLabel", background=theme["bg_main"], foreground=theme["fg_primary"])
     style.configure("Muted.TLabel", background=theme["bg_main"], foreground=theme["fg_muted"])
+    style.configure("Error.TLabel", background=theme["bg_main"], foreground=theme["danger"])
     style.configure("SectionTitle.TLabel", background=theme["bg_main"], foreground=theme["fg_primary"])
     style.configure("SettingsHint.TLabel", background=theme["bg_main"], foreground=theme["fg_muted"])
     style.configure(

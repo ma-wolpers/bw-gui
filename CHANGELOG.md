@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- `Error.TLabel` style (foreground = theme token `danger`) for validation hints in forms, so consumers no longer hard-code an error colour.
 - **RadioGroup** (`bw_gui.widgets.RadioGroup`): one exclusive choice among labelled options (`(value, label)` pairs, `StringVar`), optional title, fixed spacing, `first_button` for the initial focus; staged like `Checkbox` (`docs/TOGGLE_CONTRACT.md`). Space activates only without Ctrl/Alt -- the exact-modifier rule now lives in one place for checkbuttons and radio buttons.
 - **CardBoard:** `BoardCard.tone` (`CardTone.NORMAL`/`EMPHASIS`/`WARNING`) marks a card through theme tokens (soft accent fill, warning outline) without colours in the consumer; `BoardRow.locked` makes a row take nothing new (no "+", no drop slot, no text editor, no placeholder) while its cells stay selectable.
 - `bw_gui.runtime.event_in_toplevel(event, toplevel)`: whether an event happened inside a given window (by Tk path) -- as `applies_when` of application-wide shortcuts, so keys in non-modal tool windows never run main-window actions (`docs/WIDGET_EVENTS_CONTRACT.md`).
