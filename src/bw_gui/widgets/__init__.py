@@ -6,6 +6,7 @@ from .doc_text_view import configure_doc_text_tags, render_events_into_text
 from .drag_drop import DragDropController
 from .grid_span import GridSpanSegment, compute_contiguous_spans
 from .hover_tooltip import HoverTooltip
+from .radio_group import RadioGroup
 from .regex_entry_field import RegexEntryField
 from .ring_chart import RingSegment, draw_ring_chart
 from .scrollable_frame import ScrollableFrame
@@ -24,6 +25,7 @@ __all__ = [
     "HoverTooltip",
     "ListItemEvent",
     "ParagraphEvent",
+    "RadioGroup",
     "RegexEntryField",
     "RingSegment",
     "ScrollableFrame",

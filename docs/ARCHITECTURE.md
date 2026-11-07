@@ -86,6 +86,7 @@ refactor them.
 | `self.bind_all("<Control-z>", ...)` / `widget.bind("<Up>", ...)` | E | `ApplicationShortcutBinder`/`WindowShortcutBinder`/`WidgetShortcutBinder` with `KeySpec` |
 | `return "break"` in a handler | E | `return EventResult.HANDLED` |
 | `widgets.Checkbutton(...)` / `menu.add_checkbutton(...)` in consumer code | B, D | `Checkbox` (staged, effective on submit) or `Switch` (immediate effect), see [TOGGLE_CONTRACT.md](TOGGLE_CONTRACT.md) |
+| several `widgets.Radiobutton(...)` for one exclusive choice in consumer code | D | `RadioGroup` (staged, effective on submit), see [TOGGLE_CONTRACT.md](TOGGLE_CONTRACT.md) |
 
 ---
 
@@ -137,6 +138,7 @@ re-exports the moved names, so import paths stay stable:
 | `theming/_theme_manager.py` | theme registry, intensity, current (ambient) theme, tinting; re-exports the two below |
 | `theming/_color_math.py` | pure color math (`_mix`, luminance, contrast) |
 | `theming/_ttk_theme.py` | `configure_ttk_theme` / `configure_tinted_button_style` (ttk style catalog) |
+| `widgets/radio_group.py`, `widgets/_exact_space.py` | `RadioGroup` (one exclusive choice); exact-modifier Space rule shared with `Checkbox`/`Switch` |
 | `theming/_toggle_assets.py`, `_toggle_styles.py`, `_png_codec.py` | Checkbox/Switch indicator images and ttk elements (see `TOGGLE_CONTRACT.md`) |
 | `menu/custom_menu_bar.py` | `CustomMenuBar`: lifecycle, strip, theme refresh |
 | `menu/_menu_popups.py` | mixin: popups, rows, description flyouts, keyboard navigation |

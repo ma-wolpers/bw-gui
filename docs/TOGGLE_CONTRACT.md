@@ -262,6 +262,15 @@ listener: after changing `tk scaling`, call `configure_ttk_theme` (normally via
   in effect.
 - Save/Apply behave as before.
 
+## Exclusive choice: `RadioGroup`
+
+Choosing **one of several** options is not a binary control and never a set of
+Checkboxes. `bw_gui.widgets.RadioGroup(parent, title=..., options=[(value, label), ...],
+variable=StringVar)` stacks one radio button per option with fixed spacing. It follows
+the Checkbox semantics (R2/R3): it only writes the chosen value into `variable`; the
+business effect happens on the consumer's submit action. Space activates only without
+Ctrl/Alt (same exact-modifier rule as the toggles, `widgets/_exact_space.py`).
+
 ## Surfaces
 
 | Surface | Checkbox | Switch |

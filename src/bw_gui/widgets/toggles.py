@@ -26,19 +26,10 @@ from tkinter import ttk
 from bw_gui._toggle_flow import ToggleCallback, ToggleFlow
 from bw_gui.theming._toggle_styles import STYLE_NAMES
 
+from ._exact_space import install_exact_space_activation
 from .hover_tooltip import HoverTooltip
 
 _RESERVED_OPTIONS = frozenset({"command", "variable", "style", "onvalue", "offvalue"})
-
-# Tk's class binding ``TCheckbutton <Key-space>`` uses Tk's minimum-set matching, so it
-# also activates on Ctrl+Space / Alt+Space (and Cmd+Space on aqua). bw-gui's keyboard
-# contract makes modifiers exact: only Space (Shift tolerated, as Tk always did)
-# activates a toggle. A more specific class binding with a no-op script wins inside
-# the class tag (Tk runs the most specific binding per tag); it does not ``break``, so
-# the key still reaches window and application shortcuts (e.g. Ctrl+Space = "all").
-_EXACT_SPACE_MODIFIERS = ("Control", "Alt")
-_EXACT_SPACE_MODIFIERS_AQUA = ("Command", "Option")
-_NO_OP_SCRIPT = "# bw-gui: modified Space is not a toggle activation (exact modifiers)"
 
 
 class _Toggle(ttk.Checkbutton):
@@ -99,7 +90,7 @@ class _Toggle(ttk.Checkbutton):
             HoverTooltip(self, self.label)
         self._trace_id: str | None = variable.trace_add("write", self._on_variable_write)
         self.bind("<Destroy>", self._on_destroy, add="+")
-        _install_exact_space_activation(self)
+        install_exact_space_activation(self, "TCheckbutton")
         self._render()
 
     # -- public API ------------------------------------------------------------------
@@ -159,24 +150,6 @@ class _Toggle(ttk.Checkbutton):
         if event.widget is self and self._trace_id is not None:
             self._variable.trace_remove("write", self._trace_id)
             self._trace_id = None
-
-
-def _install_exact_space_activation(widget: tk.Misc) -> None:
-    """Make Space with Ctrl/Alt (aqua: Cmd/Option) no toggle activation, once per interpreter.
-
-    Example: a correction view binds Space = "this person finished" and Ctrl+Space =
-    "everybody finished" as application shortcuts. With the focus on the "finished"
-    switch, Tk's own ``<Key-space>`` used to fire for Ctrl+Space as well and toggled the
-    focused switch instead. The class tag ``TCheckbutton`` is shared by all
-    ``ttk.Checkbutton``s - in bw-gui apps these are only ``Checkbox``/``Switch``.
-    """
-    modifiers = _EXACT_SPACE_MODIFIERS
-    if str(widget.tk.call("tk", "windowingsystem")) == "aqua":
-        modifiers = modifiers + _EXACT_SPACE_MODIFIERS_AQUA
-    for modifier in modifiers:
-        sequence = f"<{modifier}-Key-space>"
-        if not str(widget.tk.call("bind", "TCheckbutton", sequence)):
-            widget.tk.call("bind", "TCheckbutton", sequence, _NO_OP_SCRIPT)
 
 
 def _reject_reserved(options: dict) -> None:
