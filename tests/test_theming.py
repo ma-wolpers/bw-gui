@@ -104,3 +104,27 @@ def test_alias_and_domain_tokens_are_resolved_for_all_themes():
         assert theme["hospitation_hover"]
         assert theme["hospitation_soft"]
         assert theme["fg_on_hospitation"]
+
+
+def test_info_family_exists_in_every_theme_and_is_light_on_light_themes():
+    from bw_gui.theming._color_math import _is_dark
+
+    for theme_key in THEME_ORDER:
+        theme = get_theme(theme_key)
+        for key in ("info", "info_hover", "info_soft", "fg_on_info"):
+            assert theme[key].startswith("#"), (theme_key, key)
+        if not _is_dark(theme["bg_main"]):
+            assert not _is_dark(theme["info_soft"]), theme_key
+
+
+def test_tinted_color_rejects_unknown_tokens_instead_of_blending_grey():
+    import pytest
+
+    from bw_gui.theming import tinted_color
+
+    assert tinted_color("info_soft", degree=0.5, base_token="panel_strong", theme_key=DEFAULT_THEME).startswith("#")
+    assert tinted_color("#7C3AED", degree=0.4, base_token="auto", theme_key=DEFAULT_THEME).startswith("#")
+    with pytest.raises(ValueError, match="does_not_exist"):
+        tinted_color("does_not_exist", theme_key=DEFAULT_THEME)
+    with pytest.raises(ValueError, match="no_such_base"):
+        tinted_color("accent", base_token="no_such_base", theme_key=DEFAULT_THEME)

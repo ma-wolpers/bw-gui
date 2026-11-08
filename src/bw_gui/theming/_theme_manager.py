@@ -133,15 +133,30 @@ def tinted_color(
 
     Returns:
         ``"#RRGGBB"`` hex string for the tinted color.
+
+    Raises:
+        ValueError: If *mix_color* or *base_token* is neither a hex literal
+            nor a token of the theme.  An unknown name used to blend into an
+            arbitrary grey silently; a typo or a token that only some themes
+            define now fails at the call site.
     """
     theme = get_theme(theme_key)
     is_dark = _is_dark(theme["bg_main"])
     if base_token == "auto":
         base_hex = theme["bg_panel"] if is_dark else theme.get("bg_surface", theme["bg_main"])
     else:
-        base_hex = theme.get(base_token, theme.get("bg_surface", theme["bg_main"]))
-    resolved_mix = theme.get(mix_color, mix_color) if not mix_color.startswith("#") else mix_color
-    return _mix(base_hex, resolved_mix, degree)
+        base_hex = _resolve_color(theme, base_token)
+    return _mix(base_hex, _resolve_color(theme, mix_color), degree)
+
+
+def _resolve_color(theme: dict[str, str], color: str) -> str:
+    """Hex literal as is, token name via *theme*; anything else raises ``ValueError``."""
+    if color.startswith("#"):
+        return color
+    try:
+        return theme[color]
+    except KeyError:
+        raise ValueError(f"unknown theme token {color!r} (expected a token name or '#RRGGBB')") from None
 
 
 def tinted_foreground(
@@ -193,6 +208,7 @@ def _ensure_semantic_defaults(theme: dict[str, str]) -> dict[str, str]:
     - ``selection_bg``:   accent value
     - ``selection_fg``:   white for dark selection, near-black for light
     - ``success``:        #16A34A (green)
+    - ``info``:           #0284C7 (sky blue) on light, #38BDF8 on dark themes
     - ``*_hover``:        15% toward black for dark colors, 5% for light colors
     - ``*_soft``:         25% mix of bg_panel with the semantic color
     - ``danger_soft``:    22% mix (slightly stronger)
@@ -217,6 +233,9 @@ def _ensure_semantic_defaults(theme: dict[str, str]) -> dict[str, str]:
     out.setdefault("warning", "#D97706")
     out.setdefault("warning_hover", _mix(out["warning"], "#000000", 0.15 if _is_dark(out["warning"]) else 0.05))
     out.setdefault("warning_soft", _mix(out["bg_panel"], out["warning"], 0.25))
+    out.setdefault("info", "#38BDF8" if _is_dark(out.get("bg_main", "#FFFFFF")) else "#0284C7")
+    out.setdefault("info_hover", _mix(out["info"], "#000000", 0.15 if _is_dark(out["info"]) else 0.05))
+    out.setdefault("info_soft", _mix(out["bg_panel"], out["info"], 0.25))
     out.setdefault("danger_hover", _mix(out.get("danger", "#DC2626"), "#000000", 0.15))
     out.setdefault("danger_soft", _mix(out["bg_panel"], out.get("danger", "#DC2626"), 0.22))
     out.setdefault("focus_ring", out.get("accent", "#2563EB"))
@@ -224,6 +243,7 @@ def _ensure_semantic_defaults(theme: dict[str, str]) -> dict[str, str]:
     out.setdefault("fg_on_accent", "#FFFFFF" if _is_dark(out.get("accent", "#2563EB")) else "#111827")
     out.setdefault("fg_on_success", "#FFFFFF" if _is_dark(out["success"]) else "#111827")
     out.setdefault("fg_on_warning", "#FFFFFF" if _is_dark(out["warning"]) else "#111827")
+    out.setdefault("fg_on_info", "#FFFFFF" if _is_dark(out["info"]) else "#111827")
     out.setdefault("fg_on_danger", "#FFFFFF" if _is_dark(out.get("danger", "#DC2626")) else "#111827")
     out.setdefault("hospitation", _mix(out.get("accent", "#2563EB"), out.get("warning", "#D97706"), 0.42))
     out.setdefault(
@@ -246,10 +266,10 @@ def _apply_intensity(theme: dict[str, str]) -> dict[str, str]:
 
     - Accent family (accent, accent_hover, accent_soft, selection_bg, focus_ring):
       blended at ``strength`` (0.5 or 0.75).
-    - Semantic full colors (success, warning, danger and their hovers):
+    - Semantic full colors (success, warning, info, danger and their hovers):
       blended at ``clamp(0.7 + 0.3 * strength, 1.0)`` — attenuated less aggressively
       so red/green/amber remain recognizable even at "dezent".
-    - Soft backgrounds (success_soft, warning_soft, danger_soft):
+    - Soft backgrounds (success_soft, warning_soft, info_soft, danger_soft):
       blended at ``clamp(0.5 + 0.4 * strength, 1.0)``.
 
     Returns a new dict; the input is not mutated.
@@ -263,11 +283,13 @@ def _apply_intensity(theme: dict[str, str]) -> dict[str, str]:
         if key in adjusted:
             adjusted[key] = _mix(neutral, adjusted[key], strength)
     semantic_strength = min(1.0, 0.7 + 0.3 * strength)
-    for key in ("success", "success_hover", "warning", "warning_hover", "danger", "danger_hover"):
+    for key in (
+        "success", "success_hover", "warning", "warning_hover", "info", "info_hover", "danger", "danger_hover"
+    ):
         if key in adjusted:
             adjusted[key] = _mix(neutral, adjusted[key], semantic_strength)
     soft_strength = min(1.0, 0.5 + 0.4 * strength)
-    for key in ("success_soft", "warning_soft", "danger_soft"):
+    for key in ("success_soft", "warning_soft", "info_soft", "danger_soft"):
         if key in adjusted:
             adjusted[key] = _mix(neutral, adjusted[key], soft_strength)
     return adjusted

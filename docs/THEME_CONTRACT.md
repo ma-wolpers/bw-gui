@@ -37,10 +37,23 @@ This currently includes:
 
 - Base and structure: `label`, `bg_panel`, `panel_strong`, `secondary`, `secondary_soft`
 - Selection: `selection_bg`, `selection_fg`
-- State colors: `success`, `success_hover`, `success_soft`, `warning`, `warning_hover`, `warning_soft`, `danger_hover`, `danger_soft`
-- Foreground helpers: `button_fg`, `fg_on_accent`, `fg_on_success`, `fg_on_warning`, `fg_on_danger`
+- State colors: `success`, `success_hover`, `success_soft`, `warning`, `warning_hover`, `warning_soft`, `info`, `info_hover`, `info_soft`, `danger_hover`, `danger_soft`
+- Domain helper: `hospitation`, `hospitation_hover`, `hospitation_soft`, `fg_on_hospitation`
+- Foreground helpers: `button_fg`, `fg_on_accent`, `fg_on_success`, `fg_on_warning`, `fg_on_info`, `fg_on_danger`, `fg_on_hospitation`
 - Focus: `focus_ring`
 - Alias family: `error`, `error_hover`, `error_soft`, `fg_on_error`
+
+Themes that do not define `info` get sky blue (`#0284C7` on light, `#38BDF8` on dark
+themes); `info_hover`, `info_soft` and `fg_on_info` derive from it like the other
+state colours, and the intensity levels mute them the same way.
+
+## Unknown tokens
+
+`tinted_color` (and everything built on it: `tinted_foreground`, `theme_label_tinted`,
+`theme_text_tinted`, `canvas_tinted_fill`, `icon_button`, CardBoard row tints) accepts a
+`#RRGGBB` literal or a token of the active theme for both the tint and `base_token`.
+Any other name raises `ValueError`.  Previously it was blended as if it were a colour and
+produced an arbitrary grey, so a token missing from some themes went unnoticed.
 
 ## Alias Rules
 

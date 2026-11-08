@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- Theme tokens `info`, `info_hover`, `info_soft`, `fg_on_info` in every theme (derived sky blue where a theme does not define them; muted by the intensity levels like the other state colours).
 - **CardBoard:** `BoardRow.action` shows a small button in the row-label column below the label; a click reports `on_row_action(row_key)` without moving the cursor (`HitKind.ROW_ACTION`, `Hit.row_key`). Look from theme tokens, follows theme switches.
 - `Error.TLabel` style (foreground = theme token `danger`) for validation hints in forms, so consumers no longer hard-code an error colour.
 - **RadioGroup** (`bw_gui.widgets.RadioGroup`): one exclusive choice among labelled options (`(value, label)` pairs, `StringVar`), optional title, fixed spacing, `first_button` for the initial focus; staged like `Checkbox` (`docs/TOGGLE_CONTRACT.md`). Space activates only without Ctrl/Alt -- the exact-modifier rule now lives in one place for checkbuttons and radio buttons.
@@ -90,6 +91,7 @@ All notable changes to this project will be documented in this file.
 - `docs/QUICKSTART.md`: the "If `import bw_gui` fails" checklist no longer names a machine-specific absolute path, so it holds for any clone location. It now describes the sibling-folder lookup (`../bw-gui/src`, then `../../bw-gui/src`, then a stale local copy) that `ensure_bw_gui_on_path()` actually performs. The "See also" list no longer links to the non-existent `MENUBAR.md`, `THEMING.md`, `DIALOGS.md`, `WIDGETS.md` and `LAUFKERN.md`. It points to `ARCHITECTURE.md`, `THEME_CONTRACT.md`, `TOGGLE_CONTRACT.md`, `SCROLLABILITY_CONTRACT.md` and the source packages `src/bw_gui/menu|dialogs|widgets|laufkern/` instead.
 
 ### Changed
+- `tinted_color` (and everything built on it) raises `ValueError` for a tint or `base_token` that is neither `#RRGGBB` nor a token of the active theme. It used to blend the name as a colour into an arbitrary grey, so a token missing from some themes (Kursplaner's next-unit header used `info_soft`) went unnoticed.
 - Mouse wheel over a `ScrollableFrame`'s scrollbar (also scrollable popups and the settings dialog) scrolls exactly `SCROLLBAR_WHEEL_FACTOR = 3` times as far as over its content; formerly Tk's scrollbar binding added its own scrolling to bw-gui's by accident (5 times).
 - **Breaking:** `widgets.Scrollbar` accepts only `orient`, `command` and `takefocus` (`bool | None`); any other option (`style=`, colours, sizes) raises `TypeError`. Tab traversal skips scrollbars as before.
 - Settings dialog: the content area scrolls through `ScrollableFrame` (wheel over the whole panel, scrollbar only when needed).
