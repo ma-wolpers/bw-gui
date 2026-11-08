@@ -21,7 +21,7 @@ searched. Handlers receive a :class:`~bw_gui.contracts.key_event.KeyEvent` and r
 
 from __future__ import annotations
 
-from typing import Any, Callable, Iterable
+from typing import Any, Callable, Iterable, Mapping
 
 from bw_gui.contracts.events import EventResult, coerce_result
 from bw_gui.contracts.key_event import KeyEvent
@@ -110,8 +110,13 @@ class _ShortcutScope:
         allow_when_offline: bool = True,
         description: str = "",
         applies_when: Callable[[KeyEvent], bool] | None = None,
+        metadata: Mapping[str, str] | None = None,
     ) -> ShortcutRegistration:
         """Register one shortcut definition (one or more ``KeySpec`` alternatives).
+
+        ``metadata`` tells bindings of the same intent apart for displays (e.g. the
+        direction of "move column"): `KeybindingRegistry.shortcut_for_intent(..., metadata=)`
+        finds the binding whose metadata contain the given pairs.
 
         Raises:
             ValueError: Unknown intent (with an HSM contract), a key unsupported on the
@@ -131,6 +136,7 @@ class _ShortcutScope:
             description=description,
             allow_when_text_input=allow_when_text_input,
             allow_when_offline=allow_when_offline,
+            metadata=dict(metadata or {}),
         )
         for spec in definition.keys:
             spec.check_backend(self.backend)

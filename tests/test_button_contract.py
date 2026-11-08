@@ -50,8 +50,8 @@ def test_button_registry_renders_label_and_hover_from_intent_shortcut():
     label = buttons.render_label("save", shortcuts=shortcuts, mode="editor")
     hover = buttons.render_hover_text("save", shortcuts=shortcuts, mode="editor")
 
-    assert label == "💾 Save [Ctrl+S]"
-    assert hover == "Save current file\nShortcut: Ctrl+S"
+    assert label == "💾 Save [Strg+S]"
+    assert hover == "Save current file\nShortcut: Strg+S"
 
 
 def test_button_registry_can_skip_shortcut_in_hover_text():

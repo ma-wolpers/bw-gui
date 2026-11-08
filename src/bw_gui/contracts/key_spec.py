@@ -165,8 +165,14 @@ class KeySpec:
 
     # -- notation ---------------------------------------------------------------------
 
-    def __str__(self) -> str:
-        """Canonical notation, e.g. ``"Ctrl+Shift+Z"``, ``"Ctrl++"``, ``"Escape (tolerate: Shift)"``."""
+    def notation_parts(self) -> tuple[str, ...]:
+        """Modifier names in ``MOD_ORDER`` plus the key token, without the tolerate suffix.
+
+        The one decomposition of a shortcut into its parts: ``__str__`` joins them with
+        ``"+"`` and the display formatter (`bw_gui.shortcuts.humanize_shortcut`) translates
+        each part. A cased letter is upper-cased; an upper-case letter implies Shift.
+        Example: ``("Ctrl", "Shift", "Z")``, ``("Ctrl", "+")``.
+        """
         mods = [m for m in MOD_ORDER if m in self.modifiers]
         if self.key is Key.CHARACTER:
             char = self.character or ""
@@ -178,7 +184,11 @@ class KeySpec:
                 token = char
         else:
             token = self.key.value
-        text = "".join(f"{m.value}+" for m in mods) + token
+        return (*(m.value for m in mods), token)
+
+    def __str__(self) -> str:
+        """Canonical notation, e.g. ``"Ctrl+Shift+Z"``, ``"Ctrl++"``, ``"Escape (tolerate: Shift)"``."""
+        text = "+".join(self.notation_parts())
         if self.tolerate:
             text += " (tolerate: " + ", ".join(m.value for m in MOD_ORDER if m in self.tolerate) + ")"
         return text

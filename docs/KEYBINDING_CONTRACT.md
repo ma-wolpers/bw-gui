@@ -58,6 +58,17 @@ mods   := (Mod "+")*            Mod ∈ {Ctrl, Alt, Shift, Cmd}, case-insensitiv
   - Letters are upper-case, and `Shift+` appears exactly when the character is upper-case.
   - Tolerate suffix: `" (tolerate: Ctrl, Shift)"`.
 - **Roundtrip:** `KeySpec.parse(str(s)) == s` for every valid spec.
+- **Parts:** `spec.notation_parts()` is the one decomposition (modifiers in fixed order, then the key token, no tolerate suffix); `str(spec)` joins it with `+`.
+
+### Display (`bw_gui.shortcuts`)
+
+Code and configuration always use the English notation above. Everything shown to users goes through `humanize_shortcut`, which shows each part in German from one table (`_GERMAN_DISPLAY` in `shortcuts/label_formatter.py`: `Ctrl`→`Strg`, `Delete`→`Entf`, `Escape`→`Esc`, `Space`→`Leertaste`, `Up`/`Down`/`Left`/`Right`→`Hoch`/`Runter`/`Links`/`Rechts`, `Home`/`End`→`Pos1`/`Ende`, …; letters, `Shift`, `Alt` and `F1`–`F12` stay). Built on it:
+
+- `compose_hover_text` / `compose_hover_text_for_intent`: tooltip line `Shortcut: …`.
+- `compose_menu_label(label, shortcut)`: menu text `Label (Strg+Z)`.
+- `format_shortcut_label` / `compose_action_label`: compact `Label [Strg+R]`.
+
+The key shown for an intent comes from its binding: `KeybindingRegistry.shortcut_for_intent(intent, metadata=…)`. Bindings of one intent are told apart by `metadata` (passed to `bind(..., metadata=)`), e.g. the direction of a "move column" intent. Apps write no key names into labels or help texts.
 
 ## Two levels: `KeyIdentity.character` vs. `KeyEvent.text`
 

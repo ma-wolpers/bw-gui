@@ -148,8 +148,13 @@ class KeybindingRegistry:
         mode: str | None = None,
         offline: bool = False,
         text_input_focused: bool = False,
+        metadata: dict[str, str] | None = None,
     ) -> KeySpec | None:
-        """Resolve the primary key of the first binding for one intent (``None`` if none)."""
+        """Resolve the primary key of the first binding for one intent (``None`` if none).
+
+        With *metadata*, only bindings whose metadata contain all given pairs count
+        (several bindings of one intent, e.g. move left/right).
+        """
         if mode is None:
             source = self._bindings
         else:
@@ -159,8 +164,9 @@ class KeybindingRegistry:
                 text_input_focused=text_input_focused,
             )
 
+        wanted = (metadata or {}).items()
         for definition in source:
-            if definition.intent == intent:
+            if definition.intent == intent and wanted <= definition.metadata.items():
                 return definition.primary_key
         return None
 

@@ -72,6 +72,23 @@ def test_keybinding_shortcut_for_intent_resolution():
     assert registry.shortcut_for_intent("missing") is None
 
 
+def test_keybinding_shortcut_for_intent_by_metadata():
+    registry = KeybindingRegistry()
+    for binding_id, key, direction in (("move.left", "Ctrl+Left", "-1"), ("move.right", "Ctrl+Right", "1")):
+        registry.register(
+            KeyBindingDefinition(
+                binding_id=binding_id,
+                keys=(KeySpec.parse(key),),
+                intent="move",
+                metadata={"direction": direction},
+            )
+        )
+
+    assert registry.shortcut_for_intent("move") == KeySpec.parse("Ctrl+Left")
+    assert registry.shortcut_for_intent("move", metadata={"direction": "1"}) == KeySpec.parse("Ctrl+Right")
+    assert registry.shortcut_for_intent("move", metadata={"direction": "0"}) is None
+
+
 def test_popup_policy_registry_stack_behavior():
     registry = PopupPolicyRegistry()
     registry.register_policy(PopupPolicy(policy_id="modal_default"))
