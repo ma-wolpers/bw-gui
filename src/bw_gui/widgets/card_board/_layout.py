@@ -76,13 +76,15 @@ class LaneBox:
 
 @dataclass(frozen=True)
 class RowBox:
-    """Vertical extent of a row plus its label lines and tint."""
+    """Vertical extent of a row plus its label lines, tint and optional row-action button."""
 
     key: str
     y0: float
     y1: float
     label_lines: tuple[str, ...]
     tint: RowTint | None
+    action: str | None = None
+    action_box: Box | None = None
 
 
 @dataclass(frozen=True)
@@ -135,16 +137,18 @@ class HitKind(str, Enum):
     CARD = "card"
     ADD = "add"
     CELL = "cell"
+    ROW_ACTION = "row_action"
     NONE = "none"
 
 
 @dataclass(frozen=True)
 class Hit:
-    """Result of :func:`hit_test`."""
+    """Result of :func:`hit_test` (``row_key`` is set for ``ROW_ACTION``)."""
 
     kind: HitKind
     cell: BoardCell | None = None
     card_key: str | None = None
+    row_key: str | None = None
 
 
 def _lane_boxes(lanes: Sequence[BoardLane], width: float) -> tuple[LaneBox, ...]:
@@ -185,7 +189,13 @@ def compute_layout(
     y = 0.0
     for row in rows:
         label_lines = wrapper.wrap(row.label, LABEL_WIDTH - 2 * PAD)
-        bottoms = [y + 2 * PAD + max(1, len(label_lines)) * line_height]
+        label_bottom = y + PAD + max(1, len(label_lines)) * line_height
+        action_box: Box | None = None
+        if row.action:
+            action_w = min(badge_width(row.action) + 2 * CARD_PAD_X, LABEL_WIDTH - 2 * PAD)
+            action_box = (PAD, label_bottom + GAP, PAD + action_w, label_bottom + GAP + line_height + 2 * CARD_PAD_Y)
+            label_bottom = action_box[3]
+        bottoms = [label_bottom + PAD]
         pending: list[tuple[LaneBox, tuple[str, ...], Box | None, tuple[str, ...], bool]] = []
         for lane in lane_boxes:
             x0, x1 = lane.x0 + PAD, lane.x1 - PAD
@@ -224,7 +234,7 @@ def compute_layout(
             cell = BoardCell(row.key, lane.key)
             cells[cell] = CellBox(cell, lane.kind, (lane.x0, y, lane.x1, row_bottom), keys, add_box, lines,
                                   is_placeholder, row.locked)  # fmt: skip
-        rows_out.append(RowBox(row.key, y, row_bottom, label_lines, row.tint))
+        rows_out.append(RowBox(row.key, y, row_bottom, label_lines, row.tint, row.action, action_box))
         y = row_bottom
     right = lane_boxes[-1].x1 if lane_boxes else float(LABEL_WIDTH)
     return BoardLayout(right, y, line_height, lane_boxes, tuple(rows_out), cells, cards)
@@ -241,7 +251,10 @@ def _cell_at(layout: BoardLayout, x: float, y: float) -> BoardCell | None:
 
 
 def hit_test(layout: BoardLayout, x: float, y: float) -> Hit:
-    """Return what the canvas point (*x*, *y*) hits: a card, a "+" box, a cell or nothing."""
+    """Return what the canvas point (*x*, *y*) hits: a row-action button, a card, a "+" box, a cell or nothing."""
+    for row in layout.rows:
+        if _inside(row.action_box, x, y):
+            return Hit(HitKind.ROW_ACTION, row_key=row.key)
     cell = _cell_at(layout, x, y)
     if cell is None:
         return Hit(HitKind.NONE)

@@ -27,8 +27,10 @@ _CARD_TONES: dict[CardTone, tuple[str, str, int, str]] = {
     CardTone.EMPHASIS: ("accent_soft", "border", 1, "bg_panel"),
     CardTone.WARNING: ("bg_panel", "warning", 2, "accent_soft"),
 }
-_STACK = ("row_bg", "grid_line", "label", "add_box", "add_text", "card", "card_text", "badge", "badge_text",
-          "lane_text", "cursor", "drop_line")  # fmt: skip
+# Row-action button look: (fill, outline, text) theme tokens -- one place, like _CARD_TONES.
+_ROW_ACTION_LOOK = ("bg_panel", "accent", "accent")
+_STACK = ("row_bg", "grid_line", "label", "row_action", "row_action_text", "add_box", "add_text", "card",
+          "card_text", "badge", "badge_text", "lane_text", "cursor", "drop_line")  # fmt: skip
 
 
 class BoardRenderer:
@@ -43,7 +45,8 @@ class BoardRenderer:
             font: Tk font for every text item.
         """
         self._body, self._header, self._font = body, header, font
-        kinds = {"row_bg": "rectangle", "grid_line": "line", "label": "text", "add_box": "polygon",
+        kinds = {"row_bg": "rectangle", "grid_line": "line", "label": "text", "row_action": "polygon",
+                 "row_action_text": "text", "add_box": "polygon",
                  "add_text": "text", "card": "polygon", "card_text": "text", "badge": "polygon",
                  "badge_text": "text", "lane_text": "text", "cursor": "polygon", "drop_line": "line"}  # fmt: skip
         self._pools = {name: CanvasItemPool(body, kind, tags=(f"cb_{name}",)) for name, kind in kinds.items()}
@@ -98,6 +101,12 @@ class BoardRenderer:
             for index, line in enumerate(row.label_lines):
                 color = theme["fg_primary"] if index == 0 else theme["fg_muted"]
                 self._text("label", PAD, row.y0 + PAD + index * line_h, line, color)
+            if row.action_box is not None and row.action:
+                fill, outline, text = _ROW_ACTION_LOOK
+                ax0, ay0, ax1, ay1 = row.action_box
+                points = rounded_rect_points(ax0, ay0, ax1, ay1, radius=_RADIUS)
+                self._pools["row_action"].place(points, smooth=True, fill=theme[fill], outline=theme[outline])
+                self._text("row_action_text", (ax0 + ax1) / 2, (ay0 + ay1) / 2, row.action, theme[text], "center")
         for lane in layout.lanes:
             self._pools["grid_line"].place((lane.x0, 0, lane.x0, layout.height), fill=theme["border"])
         if not layout.lanes:

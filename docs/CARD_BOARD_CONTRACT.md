@@ -16,10 +16,12 @@ between cells with a coloured **insertion line** that shows where the card would
 ## Model (`_model.py`, no Tk)
 
 - `BoardLane(key, title, kind=CARDS|TEXT, weight=1.0, placeholder="")`
-- `BoardRow(key, label, cards={lane: (BoardCard, …)}, texts={lane: str}, tint=RowTint | None, locked=False)` –
+- `BoardRow(key, label, cards={lane: (BoardCard, …)}, texts={lane: str}, tint=RowTint | None, locked=False, action=None)` –
   rows in **display order** (top first). `label` may contain `\n` (first line primary, others muted).
   A **locked** row takes nothing new: no "+" boxes, no drop slots, its `TEXT` cells show no
   placeholder and open no editor; its cells stay selectable with the cursor.
+  `action` (text) shows a small button in the row-label column below the label; the row grows to
+  fit it. Its look (fill, outline, text tokens) is the one `_ROW_ACTION_LOOK` entry in `_render.py`.
 - `BoardCard(key, text, badge=None, tone=CardTone.NORMAL)` – `key` unique across the board; `badge`
   is a short code in a bubble at the card's right side. `tone` marks a card without colours in
   the consumer: `EMPHASIS` (soft accent fill, e.g. the leading card of a cell), `WARNING`
@@ -33,7 +35,7 @@ between cells with a coloured **insertion line** that shows where the card would
 - `compute_layout(rows, lanes, width, line_height, wrapper, badge_width)` – every cell spans its
   row's height; empty `CARDS` cells get a full-width dashed "+" box, filled ones a small "+" below
   the last card.
-- `hit_test` → `CARD` / `ADD` / `CELL` / `NONE`; `slot_at` → slot before the first card whose middle
+- `hit_test` → `ROW_ACTION` (with `row_key`; checked first) / `CARD` / `ADD` / `CELL` / `NONE`; `slot_at` → slot before the first card whose middle
   lies below the pointer (points beyond the first/last row snap to it); `insertion_line(slot)` → the
   line in the gap.
 - Navigation: per lane the entries run top to bottom (cards, or the cell when it has none).
@@ -44,6 +46,8 @@ between cells with a coloured **insertion line** that shows where the card would
 
 - Click on a card or an empty/text cell: cursor moves, `on_cursor_change(cursor)`; a `TEXT` cell
   also opens the inline editor (not in a locked row). Click on "+": `on_add(cell)`.
+- Click on a row-action button: `on_row_action(row_key)`; the cursor does not move. What the
+  action does is the consumer's business (the board has no rule about it).
 - Double click on a card: `on_card_activate(key)`.
 - Drag (threshold 4 px, Escape cancels): the line appears only over slots where
   `can_drop(key, slot)` is true; release there → `on_drop(key, slot)`. The board never moves the

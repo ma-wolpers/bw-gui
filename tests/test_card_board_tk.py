@@ -182,3 +182,18 @@ def test_locked_row_text_cell_selects_but_does_not_edit(make_board):
     assert board.editing_cell is None
     board.edit_text(BoardCell("lzk", "ideas"))
     assert board.editing_cell is None
+
+
+def test_click_on_row_action_reports_the_row_and_uses_theme_tokens(make_board):
+    from bw_gui.theming._theme_manager import get_theme
+
+    clicked, cursors = [], []
+    board = make_board(on_row_action=clicked.append, on_cursor_change=cursors.append)
+    board.set_rows((BoardRow("ablage", "Sprosse 4\n??", {"left": (BoardCard("z", "Z"),)}, action="→ Einheit"),))
+    board.flush_now()
+    x0, y0, x1, y1 = board._layout.rows[0].action_box
+    _event(board, "<ButtonPress-1>", int((x0 + x1) / 2), int((y0 + y1) / 2))
+    assert clicked == ["ablage"] and cursors == []
+    canvas = board.key_widget
+    items = [i for i in board._renderer._pools["row_action"].items if canvas.itemcget(i, "state") != "hidden"]
+    assert [canvas.itemcget(i, "outline") for i in items] == [get_theme()["accent"]]

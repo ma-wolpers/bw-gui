@@ -167,3 +167,17 @@ def test_locked_row_has_no_plus_boxes_no_slots_and_no_placeholder():
     open_cell = layout.cells[BoardCell("open", "left")]
     assert open_cell.add_box is not None
     assert slot_at(layout, (open_cell.box[0] + open_cell.box[2]) / 2, open_cell.box[1] + 2) is not None
+
+
+def test_row_action_button_sits_below_the_label_and_is_hit_first():
+    plain = _layout((BoardRow("r", "Sprosse 3\n??"),))
+    with_action = _layout((BoardRow("r", "Sprosse 3\n??", action="→ Einheit"),))
+    row = with_action.rows[0]
+    assert plain.rows[0].action_box is None
+    x0, y0, x1, y1 = row.action_box
+    assert x0 == PAD and x1 - x0 == _measure("→ Einheit") + 16
+    assert y0 >= row.y0 + PAD + 2 * LINE and y1 <= row.y1
+    assert with_action.rows[0].y1 > plain.rows[0].y1  # Platz für den Knopf
+    hit = hit_test(with_action, (x0 + x1) / 2, (y0 + y1) / 2)
+    assert (hit.kind, hit.row_key) == (HitKind.ROW_ACTION, "r")
+    assert hit_test(with_action, x1 + 2, (y0 + y1) / 2).kind is HitKind.NONE

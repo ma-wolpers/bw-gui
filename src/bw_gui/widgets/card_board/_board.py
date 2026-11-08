@@ -45,6 +45,7 @@ class CardBoard:
         can_drop: Callable[[str, BoardSlot], bool] | None = None,
         on_drop: Callable[[str, BoardSlot], object] | None = None,
         on_text_commit: TextCommit | None = None,
+        on_row_action: Callable[[str], object] | None = None,
     ) -> None:
         """Build header, body and scrollbar inside *parent*.
 
@@ -57,6 +58,7 @@ class CardBoard:
                 ``CARDS`` slot is allowed. No indicator line where it says ``False``.
             on_drop: ``(card_key, slot)`` when a drag is released over an allowed slot.
             on_text_commit: ``(cell, text)`` when an edited ``TEXT`` cell changed.
+            on_row_action: Row key whose action button (``BoardRow.action``) was clicked.
         """
         self.frame = tui.Frame(parent)
         self._font = fonts.nametofont("TkDefaultFont")
@@ -74,7 +76,7 @@ class CardBoard:
         self._editor = InlineTextEditor(self._body, on_commit=on_text_commit, after_close=self._body.focus_set)
         self._scheduler = IdleRenderScheduler(self.frame)
         self._on_cursor_change, self._on_card_activate, self._on_add = on_cursor_change, on_card_activate, on_add
-        self._can_drop, self._on_drop = can_drop, on_drop
+        self._can_drop, self._on_drop, self._on_row_action = can_drop, on_drop, on_row_action
         self._lanes: tuple[BoardLane, ...] = ()
         self._rows: tuple[BoardRow, ...] = ()
         self._layout: BoardLayout | None = None
@@ -199,7 +201,10 @@ class CardBoard:
         if layout is None:
             return EventResult.HANDLED
         hit = hit_test(layout, *self._canvas_point(event.x, event.y))
-        if hit.kind is HitKind.ADD and hit.cell is not None:
+        if hit.kind is HitKind.ROW_ACTION and hit.row_key is not None:
+            if self._on_row_action is not None:
+                self._on_row_action(hit.row_key)
+        elif hit.kind is HitKind.ADD and hit.cell is not None:
             self.set_cursor(hit.cell, see=False)
             if self._on_add is not None:
                 self._on_add(hit.cell)

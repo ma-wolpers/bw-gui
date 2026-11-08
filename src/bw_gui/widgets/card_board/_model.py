@@ -101,6 +101,10 @@ class BoardRow:
         locked: A locked row takes nothing new: no "+" boxes, no drop slots,
             its ``TEXT`` cells show no placeholder and open no editor. Its
             cells stay selectable with the cursor.
+        action: Text of a small button in the row-label column, below the
+            label (e.g. ``"→ Einheit"``). A click reports the row key through
+            ``on_row_action``; what it does is the consumer's business.
+            ``None`` (default) shows no button.
     """
 
     key: str
@@ -109,6 +113,7 @@ class BoardRow:
     texts: Mapping[str, str] = field(default_factory=dict)
     tint: RowTint | None = None
     locked: bool = False
+    action: str | None = None
 
 
 @dataclass(frozen=True)
