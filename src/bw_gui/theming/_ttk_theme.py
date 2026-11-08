@@ -10,6 +10,7 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk
 
+from ._classic_widgets import apply_classic_widget_theme
 from ._color_math import _mix, contrast_text_color
 from ._theme_manager import _set_current_theme, get_theme
 
@@ -134,10 +135,11 @@ def configure_ttk_theme(root: tk.Misc, theme_key: str | None = None) -> None:
         ``bw_gui.widgets.Checkbox`` / ``Switch`` (see ``_toggle_styles`` and
         ``docs/TOGGLE_CONTRACT.md``).
 
-    *Canvas default*
-        ``option_add("*Canvas.Background", bg_surface)`` — sets the default
-        background for any ``tk.Canvas`` created after this call, so bare canvases
-        match the surface color without explicit configuration.
+    *Classic Tk widgets*
+        ``apply_classic_widget_theme`` (``_classic_widgets``) — every classic Tk
+        widget (``Frame``, ``PanedWindow``, ``Canvas``, ``Menu`` …) gets theme colours:
+        new ones through the option database, existing ones by a tree walk that
+        replaces only system defaults and previous-theme defaults.
 
     After the styles, theme listeners run exactly once (``register_theme_listener``,
     ``docs/THEME_CONTRACT.md``): native scrollbars, icon buttons and every consumer
@@ -171,8 +173,7 @@ def _configure_styles(root: tk.Misc, theme_key: str | None) -> None:
     border = theme["border"]
     panel_bg = theme.get("panel_strong", theme["bg_panel"])
 
-    root.option_add("*Canvas.Background", theme["bg_surface"])
-    root.option_add("*Canvas.HighlightBackground", panel_bg)
+    apply_classic_widget_theme(root, theme_key)
 
     style.configure("TFrame", background=theme["bg_main"])
     style.configure("Surface.TFrame", background=theme["bg_surface"])

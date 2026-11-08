@@ -49,6 +49,7 @@ import weakref
 from tkinter import ttk
 from typing import Callable
 
+from ._classic_widgets import classic_widget_colors
 from ._theme_manager import _is_dark, get_theme, tinted_color, tinted_foreground
 
 __all__ = [
@@ -90,12 +91,7 @@ def theme_canvas(canvas: tk.Canvas, theme_key: str | None = None) -> None:
         canvas:    The canvas widget to configure.
         theme_key: Explicit theme override; omit to use the global current theme.
     """
-    theme = get_theme(theme_key)
-    canvas.configure(
-        bg=theme["bg_surface"],
-        highlightbackground=theme["border"],
-        highlightthickness=1,
-    )
+    canvas.configure(**classic_widget_colors("Canvas", theme_key), highlightthickness=1)
 
 
 def theme_text(
@@ -132,17 +128,10 @@ def theme_text(
         fg_token:  Contract token for the foreground / cursor color.  Defaults to
                    ``"fg_primary"``.
     """
-    theme = get_theme(theme_key)
-    text.configure(
-        bg=theme[bg_token],
-        fg=theme[fg_token],
-        insertbackground=theme[fg_token],
-        selectbackground=theme["selection_bg"],
-        selectforeground=theme["selection_fg"],
-        highlightthickness=1,
-        highlightbackground=theme["border"],
-        highlightcolor=theme["focus_ring"],
+    colors = classic_widget_colors(
+        "Text", theme_key, background=bg_token, foreground=fg_token, insertBackground=fg_token
     )
+    text.configure(**colors, highlightthickness=1)
 
 
 def theme_listbox(listbox: tk.Listbox, theme_key: str | None = None) -> None:
@@ -158,16 +147,7 @@ def theme_listbox(listbox: tk.Listbox, theme_key: str | None = None) -> None:
         listbox:   The listbox widget to configure.
         theme_key: Explicit theme override; omit to use the global current theme.
     """
-    theme = get_theme(theme_key)
-    listbox.configure(
-        bg=theme["bg_surface"],
-        fg=theme["fg_primary"],
-        selectbackground=theme["selection_bg"],
-        selectforeground=theme["selection_fg"],
-        highlightthickness=1,
-        highlightbackground=theme["border"],
-        highlightcolor=theme["focus_ring"],
-    )
+    listbox.configure(**classic_widget_colors("Listbox", theme_key), highlightthickness=1)
 
 
 def theme_text_tinted(

@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **No widget keeps Tk's system colours:** `configure_ttk_theme` themes every classic Tk widget (`Frame`, `PanedWindow`, `Label`, `Menu`, `Text`, `Listbox`, `Canvas`, buttons, …) from one table (`theming/_classic_widgets.py`), for new widgets through the option database and for existing ones after every theme switch. Explicitly set colours stay. A guard test fails for any classic `tkinter` widget class the table misses or any colour still starting with `System` (`THEME_CONTRACT.md`, "Classic Tk widgets").
 - Theme tokens `info`, `info_hover`, `info_soft`, `fg_on_info` in every theme (derived sky blue where a theme does not define them; muted by the intensity levels like the other state colours).
 - **CardBoard:** `BoardRow.action` shows a small button in the row-label column below the label; a click reports `on_row_action(row_key)` without moving the cursor (`HitKind.ROW_ACTION`, `Hit.row_key`). Look from theme tokens, follows theme switches.
 - `Error.TLabel` style (foreground = theme token `danger`) for validation hints in forms, so consumers no longer hard-code an error colour.
@@ -72,6 +73,7 @@ All notable changes to this project will be documented in this file.
 - `bw_gui.theming.theme_scrollbar`: scrollbars colour themselves now (no consumer used it).
 
 ### Fixed
+- `DataGrid` splitter handles were a raised 3D bevel in system grey that stood out in dark themes; they are now a flat gap in the theme's window background.
 - `TextSurface.transact` rolls back an edit whose `delete` succeeded before its `insert` failed (previously only fully applied edits counted, so the deleted text stayed gone). It still never undoes when nothing changed.
 - `DataGrid`: the last row could hide under a region's horizontal scrollbar. The visible height was the tallest region body (the one without a scrollbar), and the grid did not re-clamp when the scrollbar appeared at the bottom end. It is now the shortest body and is re-clamped on every body resize.
 - `DataGrid` scrolled in the wrong direction (mouse wheel, touch panning, Shift+wheel/horizontal swipe): it subtracted `whole_steps`, which is positive towards the content end. It now uses `wheel_axis` like every other surface.

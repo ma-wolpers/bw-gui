@@ -62,7 +62,8 @@ class DataGrid:
         clipper = TextClipper(self._font.measure, int(self._font.measure("W")))
         self._vbar = tui.Scrollbar(self.frame, orient="vertical", command=self._yview, takefocus=False)
         self._vbar.pack(side="right", fill="y")
-        self._paned = ui.PanedWindow(self.frame, orient="horizontal", sashwidth=6, bd=0, sashrelief="raised")
+        # Colour and flat handle come from the classic-widget theme table (theming._classic_widgets).
+        self._paned = ui.PanedWindow(self.frame, orient="horizontal", sashwidth=6, bd=0)
         self._paned.pack(side="left", fill="both", expand=True)
         self._scheduler = IdleRenderScheduler(self.frame)
         self.regions: dict[Region, RegionView] = {}

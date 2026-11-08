@@ -58,6 +58,9 @@ count (`tests/test_data_grid_tk.py`).
 Colours come only from the ambient theme (principle A): band and header marker
 `accent_soft`, cursor `accent`, text `fg_primary`, header `bg_panel`, lines
 `border`. A theme switch re-renders; the grid's theme listener ends with its frame.
+The splitter handles are a flat gap in `bg_main` between the regions' borders; their
+look comes from the classic-widget table (`THEME_CONTRACT.md`, "Classic Tk widgets"),
+the grid sets no colour or relief of its own.
 
 ## Building blocks (reusable)
 

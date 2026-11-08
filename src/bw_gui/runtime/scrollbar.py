@@ -13,8 +13,9 @@ Windows the slim system scrollbar -- not a ttk/clam scrollbar with arrow buttons
   default. ``True``/``False`` force it.
 * **Theme:** a theme listener (``THEME_CONTRACT.md``, owner: the scrollbar) follows every
   switch -- on win32 the native dark mode (``_win_dark_controls``) for dark themes, on other
-  platforms the theme colours (thumb ``panel_strong``, trough ``bg_surface``, active
-  ``accent_soft``). The listener ends with the widget.
+  platforms the theme colours of the classic-widget table (``theming._classic_widgets``,
+  class ``Scrollbar``: thumb ``panel_strong``, trough ``bg_surface``, active ``accent_soft``).
+  The listener ends with the widget.
 """
 
 from __future__ import annotations
@@ -95,14 +96,12 @@ class Scrollbar(tk.Scrollbar):
 
     def _apply_theme(self, is_dark: bool | None = None) -> None:
         """Dark mode (win32) or theme colours (elsewhere) for the current theme."""
+        from bw_gui.theming._classic_widgets import classic_widget_colors
         from bw_gui.theming._color_math import is_dark_color
         from bw_gui.theming._theme_manager import get_theme
 
-        theme = get_theme()
-        dark = is_dark_color(theme["bg_main"]) if is_dark is None else is_dark
         if sys.platform == "win32":
+            dark = is_dark_color(get_theme()["bg_main"]) if is_dark is None else is_dark
             set_native_dark_mode(self, dark)
             return
-        tk.Scrollbar.configure(
-            self, background=theme["panel_strong"], troughcolor=theme["bg_surface"], activebackground=theme["accent_soft"]
-        )
+        tk.Scrollbar.configure(self, **classic_widget_colors("Scrollbar"))

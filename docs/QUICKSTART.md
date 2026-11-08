@@ -194,8 +194,11 @@ The callback gets the *requested* value and fires only when the user clicks.
 ### Theming raw tk widgets (Canvas, Text, Listbox)
 
 ttk widgets pick up colours from the ttk style system automatically.  Raw tk
-widgets need explicit color configuration — call the bw-gui helpers inside
-`apply_theme()`:
+widgets get theme colours automatically too: `configure_ttk_theme` themes every
+classic Tk widget, now and after every switch (`THEME_CONTRACT.md`, "Classic Tk
+widgets"), so none keeps Tk's system grey.  Call the helpers inside
+`apply_theme()` when you want their extras — the 1-px border and focus ring, or
+other tokens (`theme_text(cell, bg_token="warning_soft")`):
 
 ```python
 from bw_gui.theming import configure_ttk_theme, theme_canvas, theme_text

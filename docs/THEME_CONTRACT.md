@@ -82,6 +82,16 @@ The seed colour (`"#7C3AED"`) is domain knowledge owned by the consumer; the
 colour math stays in bw-gui.  This pattern works automatically across all 15
 registered themes, including dark themes, with no branching in consumer code.
 
+## Classic Tk widgets
+
+**No widget keeps Tk's system colours.** Classic Tk widgets (`ui.Frame`, `ui.PanedWindow`, `ui.Menu`, `ui.Label` …) have no ttk style; on their own they show the compiled-in system colours (on Windows `SystemButtonFace`, `SystemWindow` …). `theming/_classic_widgets.py` is the single source for their colours:
+
+- `CLASSIC_WIDGET_TOKENS` maps each Tk class name (as `winfo_class()` reports it, e.g. `Panedwindow`, `Labelframe`) and option (Tk database name) to a theme token. `CLASSIC_WIDGET_CONSTANTS` holds theme-independent options of the same widgets (flat splitter handle).
+- `configure_ttk_theme` applies the table in the style phase, before the listeners: it writes it into Tk's option database (widgets created later start themed) and walks the existing widget tree of the interpreter (the root counts as a `Toplevel`). An option that still holds Tk's compiled-in default, or the value the table gave it for the previous theme, takes the new value. Colours set explicitly stay, and consumer listeners run afterwards.
+- `theme_canvas`, `theme_text` and `theme_listbox` build on the same table (`classic_widget_colors`) and add only their 1-px border, so they never disagree with it. The bw-gui `Scrollbar` takes its non-win32 colours from the table too.
+- Guard: `tests/test_classic_widget_theme.py` discovers every classic widget class of `tkinter`, fails for a class missing from the table, checks every table option against the theme and, on win32, fails for any colour option still starting with `System`.
+- GRENZE: a classic widget created with a custom `class_=` is not matched by its class name (no program uses `class_=`, checked 2026-11-08).
+
 ## Theme lifecycle: listeners
 
 `configure_ttk_theme(root, theme_key)` first applies the ttk styles, then runs the theme listeners **exactly once** (`bw_gui.theming.register_theme_listener`, implemented in `_theme_listeners`).
