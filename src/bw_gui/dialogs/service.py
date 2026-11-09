@@ -45,36 +45,108 @@ def _bind_dialog_keys(dialog: tk.Toplevel, *, on_enter: Callable[[], Any] | None
                     binding_id="bw_gui.dialog.ok", intent="bw_gui.dialog.ok", allow_when_text_input=True)
 
 
-class _EscapeSafeQueryString(_tk_simpledialog._QueryString):
-    """``simpledialog._QueryString`` with Enter/Escape on the keyboard contract.
+_PROMPT_WIDTH = 520
+"""Minimum width of the text prompt in pixels (also the prompt's wrap length plus padding)."""
 
-    The stdlib dialog binds raw ``<Return>``/``<Escape>`` whose ``cancel`` does not stop
-    the event, so Escape leaked to shortcuts of the windows behind the dialog. Through
-    the window binder the key is consumed at the dialog.
+
+class _TextPromptDialog(_tk_simpledialog.Dialog):
+    """Roomy one-line text prompt: wide entry, inline validation, themed OK/Abbrechen.
+
+    Replaces the stdlib ``_QueryString`` (a cramped entry whose validation errors
+    opened a second popup). Built on ``simpledialog.Dialog`` for the modal mechanics
+    (transient, grab, ``wait_window``) like ``_ChoiceDialog``. Enter/Escape go through
+    the window binder (``_bind_dialog_keys``), so Escape never leaks to shortcuts
+    behind the dialog. A rejected text shows its message in a `FieldErrorLabel`
+    below the entry; the next edit clears it. The window can be widened (the entry
+    grows with it), never made narrower than `_PROMPT_WIDTH`.
+
+    Attributes:
+        entry: The ttk entry (tests, initial focus).
+        result: Accepted text, ``None`` until OK succeeds.
     """
 
-    def __init__(self, title: str, prompt: str, *, validate: TextValidator | None = None, **kwargs: Any) -> None:
-        """Store the optional validator, then build the stdlib dialog (which runs modally)."""
-        self._validate_text = validate
-        super().__init__(title, prompt, **kwargs)
+    def __init__(
+        self,
+        title: str,
+        prompt: str,
+        *,
+        validate: TextValidator | None = None,
+        initialvalue: str | None = None,
+        show: str | None = None,
+        parent: Any = None,
+    ) -> None:
+        """Store the content, then let ``simpledialog.Dialog`` build and run the modal window.
 
-    def buttonbox(self):
-        """Build the stdlib OK/Cancel box, then move its Enter/Escape to the window binder."""
-        super().buttonbox()
+        Args:
+            title: Window title.
+            prompt: Question shown above the entry (wrapped).
+            validate: Error message for a text, or ``None`` to accept it.
+            initialvalue: Text inserted and selected at start.
+            show: Mask character (e.g. ``"*"``), as in the stdlib ``askstring``.
+            parent: Parent window; defaults to Tk's default root.
+        """
+        self._prompt_text, self._validate_text = prompt, validate
+        self._initial_value, self._show_char = initialvalue, show
+        super().__init__(_resolve_parent(parent), title)
+
+    def body(self, master: Any) -> Any:
+        """Prompt, entry and the (hidden) error line; the entry gets the initial focus."""
+        from tkinter import font as tkfont
+
+        from bw_gui.widgets.field_error import FieldErrorLabel
+
+        self._body_frame = master
+        content = ttk.Frame(master, padding=(18, 16, 18, 4))
+        content.pack(fill="both", expand=True)
+        ttk.Label(content, text=self._prompt_text, justify="left", wraplength=_PROMPT_WIDTH - 36).pack(
+            anchor="w", fill="x", pady=(0, 8)
+        )
+        base = tkfont.nametofont("TkDefaultFont")
+        self._entry_font = tkfont.Font(font=base)
+        self._entry_font.configure(size=int(base.cget("size")) + (1 if int(base.cget("size")) >= 0 else -1))
+        self._text_var = tk.StringVar(master, value=self._initial_value or "")
+        chars = max(20, (_PROMPT_WIDTH - 36) // max(1, self._entry_font.measure("0")))  # entry asks for the width
+        self.entry = ttk.Entry(content, textvariable=self._text_var, font=self._entry_font, width=chars)
+        if self._show_char is not None:
+            self.entry.configure(show=self._show_char)
+        self.entry.pack(fill="x", ipady=4)
+        self._error = FieldErrorLabel(content, wraplength=_PROMPT_WIDTH - 36, pady=(6, 0))
+        self._text_var.trace_add("write", lambda *_args: self._error.show(None))
+        if self._initial_value:
+            self.entry.select_range(0, "end")
+            self.entry.icursor("end")
+        return self.entry
+
+    def buttonbox(self) -> None:
+        """OK (primary) and Abbrechen right-aligned; Enter/Escape on the window binder."""
+        self._body_frame.pack_configure(fill="both", expand=True, padx=0, pady=0)
+        box = ttk.Frame(self, padding=(18, 10, 18, 16))
+        ttk.Button(box, text="Abbrechen", command=self.cancel, style="SecondaryAction.TButton").pack(side="right")
+        ttk.Button(box, text="OK", command=self.ok, style="PrimaryAction.TButton").pack(side="right", padx=(0, 8))
+        box.pack(fill="x")
         _bind_dialog_keys(self, on_enter=self.ok, on_escape=self.cancel)
+        self.resizable(True, False)
+        self.update_idletasks()
+        self.minsize(max(_PROMPT_WIDTH, self.winfo_reqwidth()), self.winfo_reqheight())
+
+    @property
+    def error_message(self) -> str:
+        """Validation message currently shown below the entry (``""`` when none)."""
+        return self._error.message
 
     def validate(self) -> int:
-        """Stdlib check first; then the caller's validator -- an error keeps the dialog open.
+        """Run the caller's validator; an error is shown inline and keeps the dialog open.
 
         Returns:
-            ``1`` to accept (the dialog closes with ``result``), ``0`` to stay open.
+            ``1`` to accept (``result`` holds the text), ``0`` to stay open.
         """
-        if not super().validate():
-            return 0
-        error = self._validate_text(self.result) if self._validate_text is not None else None
+        text = self.entry.get()
+        error = self._validate_text(text) if self._validate_text is not None else None
         if error:
-            MessageDialogService().showwarning(self.title(), error, parent=self)
+            self._error.show(error)
+            self.entry.focus_set()
             return 0
+        self.result = text
         return 1
 
 
@@ -151,8 +223,10 @@ class TextPromptDialogService:
                 (shown as a warning; the dialog stays open with the text kept) or
                 ``None`` to accept. Consumers use it for rules like uniqueness instead
                 of re-opening the prompt in a loop.
-            **kwargs: Passed to the stdlib dialog (``initialvalue`` is inserted and
-                selected, ``parent``).
+            **kwargs: ``initialvalue`` (inserted and selected), ``show`` (mask
+                character) and ``parent`` -- the stdlib ``askstring`` keywords the
+                roomy `_TextPromptDialog` understands. A rejected text shows its
+                message inline below the entry, not as a second popup.
 
         Returns:
             The accepted text, or ``None`` on cancel.
@@ -160,7 +234,7 @@ class TextPromptDialogService:
         parent = kwargs.get("parent")
 
         def _show() -> str | None:
-            dialog = _EscapeSafeQueryString(title, prompt, validate=validate, **kwargs)
+            dialog = _TextPromptDialog(title, prompt, validate=validate, **kwargs)
             return dialog.result
 
         return _run_modal(parent, title, _show)
@@ -311,9 +385,9 @@ class ChoiceDialogService:
     - The grab keeps the user from interacting with other windows of the app
       while it is open. It is not a general guarantee against Tk reentrancy:
       ``after()`` callbacks and already queued events still run.
-    - GRENZE(theming): content uses ttk widgets; the dialog toplevel and its
-      body frame come from ``simpledialog.Dialog`` (plain Tk), the same
-      limitation as
+    - Theming: content uses ttk widgets; the dialog toplevel and its body frame
+      come from ``simpledialog.Dialog`` (plain Tk) and follow the theme through
+      the classic-widget table (``theming/_classic_widgets.py``), like
       ``TextPromptDialogService.askstring``.
     """
 

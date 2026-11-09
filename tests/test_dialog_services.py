@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from bw_gui.dialogs import FileDialogService, MessageDialogService, TextPromptDialogService
 from bw_gui.dialogs import service as dialog_service
-from bw_gui.dialogs.service import _EscapeSafeQueryString
+from bw_gui.dialogs.service import _TextPromptDialog
 
 
 class _FakeModalParent:
@@ -39,7 +39,7 @@ def test_text_prompt_uses_default_root_when_parent_missing(monkeypatch):
         def __init__(self, title, prompt, **kwargs):
             self.result = f"{title}:{prompt}"
 
-    monkeypatch.setattr(dialog_service, "_EscapeSafeQueryString", _FakeQueryString)
+    monkeypatch.setattr(dialog_service, "_TextPromptDialog", _FakeQueryString)
     monkeypatch.setattr(dialog_service.tk, "_default_root", parent)
 
     service = TextPromptDialogService()
@@ -93,9 +93,9 @@ def test_escape_safe_query_string_keys_go_through_the_window_binder(_shared_tk_r
     Escape never leaks to shortcuts behind the dialog; the stdlib's raw bindings are gone."""
     from bw_gui.testing.keys import press_key
 
-    monkeypatch.setattr(_EscapeSafeQueryString, "wait_window", lambda self, window=None: None)
-    monkeypatch.setattr(_EscapeSafeQueryString, "grab_set", lambda self: None)
-    dialog = _EscapeSafeQueryString("Titel", "Frage", parent=_shared_tk_root)
+    monkeypatch.setattr(_TextPromptDialog, "wait_window", lambda self, window=None: None)
+    monkeypatch.setattr(_TextPromptDialog, "grab_set", lambda self: None)
+    dialog = _TextPromptDialog("Titel", "Frage", parent=_shared_tk_root)
     try:
         assert str(dialog.tk.call("bind", str(dialog), "<Key-Escape>")) == ""
         assert press_key(dialog.entry, "Escape") is True
@@ -106,26 +106,28 @@ def test_escape_safe_query_string_keys_go_through_the_window_binder(_shared_tk_r
 
 
 def _headless_prompt(monkeypatch, root, **kwargs):
-    """Build a real query dialog without its modal wait/grab; warnings are recorded."""
-    warnings: list[str] = []
-    monkeypatch.setattr(_EscapeSafeQueryString, "wait_window", lambda self, window=None: None)
-    monkeypatch.setattr(_EscapeSafeQueryString, "grab_set", lambda self: None)
+    """Build a real text prompt without its modal wait/grab; any popup would be recorded."""
+    popups: list[str] = []
+    monkeypatch.setattr(_TextPromptDialog, "wait_window", lambda self, window=None: None)
+    monkeypatch.setattr(_TextPromptDialog, "grab_set", lambda self: None)
     monkeypatch.setattr(
-        dialog_service.MessageDialogService, "showwarning", lambda self, title, message, **kw: warnings.append(message)
+        dialog_service.MessageDialogService, "showwarning", lambda self, title, message, **kw: popups.append(message)
     )
-    return _EscapeSafeQueryString("Titel", "Name?", parent=root, **kwargs), warnings
+    return _TextPromptDialog("Titel", "Name?", parent=root, **kwargs), popups
 
 
-def test_validator_error_keeps_the_prompt_open_with_its_text(_shared_tk_root, monkeypatch):
-    dialog, warnings = _headless_prompt(
+def test_validator_error_is_shown_inline_and_keeps_the_prompt_open(_shared_tk_root, monkeypatch):
+    dialog, popups = _headless_prompt(
         monkeypatch, _shared_tk_root, validate=lambda text: "gibt es schon" if text == "A" else None, initialvalue="A"
     )
     try:
         dialog.ok()
-        assert warnings == ["gibt es schon"]
+        assert popups == []  # no second popup: the message sits below the entry
+        assert dialog.error_message == "gibt es schon"
         assert dialog.winfo_exists()
         assert dialog.entry.get() == "A"
         dialog.entry.delete(0, "end")
+        assert dialog.error_message == ""  # the next edit clears the message
         dialog.entry.insert(0, "B")
         dialog.ok()
         assert dialog.result == "B"
@@ -136,12 +138,29 @@ def test_validator_error_keeps_the_prompt_open_with_its_text(_shared_tk_root, mo
 
 
 def test_initial_value_is_inserted_and_selected(_shared_tk_root, monkeypatch):
-    dialog, _warnings = _headless_prompt(monkeypatch, _shared_tk_root, initialvalue="Kopie")
+    dialog, _popups = _headless_prompt(monkeypatch, _shared_tk_root, initialvalue="Kopie")
     try:
         assert dialog.entry.get() == "Kopie"
         assert dialog.entry.selection_present()
     finally:
         dialog.destroy()
+
+
+def test_prompt_is_roomy_and_masks_when_asked(_shared_tk_root, monkeypatch):
+    dialog, _popups = _headless_prompt(monkeypatch, _shared_tk_root, show="*")
+    try:
+        dialog.update_idletasks()
+        assert dialog.winfo_reqwidth() >= dialog_service._PROMPT_WIDTH
+        assert str(dialog.entry.cget("show")) == "*"
+    finally:
+        dialog.destroy()
+
+
+def test_cancel_leaves_no_result(_shared_tk_root, monkeypatch):
+    dialog, _popups = _headless_prompt(monkeypatch, _shared_tk_root, initialvalue="X")
+    dialog.cancel()
+    assert dialog.result is None
+    assert not dialog.winfo_exists()
 
 
 def test_askstring_forwards_the_validator(monkeypatch):
@@ -152,7 +171,7 @@ def test_askstring_forwards_the_validator(monkeypatch):
             seen.update(kwargs)
             self.result = "x"
 
-    monkeypatch.setattr(dialog_service, "_EscapeSafeQueryString", _FakeQueryString)
+    monkeypatch.setattr(dialog_service, "_TextPromptDialog", _FakeQueryString)
     monkeypatch.setattr(dialog_service.tk, "_default_root", _FakeModalParent())
     def check(text):
         return None

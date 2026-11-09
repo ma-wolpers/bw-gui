@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Roomy text prompt:** `TextPromptDialogService.askstring` opens a wide, themed dialog (entry at least 520 px, slightly larger font, horizontally resizable, OK/Abbrechen right-aligned) instead of the cramped stdlib prompt. A rejected text (`validate=`) shows its message **inline below the entry** instead of a second popup; the next edit clears it. Same keywords as before (`initialvalue`, `show`, `parent`), so every consumer gets it without changes.
+- `bw_gui.widgets.field_error.FieldErrorLabel`: the one look for "this text is not accepted" -- a hideable `Error.TLabel` line below a field (text prompt, CardBoard inline editor).
 - **No widget keeps Tk's system colours:** `configure_ttk_theme` themes every classic Tk widget (`Frame`, `PanedWindow`, `Label`, `Menu`, `Text`, `Listbox`, `Canvas`, buttons, …) from one table (`theming/_classic_widgets.py`), for new widgets through the option database and for existing ones after every theme switch. Explicitly set colours stay. A guard test fails for any classic `tkinter` widget class the table misses or any colour still starting with `System` (`THEME_CONTRACT.md`, "Classic Tk widgets").
 - Theme tokens `info`, `info_hover`, `info_soft`, `fg_on_info` in every theme (derived sky blue where a theme does not define them; muted by the intensity levels like the other state colours).
 - **CardBoard:** `BoardRow.action` shows a small button in the row-label column below the label; a click reports `on_row_action(row_key)` without moving the cursor (`HitKind.ROW_ACTION`, `Hit.row_key`). Look from theme tokens, follows theme switches.
