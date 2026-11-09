@@ -129,6 +129,24 @@ def test_place_overlay_now_detects_stale_placement(monkeypatch, toplevel):
         sp.place_overlay_now(toplevel, anchor=Rect(10, 10, 60, 30), placement=(Side.BELOW,))
 
 
+def test_new_overlay_window_stays_hidden_until_place_overlay_now_reveals_it(monkeypatch, _shared_tk_root):
+    """Built and measured while withdrawn; mapped only at the final position."""
+    info = MonitorInfo(Rect(0, 0, 800, 600), Rect(0, 0, 800, 600), MonitorSource.WIN32, True)
+    _fixed_monitor(monkeypatch, info)
+    window = sp.new_overlay_window(_shared_tk_root)
+    try:
+        ui.Frame(window, width=100, height=50).pack()
+        window.update_idletasks()
+        assert not window.winfo_ismapped()
+        assert window.winfo_reqwidth() >= 100  # the requested size is still computed
+        result = sp.place_overlay_now(window, anchor=Rect(10, 10, 60, 30), placement=(Side.BELOW,))
+        window.update()
+        assert window.winfo_ismapped()
+        assert (window.winfo_rootx(), window.winfo_rooty()) == (result.position.x, result.position.y)
+    finally:
+        window.destroy()
+
+
 def test_place_on_pointer_monitor_uses_pointer_monitor_and_fraction(monkeypatch, toplevel):
     info = MonitorInfo(Rect(1920, 0, 3520, 900), Rect(1920, 0, 3520, 860), MonitorSource.WIN32)
     seen = []

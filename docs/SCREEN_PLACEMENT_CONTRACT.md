@@ -9,7 +9,7 @@ monitor.
 |---|---|
 | `bw_gui.contracts.screen_geometry` | pure geometry: `Point`, `Size`, `Rect`, `MonitorInfo`, `Side`, `Placement`, `select_monitor`, `calculate_overlay_placement`, `calculate_clamped_position`, `round_rect_inward` |
 | `bw_gui.runtime._win_monitors` | the only Win32 caller for monitor geometry (`EnumDisplayMonitors`, `GetMonitorInfoW`, `GetAncestor`, `GetWindowRect`) |
-| `bw_gui.runtime.screen_placement` | the only Tk accesses: `get_monitor_info`, `measure_overlay`, `apply_window_position`, `widget_rect`, `place_overlay_now` |
+| `bw_gui.runtime.screen_placement` | the only Tk accesses: `get_monitor_info`, `measure_overlay`, `apply_window_position`, `widget_rect`, `new_overlay_window`, `place_overlay_now` |
 
 `bw_gui.runtime.platform.get_monitor_bounds` and `center_window_over_parent` remain as
 compatibility wrappers.
@@ -69,6 +69,10 @@ A separate primitive for objects that follow the pointer, for example the drag g
 
 ## Applying
 
+- **`new_overlay_window(master) -> Toplevel`:** the single creation point for anchored overlays (menu popups, flyouts, tooltips).
+  - Creates a borderless (`overrideredirect`) Toplevel and withdraws it **before** Tk's first idle pass, so it stays unmapped while it is built and measured. The requested size is still computed.
+  - Without this, the first `update_idletasks()` maps a fresh Toplevel at `+0+0`, and it flashes in the top-left screen corner before it moves into place (measured 2026-11-09).
+  - The caller still registers the overlay category (`register_overlay`, `OVERLAY_STACK_CONTRACT.md`).
 - **`apply_window_position(window, position)`:**
   - Writes `+x+y` only, never the size. Call it before showing the window.
   - Raises `ValueError` if the window was destroyed.
@@ -80,6 +84,7 @@ A separate primitive for objects that follow the pointer, for example the drag g
   4. If the overlay overflows and `max_size_policy` is given: call it with the maximum size (work area minus `2*margin`) so the consumer can limit the window, for example cap a menu's height and let it scroll.
   5. **Re-measure and recalculate** with the same monitor information.
   6. Apply the position.
+  7. **Reveal:** if the window is still withdrawn (`new_overlay_window`), `deiconify()` and then `lift()` it. A window that is already visible keeps its stacking order.
 
   Before applying, `RuntimeError` is raised if the size no longer matches the placement. A stale placement is never applied.
 
@@ -89,11 +94,10 @@ A separate primitive for objects that follow the pointer, for example the drag g
   - Pass `size=` for main windows whose size was set explicitly via `geometry("WxH")`.
 - **`work_area_for(widget) -> Rect`:** the work area of the monitor the widget is on, mapped or not. Use it to cap an initial window size, for example "monitor height minus 80", instead of using `winfo_screen*`.
 
-## Tk quirk (measured)
+## Tk quirks (measured, Windows, Tk 8.6)
 
-On Windows, `lift()` of a not-yet-mapped `overrideredirect` Toplevel resets an already
-applied `+x+y` to `+0+0` (Tk 8.6, 2026-10-09). Call `lift()` before applying the
-position, as `CustomMenuBar` does.
+- `lift()` of a not-yet-mapped `overrideredirect` Toplevel resets an already applied `+x+y` to `+0+0` (2026-10-09). `place_overlay_now` therefore lifts only after `deiconify()` has mapped the window.
+- `deiconify()` of a withdrawn overlay keeps the applied position and does **not** activate it: the main window keeps focus and gets no `<Deactivate>`, which would close an open menu. `wm state normal` resets the position to `+0+0` instead (2026-11-09).
 
 ## Consumers
 

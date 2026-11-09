@@ -7,8 +7,10 @@ holds the only Tk accesses of the placement contract:
   ``_win_monitors``; Tk-screen fallback elsewhere or on failure).
 * :func:`measure_overlay` reads a window's requested size.
 * :func:`apply_window_position` writes ``+x+y`` (never the size).
+* :func:`new_overlay_window` creates an overlay Toplevel that stays hidden until placed.
 * :func:`place_overlay_now` is the documented composition
-  measure -> monitor -> calculate -> (limit size -> re-measure -> re-calculate) -> apply.
+  measure -> monitor -> calculate -> (limit size -> re-measure -> re-calculate) -> apply
+  -> reveal.
 """
 
 from __future__ import annotations
@@ -122,6 +124,49 @@ def apply_window_position(window: tk.Misc, position: Point) -> None:
     window.geometry(f"{position.x:+d}{position.y:+d}")
 
 
+def new_overlay_window(master: tk.Misc) -> tk.Toplevel:
+    """Create a borderless overlay Toplevel that stays hidden until it is placed.
+
+    The single creation point for anchored overlays (menu popups, flyouts,
+    tooltips). A plain ``Toplevel`` is mapped by Tk's next idle pass at the
+    default position ``+0+0``; every ``update_idletasks()`` needed for measuring
+    would therefore flash it in the top-left screen corner before
+    :func:`place_overlay_now` moves it (measured 2026-11-09, Tk 8.6). Withdrawing
+    it *before* the first idle pass keeps it unmapped while it is built and
+    measured (the requested size is still computed); :func:`place_overlay_now`
+    reveals it at its final position.
+
+    The caller registers the overlay category itself (``register_overlay``), since
+    that is a separate contract (overlay stack) and differs per consumer.
+
+    Args:
+        master: Parent widget; the overlay belongs to its interpreter.
+
+    Returns:
+        The withdrawn, ``overrideredirect`` Toplevel.
+    """
+    window = tk.Toplevel(master)
+    window.withdraw()
+    window.overrideredirect(True)
+    return window
+
+
+def _reveal_overlay(window: tk.Misc) -> None:
+    """Map a withdrawn overlay at its already applied position and raise it.
+
+    ``deiconify()`` keeps the applied ``+x+y`` and does not activate the window
+    (no focus theft, no ``<Deactivate>`` on the main window); ``wm state normal``
+    would reset the position to ``+0+0`` instead (both measured 2026-11-09).
+    ``lift()`` only runs on the mapped window: on Windows, ``lift()`` of an
+    unmapped ``overrideredirect`` Toplevel resets the position to ``+0+0``.
+    An overlay that is already visible keeps its stacking order untouched.
+    """
+    if str(window.wm_state()) != "withdrawn":
+        return
+    window.deiconify()
+    window.lift()
+
+
 def widget_rect(widget: tk.Misc) -> Rect:
     """Return the on-screen rectangle of *widget* (convenience anchor for overlays)."""
     widget.update_idletasks()
@@ -147,7 +192,9 @@ def place_overlay_now(
     ``2*margin``) to limit the window (e.g. cap a menu's height and make it
     scrollable); the window is then re-measured and the placement recomputed with
     the same monitor. Finally the position is applied. A placement is only ever
-    applied for the size it was computed for.
+    applied for the size it was computed for. A window that is still withdrawn
+    (see :func:`new_overlay_window`) is revealed only after that, so it never
+    becomes visible anywhere but at its final position.
 
     Raises:
         RuntimeError: If the window's size changed between calculation and application.
@@ -168,6 +215,7 @@ def place_overlay_now(
     if measure_overlay(window) != result.size:
         raise RuntimeError("place_overlay_now: window size changed after the placement was calculated")
     apply_window_position(window, result.position)
+    _reveal_overlay(window)
     return result
 
 

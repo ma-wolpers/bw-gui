@@ -6,7 +6,7 @@ import tkinter as tk
 
 from bw_gui.contracts.screen_geometry import Rect, Side
 from bw_gui.runtime.overlay_stack import OverlayCategory, register_overlay
-from bw_gui.runtime.screen_placement import place_overlay_now
+from bw_gui.runtime.screen_placement import new_overlay_window, place_overlay_now
 from bw_gui.theming._theme_manager import get_theme
 
 
@@ -102,9 +102,8 @@ class HoverTooltip:
         anchor = Rect(widget_x + 16, widget_y, widget_x + 17, widget_y + widget_height)
 
         theme = get_theme(self._resolve_theme_key())
-        tip = tk.Toplevel(self.widget)
+        tip = new_overlay_window(self.widget)  # hidden until place_overlay_now reveals it
         register_overlay(tip, OverlayCategory.TRANSIENT, toplevel=tip)
-        tip.wm_overrideredirect(True)
 
         label = tk.Label(
             tip,

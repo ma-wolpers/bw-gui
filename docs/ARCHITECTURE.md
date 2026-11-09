@@ -150,7 +150,7 @@ re-exports the moved names, so import paths stay stable:
 | `contracts/screen_geometry.py` | pure screen geometry (monitor selection, overlay placement, clamping); no Tk |
 | `contracts/multicursor.py`, `multicursor_history.py`; `runtime/multicursor.py`, `multicursor_text.py`, `multicursor_view.py` | several cursors in a `Text`: pure model and cursor history, then Tk adapter, drawing and controller (`MULTICURSOR_CONTRACT.md`) |
 | `runtime/_win_monitors.py` | the only Win32 monitor-geometry adapter |
-| `runtime/screen_placement.py` | Tk side of placement (`get_monitor_info`, `place_overlay_now`); see `SCREEN_PLACEMENT_CONTRACT.md` |
+| `runtime/screen_placement.py` | Tk side of placement (`get_monitor_info`, `new_overlay_window` = hidden-until-placed overlays, `place_overlay_now`); see `SCREEN_PLACEMENT_CONTRACT.md` |
 | `testing/line_limits.py` | 300-executable-line check shared by all repos (counting rule, data-only marker, exception section) |
 | `runtime/idle_render.py` | `IdleRenderScheduler`: change-driven rendering, one render per idle cycle, cancelled with its owner |
 | `widgets/canvas_item_pool.py` | `CanvasItemPool`: reusable canvas items that send Tk only differences |

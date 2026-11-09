@@ -12,7 +12,7 @@ import tkinter as tk
 from tkinter import font as tkfont
 
 from bw_gui.contracts.screen_geometry import Side, Size
-from bw_gui.runtime.screen_placement import place_overlay_now, widget_rect
+from bw_gui.runtime.screen_placement import new_overlay_window, place_overlay_now, widget_rect
 from bw_gui.theming._theme_manager import get_theme
 
 from ._menu_mnemonics import collect_mnemonics, mnemonic_row_texts
@@ -45,17 +45,23 @@ class _MenuPopupsMixin:
         items: tuple[MenuItem, ...],
         level: int,
         top_key: str,
+        *,
+        description_flyout: bool = False,
     ) -> None:
         """Render one popup level as a styled Toplevel window.
 
         Positions level-0 popups below ``anchor_widget`` (the strip button).
         Positions level-1+ popups to the right of their anchor row.
-        Closes any deeper levels before opening this one.
+        Closes any deeper levels before opening this one. The popup stays hidden
+        until it sits at its final position (``new_overlay_window`` /
+        ``place_overlay_now``), so it never flashes in the top-left screen corner.
 
-        Also wires up keyboard navigation for the new popup (Up/Down/Enter/Right/
-        Left/Escape) and gives it focus, provided it has at least one navigable
-        row — a description flyout (see ``_show_item_description``) has none, so
-        it is silently skipped and never steals keyboard focus.
+        Every real popup gets keyboard navigation (Up/Down/Enter/Right/Left/Escape)
+        and keyboard focus, even one whose rows are all disabled (e.g. a single
+        hint row): the click-away watchdog treats focus outside the menu as "user
+        clicked elsewhere", so a popup without focus would close right after
+        opening. Only a description flyout (``description_flyout=True``, see
+        ``_show_item_description``) is non-interactive and never takes focus.
 
         Runs under ``_focus_watchdog_suspended`` — see its docstring: closing a
         previous popup here to make room, then focusing the new one, is exactly
@@ -68,9 +74,11 @@ class _MenuPopupsMixin:
             level: Depth in the popup stack (0 = top-level from strip button).
             top_key: The ``definition.key`` of the originating strip button.
                 Used to keep the correct strip button highlighted.
+            description_flyout: True only for the hover description flyout; tags
+                the popup (``_bw_menu_description_flyout``) and keeps it focus-free.
         """
         with self._focus_watchdog_suspended():
-            self._open_popup_impl(anchor_widget, items, level, top_key)
+            self._open_popup_impl(anchor_widget, items, level, top_key, description_flyout)
 
     def _open_popup_impl(
         self,
@@ -78,17 +86,18 @@ class _MenuPopupsMixin:
         items: tuple[MenuItem, ...],
         level: int,
         top_key: str,
+        description_flyout: bool,
     ) -> None:
         """The actual body of ``open_popup``, run inside its watchdog-suspended block."""
         self.close_popups_from_level(level)
 
         theme = get_theme(self.theme_key)
-        popup = tk.Toplevel(self.root)
+        popup = new_overlay_window(self.root)
         setattr(popup, "_bw_menu_popup", True)
+        setattr(popup, "_bw_menu_description_flyout", description_flyout)
         from bw_gui.runtime.overlay_stack import OverlayCategory, register_overlay
 
         register_overlay(popup, OverlayCategory.MENU, toplevel=popup)
-        popup.overrideredirect(True)
         popup.transient(self.root)
         popup.configure(bg=theme["border"], bd=1, highlightthickness=0)
 
@@ -215,10 +224,10 @@ class _MenuPopupsMixin:
         self._active_key = top_key
         self._refresh_button_states()
 
-        if navigable_rows:
+        if not description_flyout:
             self._bind_popup_navigation(popup)
             popup.focus_set()
-            self._set_keyboard_active_index(popup, 0)
+            self._set_keyboard_active_index(popup, 0)  # no-op without navigable rows
 
     def _bind_popup_navigation(self, popup: tk.Toplevel) -> None:
         """Bind the popup's keyboard navigation through a window binder on the popup.
@@ -307,10 +316,8 @@ class _MenuPopupsMixin:
             chrome = int(popup.winfo_reqheight()) - int(scroll_host.canvas.winfo_reqheight())
             scroll_host.canvas.configure(height=max(1, max_size.height - chrome))
 
-        # lift() BEFORE positioning: on Windows, lift() of a not-yet-mapped
-        # overrideredirect Toplevel resets an already applied "+x+y" to +0+0
-        # (measured 2026-10-09, Tk 8.6).
-        popup.lift()
+        # The popup is still withdrawn (new_overlay_window); place_overlay_now maps
+        # and lifts it only once it sits at its final position.
         placement = (Side.BELOW, Side.ABOVE) if level == 0 else (Side.RIGHT, Side.LEFT)
         place_overlay_now(
             popup,
@@ -414,9 +421,9 @@ class _MenuPopupsMixin:
         ``anchor_row`` would occupy — never as an extra level of its own. Reuses
         ``open_popup`` itself (with a single synthetic ``type="description"`` item)
         so the flyout gets the exact same positioning, theming, and popup-stack
-        lifecycle as every other popup level; it is tagged via
-        ``_bw_menu_description_flyout`` right after creation so later calls can tell
-        it apart from a real, click-opened submenu.
+        lifecycle as every other popup level; ``description_flyout=True`` tags it
+        (``_bw_menu_description_flyout``) at creation so later calls can tell it
+        apart from a real, click-opened submenu.
 
         If a real submenu is already open at ``level + 1`` (the user clicked into
         it), this does nothing — hovering a sibling row must never close a submenu
@@ -444,9 +451,13 @@ class _MenuPopupsMixin:
             if not _is_description_slot_replaceable(self._popup_stack, target_level):
                 return
 
-            self.open_popup(anchor_row, (MenuItem(type="description", label=description),), target_level, top_key)
-            if self._popup_stack:
-                setattr(self._popup_stack[-1], "_bw_menu_description_flyout", True)
+            self.open_popup(
+                anchor_row,
+                (MenuItem(type="description", label=description),),
+                target_level,
+                top_key,
+                description_flyout=True,
+            )
 
             if 0 <= level < len(self._popup_stack):
                 try:

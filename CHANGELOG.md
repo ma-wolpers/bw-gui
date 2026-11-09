@@ -75,6 +75,8 @@ All notable changes to this project will be documented in this file.
 - `bw_gui.theming.theme_scrollbar`: scrollbars colour themselves now (no consumer used it).
 
 ### Fixed
+- **Menus and tooltips no longer flash in the top-left screen corner:** popups of the menu bar, submenus, description flyouts and `HoverTooltip` appeared at `+0+0` for a moment before jumping into place, which felt like a lag when opening a menu. They now stay hidden until they sit at their final position (`screen_placement.new_overlay_window`, revealed by `place_overlay_now`).
+- **A menu whose entries are all disabled stays open:** a top-level popup with only disabled rows (for example a single hint line) closed again right after opening, because it never took keyboard focus. Every real popup now takes focus (Escape closes it), and only description flyouts stay focus-free (`open_popup(..., description_flyout=True)`).
 - `DataGrid` splitter handles were a raised 3D bevel in system grey that stood out in dark themes; they are now a flat gap in the theme's window background.
 - `TextSurface.transact` rolls back an edit whose `delete` succeeded before its `insert` failed (previously only fully applied edits counted, so the deleted text stayed gone). It still never undoes when nothing changed.
 - `DataGrid`: the last row could hide under a region's horizontal scrollbar. The visible height was the tallest region body (the one without a scrollbar), and the grid did not re-clamp when the scrollbar appeared at the bottom end. It is now the shortest body and is re-clamped on every body resize.

@@ -35,6 +35,25 @@ def test_small_level0_popup_opens_below_anchor(bar):
         assert popup.geometry().endswith(f"+{anchor.winfo_rootx()}+{anchor.winfo_rooty() + anchor.winfo_height()}")
 
 
+def test_popup_is_not_mapped_before_its_final_position(bar, monkeypatch):
+    """Regression 2026-11-09: popups flashed at +0+0 (top-left screen corner) before moving."""
+    menu, anchor = bar
+    mapped_when_positioned: list[int] = []
+    real_apply = sp.apply_window_position
+
+    def _spy_apply(window, position):
+        mapped_when_positioned.append(int(window.winfo_ismapped()))
+        real_apply(window, position)
+
+    monkeypatch.setattr(sp, "apply_window_position", _spy_apply)
+    with menu._focus_watchdog_suspended():
+        menu.open_popup(anchor, (MenuItem(type="command", label="Eins"),), 0, "datei")
+        popup = menu._popup_stack[0]
+        popup.update()
+        assert mapped_when_positioned == [0]
+        assert popup.winfo_ismapped()
+
+
 def test_tall_popup_is_capped_to_work_area_and_scrolls(bar):
     menu, anchor = bar
     items = tuple(MenuItem(type="command", label=f"Eintrag {i}") for i in range(60))
