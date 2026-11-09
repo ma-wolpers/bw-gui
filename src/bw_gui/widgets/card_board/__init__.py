@@ -14,8 +14,11 @@ from ._model import (
     CardTone,
     Cursor,
     Direction,
+    EditTarget,
     LaneKind,
     RowTint,
+    lane_holds_cards,
+    lane_holds_text,
 )
 from ._navigation import lane_entries, neighbor
 
@@ -30,6 +33,7 @@ __all__ = [
     "CardTone",
     "Cursor",
     "Direction",
+    "EditTarget",
     "Hit",
     "HitKind",
     "LaneKind",
@@ -39,6 +43,8 @@ __all__ = [
     "hit_test",
     "insertion_line",
     "lane_entries",
+    "lane_holds_cards",
+    "lane_holds_text",
     "neighbor",
     "slot_at",
 ]

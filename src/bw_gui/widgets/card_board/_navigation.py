@@ -1,15 +1,24 @@
 """Arrow-key navigation over a laid-out CardBoard (no Tk).
 
-Per lane the navigable *entries* run top to bottom: the cards of each row, or
-the cell itself when it holds no card (empty ``CARDS`` cell, any ``TEXT`` cell).
-Up/Down step through a lane's entries across rows; Left/Right switch lanes in
-the same row, landing on the entry closest in height.
+Per lane the navigable *entries* run top to bottom: the cards of each row,
+followed by the cell itself when it holds a text (``TEXT``, ``CARDS_TEXT``) or
+holds no card (empty ``CARDS`` cell). Up/Down step through a lane's entries
+across rows; Left/Right switch lanes in the same row, landing on the entry
+closest in height.
 """
 
 from __future__ import annotations
 
-from ._layout import BoardLayout, cursor_box
-from ._model import BoardCell, Cursor, Direction, LaneKind
+from ._layout import BoardLayout, CellBox, cursor_box
+from ._model import BoardCell, Cursor, Direction, lane_holds_text
+
+
+def _cell_entries(cell: CellBox) -> list[Cursor]:
+    """Entries of one cell, top to bottom: its cards, then the cell when it holds a text or no card."""
+    entries: list[Cursor] = list(cell.card_keys)
+    if lane_holds_text(cell.kind) or not entries:
+        entries.append(cell.cell)
+    return entries
 
 
 def lane_entries(layout: BoardLayout, lane_key: str) -> list[Cursor]:
@@ -17,12 +26,8 @@ def lane_entries(layout: BoardLayout, lane_key: str) -> list[Cursor]:
     entries: list[Cursor] = []
     for row in layout.rows:
         cell = layout.cells.get(BoardCell(row.key, lane_key))
-        if cell is None:
-            continue
-        if cell.kind is LaneKind.CARDS and cell.card_keys:
-            entries.extend(cell.card_keys)
-        else:
-            entries.append(cell.cell)
+        if cell is not None:
+            entries.extend(_cell_entries(cell))
     return entries
 
 
@@ -60,11 +65,14 @@ def neighbor(layout: BoardLayout, cursor: Cursor, direction: Direction) -> Curso
     if not 0 <= target_lane < len(lane_keys):
         return None
     target_cell = layout.cells[BoardCell(cell.row_key, lane_keys[target_lane])]
-    if target_cell.kind is LaneKind.TEXT or not target_cell.card_keys:
-        return target_cell.cell
+    candidates = _cell_entries(target_cell)
+    if len(candidates) == 1:
+        return candidates[0]
     origin = cursor_box(layout, cursor)
     middle = (origin[1] + origin[3]) / 2 if origin is not None else 0.0
-    return min(
-        target_cell.card_keys,
-        key=lambda key: abs((layout.cards[key].box[1] + layout.cards[key].box[3]) / 2 - middle),
-    )
+
+    def distance(entry: Cursor) -> float:
+        box = cursor_box(layout, entry)
+        return abs((box[1] + box[3]) / 2 - middle) if box is not None else float("inf")
+
+    return min(candidates, key=distance)

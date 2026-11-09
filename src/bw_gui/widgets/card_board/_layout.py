@@ -11,7 +11,18 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Callable, Mapping, Sequence
 
-from ._model import BoardCell, BoardLane, BoardRow, BoardSlot, CardTone, Cursor, LaneKind, RowTint
+from ._model import (
+    BoardCell,
+    BoardLane,
+    BoardRow,
+    BoardSlot,
+    CardTone,
+    Cursor,
+    LaneKind,
+    RowTint,
+    lane_holds_cards,
+    lane_holds_text,
+)
 
 LABEL_WIDTH = 132
 PAD = 6
@@ -103,9 +114,12 @@ class CardBox:
 
 @dataclass(frozen=True)
 class CellBox:
-    """One cell: its box, its cards, its "+" box and (``TEXT`` lanes) its text lines.
+    """One cell: its box, its cards, its "+" box and (text-holding lanes) its text area and lines.
 
     ``locked`` cells (of a locked row) have no "+" box and take no drop.
+    ``text_box`` is the part of the cell that shows (and edits) the free text:
+    the whole cell in a ``TEXT`` lane, the part below the cards in a
+    ``CARDS_TEXT`` lane, ``None`` in a ``CARDS`` lane.
     """
 
     cell: BoardCell
@@ -116,11 +130,16 @@ class CellBox:
     text_lines: tuple[str, ...]
     is_placeholder: bool
     locked: bool = False
+    text_box: Box | None = None
 
 
 @dataclass(frozen=True)
 class BoardLayout:
-    """Everything the renderer and the hit tests need."""
+    """Everything the renderer and the hit tests need.
+
+    ``draft_box`` is the space reserved for a new card being typed (see the
+    ``draft`` argument of :func:`compute_layout`), ``None`` without one.
+    """
 
     width: float
     height: float
@@ -129,6 +148,7 @@ class BoardLayout:
     rows: tuple[RowBox, ...]
     cells: Mapping[BoardCell, CellBox]
     cards: Mapping[str, CardBox]
+    draft_box: Box | None = None
 
 
 class HitKind(str, Enum):
@@ -136,6 +156,7 @@ class HitKind(str, Enum):
 
     CARD = "card"
     ADD = "add"
+    TEXT = "text"
     CELL = "cell"
     ROW_ACTION = "row_action"
     NONE = "none"
@@ -170,8 +191,13 @@ def compute_layout(
     line_height: int,
     wrapper: TextWrapper,
     badge_width: Callable[[str], int],
+    draft: BoardSlot | None = None,
 ) -> BoardLayout:
     """Lay out all rows top to bottom; every cell spans its row's full height.
+
+    A cell stacks, top to bottom: its cards (card-holding lanes), its "+" box
+    (not in locked rows) and its text (text-holding lanes). An empty ``CARDS``
+    cell gets a full-width "+" box, every other card stack a small one.
 
     Args:
         rows: Rows in display order (top first).
@@ -180,12 +206,15 @@ def compute_layout(
         line_height: Font line height.
         wrapper: Word wrapper for card, label and text-lane texts.
         badge_width: Pixel width of a badge text.
+        draft: Slot of a new card being typed: one card-high space is reserved
+            there (``BoardLayout.draft_box``) and the following cards move down.
     """
     lane_boxes = _lane_boxes(lanes, width)
     placeholders = {lane.key: lane.placeholder for lane in lanes}
     rows_out: list[RowBox] = []
     cells: dict[BoardCell, CellBox] = {}
     cards: dict[str, CardBox] = {}
+    draft_box: Box | None = None
     y = 0.0
     for row in rows:
         label_lines = wrapper.wrap(row.label, LABEL_WIDTH - 2 * PAD)
@@ -196,48 +225,57 @@ def compute_layout(
             action_box = (PAD, label_bottom + GAP, PAD + action_w, label_bottom + GAP + line_height + 2 * CARD_PAD_Y)
             label_bottom = action_box[3]
         bottoms = [label_bottom + PAD]
-        pending: list[tuple[LaneBox, tuple[str, ...], Box | None, tuple[str, ...], bool]] = []
+        pending: list[tuple[LaneBox, tuple[str, ...], Box | None, tuple[str, ...], bool, float | None]] = []
         for lane in lane_boxes:
             x0, x1 = lane.x0 + PAD, lane.x1 - PAD
-            if lane.kind is LaneKind.TEXT:
+            cell = BoardCell(row.key, lane.key)
+            stack_bottom, keys, add_box = y, [], None  # stack_bottom: lower edge of the last stacked box
+            if lane_holds_cards(lane.kind):
+                top = y + PAD
+                lane_cards = row.cards.get(lane.key, ())
+                draft_at = min(max(0, draft.index), len(lane_cards)) if draft is not None and draft.cell == cell else -1
+                for index in range(len(lane_cards) + 1):
+                    if index == draft_at:
+                        draft_box = (x0, top, x1, top + line_height + 2 * CARD_PAD_Y)
+                        stack_bottom, top = draft_box[3], draft_box[3] + GAP
+                    if index == len(lane_cards):
+                        break
+                    card = lane_cards[index]
+                    badge_w = badge_width(card.badge) + 2 * BADGE_PAD if card.badge else 0
+                    text_w = int(x1 - x0 - 2 * CARD_PAD_X - (badge_w + GAP if badge_w else 0))
+                    lines = wrapper.wrap(card.text, text_w)
+                    bottom = top + max(1, len(lines)) * line_height + 2 * CARD_PAD_Y
+                    badge_top = top + CARD_PAD_Y
+                    badge_box = (x1 - CARD_PAD_X - badge_w, badge_top, x1 - CARD_PAD_X, badge_top + line_height)
+                    cards[card.key] = CardBox(card.key, cell, index, (x0, top, x1, bottom), lines, card.badge,
+                                              badge_box if badge_w else None, card.tone)  # fmt: skip
+                    keys.append(card.key)
+                    stack_bottom, top = bottom, bottom + GAP
+                if not row.locked:
+                    small = keys or draft_at >= 0 or lane_holds_text(lane.kind)
+                    right = x0 + line_height + 2 * CARD_PAD_X if small else x1
+                    add_box = (x0, top, right, top + (line_height + 2 if small else line_height + 2 * CARD_PAD_Y))
+                    stack_bottom = add_box[3]
+                bottoms.append(stack_bottom + PAD if stack_bottom > y else y + PAD)
+            text_y0: float | None = None
+            lines, is_placeholder = (), False
+            if lane_holds_text(lane.kind):
                 text = row.texts.get(lane.key, "")
                 shown = text or ("" if row.locked else placeholders.get(lane.key, ""))
-                lines = wrapper.wrap(shown, int(x1 - x0 - 2 * CARD_PAD_X))
-                bottoms.append(y + 2 * PAD + max(2, len(lines)) * line_height + 2 * CARD_PAD_Y)
-                pending.append((lane, (), None, lines, not text))
-                continue
-            top, keys = y + PAD, []
-            for index, card in enumerate(row.cards.get(lane.key, ())):
-                badge_w = badge_width(card.badge) + 2 * BADGE_PAD if card.badge else 0
-                text_w = int(x1 - x0 - 2 * CARD_PAD_X - (badge_w + GAP if badge_w else 0))
-                lines = wrapper.wrap(card.text, text_w)
-                bottom = top + max(1, len(lines)) * line_height + 2 * CARD_PAD_Y
-                badge_box = (x1 - CARD_PAD_X - badge_w, top + CARD_PAD_Y, x1 - CARD_PAD_X, top + CARD_PAD_Y + line_height)
-                cell = BoardCell(row.key, lane.key)
-                cards[card.key] = CardBox(card.key, cell, index, (x0, top, x1, bottom), lines, card.badge,
-                                          badge_box if badge_w else None, card.tone)  # fmt: skip
-                keys.append(card.key)
-                top = bottom + GAP
-            add_box: Box | None
-            if row.locked:
-                add_box = None
-                bottoms.append(top - GAP + PAD if keys else y + PAD)
-            elif keys:
-                add_box = (x0, top, x0 + line_height + 2 * CARD_PAD_X, top + line_height + 2)
-            else:
-                add_box = (x0, top, x1, top + line_height + 2 * CARD_PAD_Y)
-            if add_box is not None:
-                bottoms.append(add_box[3] + PAD)
-            pending.append((lane, tuple(keys), add_box, (), False))
+                lines, is_placeholder = wrapper.wrap(shown, int(x1 - x0 - 2 * CARD_PAD_X)), not text
+                text_y0 = stack_bottom
+                bottoms.append(text_y0 + 2 * PAD + max(2, len(lines)) * line_height + 2 * CARD_PAD_Y)
+            pending.append((lane, tuple(keys), add_box, lines, is_placeholder, text_y0))
         row_bottom = max(bottoms)
-        for lane, keys, add_box, lines, is_placeholder in pending:
+        for lane, keys, add_box, lines, is_placeholder, text_y0 in pending:
             cell = BoardCell(row.key, lane.key)
+            text_box = (lane.x0, text_y0, lane.x1, row_bottom) if text_y0 is not None else None
             cells[cell] = CellBox(cell, lane.kind, (lane.x0, y, lane.x1, row_bottom), keys, add_box, lines,
-                                  is_placeholder, row.locked)  # fmt: skip
+                                  is_placeholder, row.locked, text_box)  # fmt: skip
         rows_out.append(RowBox(row.key, y, row_bottom, label_lines, row.tint, row.action, action_box))
         y = row_bottom
     right = lane_boxes[-1].x1 if lane_boxes else float(LABEL_WIDTH)
-    return BoardLayout(right, y, line_height, lane_boxes, tuple(rows_out), cells, cards)
+    return BoardLayout(right, y, line_height, lane_boxes, tuple(rows_out), cells, cards, draft_box)
 
 
 def _inside(box: Box | None, x: float, y: float) -> bool:
@@ -251,7 +289,11 @@ def _cell_at(layout: BoardLayout, x: float, y: float) -> BoardCell | None:
 
 
 def hit_test(layout: BoardLayout, x: float, y: float) -> Hit:
-    """Return what the canvas point (*x*, *y*) hits: a row-action button, a card, a "+" box, a cell or nothing."""
+    """Return what the canvas point (*x*, *y*) hits.
+
+    In this order: a row-action button, a card, a "+" box, the text area of a
+    text-holding cell (``TEXT``), the rest of a cell (``CELL``) or nothing.
+    """
     for row in layout.rows:
         if _inside(row.action_box, x, y):
             return Hit(HitKind.ROW_ACTION, row_key=row.key)
@@ -264,6 +306,8 @@ def hit_test(layout: BoardLayout, x: float, y: float) -> Hit:
             return Hit(HitKind.CARD, cell, key)
     if _inside(box.add_box, x, y):
         return Hit(HitKind.ADD, cell)
+    if _inside(box.text_box, x, y):
+        return Hit(HitKind.TEXT, cell)
     return Hit(HitKind.CELL, cell)
 
 
@@ -272,13 +316,14 @@ def slot_at(layout: BoardLayout, x: float, y: float) -> BoardSlot | None:
 
     Points above the first row or below the last row snap to that row, so
     dragging slightly past the edge still targets the outermost row. Locked
-    cells have no slots.
+    cells and text-only lanes have no slots; over the text of a ``CARDS_TEXT``
+    cell the slot is the end of its cards (directly above the text).
     """
     if not layout.rows:
         return None
     y = min(max(y, layout.rows[0].y0), layout.rows[-1].y1 - 1)
     cell = _cell_at(layout, x, y)
-    if cell is None or layout.cells[cell].kind is not LaneKind.CARDS or layout.cells[cell].locked:
+    if cell is None or not lane_holds_cards(layout.cells[cell].kind) or layout.cells[cell].locked:
         return None
     keys = layout.cells[cell].card_keys
     index = sum(1 for key in keys if (layout.cards[key].box[1] + layout.cards[key].box[3]) / 2 < y)
@@ -302,10 +347,15 @@ def insertion_line(layout: BoardLayout, slot: BoardSlot) -> tuple[float, float, 
 
 
 def cursor_box(layout: BoardLayout, cursor: Cursor) -> Box | None:
-    """Box of the cursor (a card's box or a cell's box), ``None`` if it is not on the board."""
+    """Box of the cursor, ``None`` if it is not on the board.
+
+    A card cursor frames the card; a cell cursor frames the cell's text area in
+    text-holding lanes (below the cards of a ``CARDS_TEXT`` cell), otherwise the cell.
+    """
     if isinstance(cursor, str):
         card = layout.cards.get(cursor)
         return card.box if card is not None else None
     if isinstance(cursor, BoardCell) and cursor in layout.cells:
-        return layout.cells[cursor].box
+        cell = layout.cells[cursor]
+        return cell.text_box or cell.box
     return None

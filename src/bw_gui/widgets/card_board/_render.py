@@ -16,7 +16,7 @@ from ...theming import tinted_color
 from ..canvas_item_pool import CanvasItemPool
 from ..canvas_shapes import rounded_rect_points
 from ._layout import CARD_PAD_X, CARD_PAD_Y, LABEL_WIDTH, PAD, BoardLayout, cursor_box, insertion_line
-from ._model import BoardSlot, CardTone, Cursor, LaneKind
+from ._model import BoardSlot, CardTone, Cursor
 
 _RADIUS = 7
 
@@ -115,12 +115,11 @@ class BoardRenderer:
     def _cells(self, layout: BoardLayout, theme: Mapping[str, str]) -> None:
         line_h = layout.line_height
         for cell in layout.cells.values():
-            x0, y0, _x1, _y1 = cell.box
-            if cell.kind is LaneKind.TEXT:
+            if cell.text_box is not None:
+                x0, y0, _x1, _y1 = cell.text_box
                 color = theme["fg_muted"] if cell.is_placeholder else theme["fg_primary"]
                 for index, line in enumerate(cell.text_lines):
                     self._text("lane_text", x0 + PAD + CARD_PAD_X, y0 + PAD + CARD_PAD_Y + index * line_h, line, color)
-                continue
             if cell.add_box is None:
                 continue
             ax0, ay0, ax1, ay1 = cell.add_box

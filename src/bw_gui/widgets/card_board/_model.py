@@ -2,7 +2,8 @@
 
 A board is a table of *rows* (top to bottom, in display order) and *lanes*
 (columns, left to right). A ``CARDS`` lane holds an ordered stack of cards per
-row; a ``TEXT`` lane holds one free text per row. The consumer owns all data and
+row; a ``TEXT`` lane holds one free text per row; a ``CARDS_TEXT`` lane holds
+both, the cards above the text. The consumer owns all data and
 rules (which card may go where, what a row means) -- the board only shows the
 model, reports gestures and computes positions.
 """
@@ -15,10 +16,26 @@ from typing import Mapping, Union
 
 
 class LaneKind(str, Enum):
-    """What a lane holds per row."""
+    """What a lane holds per row.
+
+    ``CARDS_TEXT`` stacks the row's cards (with a small "+" below them) above a
+    free text: cards always stay above the text, and drop slots exist only
+    between the cards.
+    """
 
     CARDS = "cards"
     TEXT = "text"
+    CARDS_TEXT = "cards_text"
+
+
+def lane_holds_cards(kind: LaneKind) -> bool:
+    """Whether cells of a lane of *kind* hold cards -- the one place of this rule."""
+    return kind is not LaneKind.TEXT
+
+
+def lane_holds_text(kind: LaneKind) -> bool:
+    """Whether cells of a lane of *kind* hold a free text -- the one place of this rule."""
+    return kind is not LaneKind.CARDS
 
 
 @dataclass(frozen=True)
@@ -95,8 +112,9 @@ class BoardRow:
     Attributes:
         key: Stable identifier.
         label: Row-label text; ``\\n`` separates label lines.
-        cards: Cards per ``CARDS`` lane key, top to bottom. Missing lanes are empty.
-        texts: Text per ``TEXT`` lane key. Missing lanes are empty.
+        cards: Cards per card-holding lane key (``CARDS``, ``CARDS_TEXT``), top to
+            bottom. Missing lanes are empty.
+        texts: Text per text-holding lane key (``TEXT``, ``CARDS_TEXT``). Missing lanes are empty.
         tint: Optional background tint of the whole row.
         locked: A locked row takes nothing new: no "+" boxes, no drop slots,
             its ``TEXT`` cells show no placeholder and open no editor. Its
@@ -140,6 +158,9 @@ class BoardSlot:
 
 Cursor = Union[str, BoardCell, None]
 """The keyboard cursor: a card key, an empty/text cell, or nothing."""
+
+EditTarget = Union[str, BoardCell, BoardSlot]
+"""What the inline editor edits: a card (key), a text cell, or a new card at a slot."""
 
 
 class Direction(str, Enum):
