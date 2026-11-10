@@ -294,4 +294,7 @@ See also:
 - Widgets (`HoverTooltip`, `WrappedTextField`, `RegexEntryField`, …): docstrings in `src/bw_gui/widgets/`.
   `WrappedTextField`: `load()` starts an editing session (not undoable), `set()` replaces text undoably,
   `get()` strips whitespace, `get_raw()` returns the exact text.
+  `ResizableSideOverlay`: right-edge panel `place()`d over its parent (title, close "×", drag grip for the
+  width); `ZoomableDocText`: read-only themed doc view with Ctrl+wheel zoom; `configure_doc_text_theme`:
+  the one theme-to-doc-style mapping (no hex values in consumers).
 - Laufkern (shortcut reachability verification): docstrings in `src/bw_gui/laufkern/`

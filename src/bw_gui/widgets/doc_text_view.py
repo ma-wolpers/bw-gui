@@ -12,9 +12,46 @@ import tkinter as tk
 from collections.abc import Callable
 from tkinter import ttk
 
+from bw_gui.theming._color_math import mix_hex
+from bw_gui.theming._theme_manager import get_theme
+
 from .doc_text_events import CodeBlockEvent, DocEvent, HeadingEvent, ListItemEvent, ParagraphEvent, TextRun
 
 _HEADING_SIZE_DELTA = {1: 8, 2: 5, 3: 2}
+
+DOC_FONT_FAMILY = "Segoe UI"
+"""Body font of every themed doc view (``configure_doc_text_theme``)."""
+DOC_MONO_FONT_FAMILY = "Consolas"
+"""Code font of every themed doc view."""
+DEFAULT_DOC_BASE_SIZE = 10
+"""Body point size of a doc view at zoom 100 %."""
+_CODE_BG_BORDER_RATIO = 0.35
+"""Share of the ``border`` token mixed into ``bg_surface`` for code backgrounds."""
+
+
+def configure_doc_text_theme(
+    text: tk.Text, theme_key: str | None = None, *, base_size: int = DEFAULT_DOC_BASE_SIZE
+) -> None:
+    """Configures the doc tags of ``text`` from the theme -- the one theme-to-doc-style mapping.
+
+    Consumers never see hex values: colours come from the theme contract
+    (``fg_primary``, ``bg_surface``, code background mixed from ``border``),
+    fonts from ``DOC_FONT_FAMILY``/``DOC_MONO_FONT_FAMILY``. Call it again with
+    another ``base_size`` to zoom (only tag fonts change, no re-render) and
+    after a theme switch to re-colour. ``theme_key=None`` uses the current theme.
+    """
+    theme = get_theme(theme_key)
+    configure_doc_text_tags(
+        text,
+        {
+            "fg_primary": theme["fg_primary"],
+            "bg_surface": theme["bg_surface"],
+            "bg_code": mix_hex(theme["border"], theme["bg_surface"], _CODE_BG_BORDER_RATIO),
+            "font_family": DOC_FONT_FAMILY,
+            "mono_font_family": DOC_MONO_FONT_FAMILY,
+            "base_size": base_size,
+        },
+    )
 
 
 def configure_doc_text_tags(text: tk.Text, style: dict) -> None:

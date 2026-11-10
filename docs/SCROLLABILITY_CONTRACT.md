@@ -34,6 +34,7 @@ the window" problem this contract exists to prevent.
 | Popup / Dialog | `bw_gui.dialogs.ScrollablePopupWindow` |
 | Embedded content area / Pane / Panel (not a popup) | `bw_gui.widgets.ScrollableFrame` |
 | Image preview (e.g. one PDF page) inside a popup or panel | `bw_gui.widgets.ScrollableImagePreview` |
+| Read-only formatted document (Markdown/HTML as `DocEvent`s), zoomable | `bw_gui.widgets.ZoomableDocText` (native `Text` scrolling, Ctrl+wheel zoom) |
 
 Both are opt-out, not opt-in: reach for them first, and only skip them with
 a documented reason (see below).
