@@ -21,6 +21,22 @@ def test_compose_hover_text_without_description():
     assert compose_hover_text("", "Ctrl+S") == "Shortcut: Strg+S"
 
 
+def test_alternative_shortcuts_join_with_oder_and_skip_unbound():
+    from bw_gui.contracts import KeySpec
+    from bw_gui.contracts.keybinding import KeyBindingDefinition, KeybindingRegistry
+    from bw_gui.shortcuts import compose_hover_text_for_intent, compose_menu_label
+
+    keys = (KeySpec.parse("Ctrl+Delete"), None, KeySpec.parse("Ctrl+Backspace"))
+    assert compose_hover_text("Löschen", keys) == "Löschen\nShortcut: Strg+Entf oder Strg+Rücktaste"
+    assert compose_menu_label("Löschen", (None,)) == "Löschen"
+
+    registry = KeybindingRegistry()
+    for binding_id, key, intent in (("a", "Ctrl+Delete", "clear"), ("b", "Ctrl+Backspace", "clear.back")):
+        registry.register(KeyBindingDefinition(binding_id=binding_id, keys=(KeySpec.parse(key),), intent=intent))
+    text = compose_hover_text_for_intent("Löschen", intent=("clear", "clear.back", "unbound"), shortcuts=registry)
+    assert text.endswith("Strg+Entf oder Strg+Rücktaste")
+
+
 def test_humanize_shortcut_from_keyspec_and_notation():
     from bw_gui.contracts import Key, KeySpec, Mod
 

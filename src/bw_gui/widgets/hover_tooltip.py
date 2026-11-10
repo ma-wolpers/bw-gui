@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import tkinter as tk
+from collections.abc import Callable
 
 from bw_gui.contracts.screen_geometry import Rect, Side
 from bw_gui.runtime.overlay_stack import OverlayCategory, register_overlay
@@ -23,9 +24,23 @@ class HoverTooltip:
         theme_key: str | None = None,
         show_delay_ms: int = 350,
         wraplength: int = 460,
+        text_provider: Callable[[], str] | None = None,
     ):
+        """Attach the tooltip to *widget*.
+
+        Args:
+            widget: First hit area.
+            text: Fixed text; ignored when *text_provider* is given.
+            theme_key: Explicit theme; otherwise the toplevel's ``theme_var``.
+            show_delay_ms: Hover delay before the tip appears.
+            wraplength: Line width in pixels.
+            text_provider: Builds the text each time the tip appears, e.g. from a
+                shortcut registry filled after the widget was built, so the shown key
+                always matches the current binding. An empty result shows nothing.
+        """
         self.widget = widget
         self.text = text.strip()
+        self.text_provider = text_provider
         self.theme_key = theme_key
         self.show_delay_ms = max(0, int(show_delay_ms))
         self.wraplength = max(120, int(wraplength))
@@ -33,10 +48,16 @@ class HoverTooltip:
         self._widgets: list[tk.Widget] = []
         self._show_after_id: str | None = None
 
-        if not self.text:
+        if not self.text and text_provider is None:
             return
 
         self.bind_widget(widget)
+
+    def current_text(self) -> str:
+        """The text the tip shows now (from *text_provider* if set, else the fixed text)."""
+        if self.text_provider is not None:
+            return (self.text_provider() or "").strip()
+        return self.text
 
     def bind_widget(self, widget: tk.Widget) -> None:
         """Register additional hit areas for the same tooltip."""
@@ -87,6 +108,10 @@ class HoverTooltip:
         if self._tip is not None:
             return
 
+        text = self.current_text()
+        if not text:
+            return
+
         active = HoverTooltip._active_owner
         if active is not None and active is not self:
             active._hide()
@@ -107,7 +132,7 @@ class HoverTooltip:
 
         label = tk.Label(
             tip,
-            text=self.text,
+            text=text,
             justify="left",
             relief="solid",
             borderwidth=1,

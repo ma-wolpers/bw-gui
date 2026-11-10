@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Protocol
 
 from bw_gui.contracts.key_spec import KeySpec
@@ -106,29 +107,46 @@ def humanize_shortcut(shortcut: KeySpec | str | None) -> str:
     return _normalize_display_text(text)
 
 
-def format_shortcut_label(symbol_label: str, shortcut: KeySpec | str | None = None) -> str:
+ShortcutHint = KeySpec | str | Sequence[KeySpec | str | None] | None
+"""One shortcut, or several alternatives (``(Ctrl+Delete, Ctrl+Backspace)``)."""
+
+
+def _shortcut_hint(shortcut: ShortcutHint) -> str:
+    """Readable text of one shortcut or of alternatives joined by ``" oder "``.
+
+    The one rule for showing alternatives; empty entries (unbound intents) are left out.
+    """
+    if isinstance(shortcut, (list, tuple)):
+        return " oder ".join(hint for hint in (humanize_shortcut(item) for item in shortcut) if hint)
+    return humanize_shortcut(shortcut)
+
+
+def format_shortcut_label(symbol_label: str, shortcut: ShortcutHint = None) -> str:
     """Return compact icon-centric button label with optional shortcut suffix."""
     label = (symbol_label or "").strip()
-    hint = humanize_shortcut(shortcut)
+    hint = _shortcut_hint(shortcut)
     if not hint:
         return label
     return f"{label} [{hint}]"
 
 
-def compose_menu_label(label: str, shortcut: KeySpec | str | None = None) -> str:
+def compose_menu_label(label: str, shortcut: ShortcutHint = None) -> str:
     """Menu item text with the shortcut in parentheses (``"Rückgängig (Strg+Z)"``).
 
     The one menu-label format; without a shortcut the label stays as is.
     """
     text = (label or "").strip()
-    hint = humanize_shortcut(shortcut)
+    hint = _shortcut_hint(shortcut)
     return f"{text} ({hint})" if hint else text
 
 
-def compose_hover_text(description: str, shortcut: KeySpec | str | None = None) -> str:
-    """Compose hover text with explanation and optional shortcut line."""
+def compose_hover_text(description: str, shortcut: ShortcutHint = None) -> str:
+    """Compose hover text with explanation and optional shortcut line.
+
+    *shortcut* may list alternatives; they appear as ``"Strg+Entf oder Strg+Rücktaste"``.
+    """
     desc = (description or "").strip()
-    hint = humanize_shortcut(shortcut)
+    hint = _shortcut_hint(shortcut)
     if not hint:
         return desc
     if not desc:
@@ -140,7 +158,7 @@ def compose_action_label(
     label: str,
     *,
     icon: str | None = None,
-    shortcut: KeySpec | str | None = None,
+    shortcut: ShortcutHint = None,
     include_shortcut: bool = True,
 ) -> str:
     """Compose compact action label with optional icon and shortcut badge."""
@@ -159,19 +177,26 @@ def compose_action_label(
 def compose_hover_text_for_intent(
     description: str,
     *,
-    intent: str,
+    intent: str | Sequence[str],
     shortcuts: ShortcutResolver,
     mode: str | None = None,
     offline: bool = False,
     text_input_focused: bool = False,
     metadata: dict[str, str] | None = None,
 ) -> str:
-    """Compose hover text by resolving the active shortcut sequence for one intent (and metadata)."""
-    shortcut = shortcuts.shortcut_for_intent(
-        intent,
-        mode=mode,
-        offline=offline,
-        text_input_focused=text_input_focused,
-        metadata=metadata,
+    """Compose hover text by resolving the active shortcut of one intent (and metadata).
+
+    Several intents (e.g. two bindings of one button) show their keys as alternatives.
+    """
+    intents = (intent,) if isinstance(intent, str) else tuple(intent)
+    keys = tuple(
+        shortcuts.shortcut_for_intent(
+            name,
+            mode=mode,
+            offline=offline,
+            text_input_focused=text_input_focused,
+            metadata=metadata,
+        )
+        for name in intents
     )
-    return compose_hover_text(description, shortcut)
+    return compose_hover_text(description, keys)

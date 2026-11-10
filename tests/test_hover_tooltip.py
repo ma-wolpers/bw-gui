@@ -36,3 +36,17 @@ def test_resolve_theme_key_uses_toplevel_theme_var_when_available():
     tooltip.widget = _FakeWidget(_FakeRoot("slate_indigo"))
 
     assert tooltip._resolve_theme_key() == "slate_indigo"
+
+def test_text_provider_is_read_when_shown_not_when_built():
+    calls: list[str] = []
+    tooltip = HoverTooltip.__new__(HoverTooltip)
+    tooltip.text = ""
+    tooltip.text_provider = lambda: calls.append("read") or "  Neu (Strg+N) "
+
+    assert calls == []
+    assert tooltip.current_text() == "Neu (Strg+N)"
+    assert calls == ["read"]
+
+    tooltip.text_provider = None
+    tooltip.text = "fest"
+    assert tooltip.current_text() == "fest"

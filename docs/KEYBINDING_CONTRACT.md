@@ -68,7 +68,11 @@ Code and configuration always use the English notation above. Everything shown t
 - `compose_menu_label(label, shortcut)`: menu text `Label (Strg+Z)`.
 - `format_shortcut_label` / `compose_action_label`: compact `Label [Strg+R]`.
 
+All of them also take several alternatives (a tuple of shortcuts, unbound `None` entries left out), shown as `Strg+Entf oder Strg+Rücktaste`; `compose_hover_text_for_intent(intent=(a, b))` resolves one key per intent.
+
 The key shown for an intent comes from its binding: `KeybindingRegistry.shortcut_for_intent(intent, metadata=…)`. Bindings of one intent are told apart by `metadata` (passed to `bind(..., metadata=)`), e.g. the direction of a "move column" intent. Apps write no key names into labels or help texts.
+
+Tooltips built before the bindings are registered use `HoverTooltip(widget, "", text_provider=lambda: compose_hover_text_for_intent(...))`: the text is built each time the tip appears, so it always shows the current binding. Menus with an `items_provider` are built on opening and can call `compose_menu_label(label, registry.shortcut_for_intent(intent))` directly.
 
 ## Two levels: `KeyIdentity.character` vs. `KeyEvent.text`
 
