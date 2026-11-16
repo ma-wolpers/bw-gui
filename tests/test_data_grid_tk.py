@@ -204,3 +204,21 @@ def test_see_before_first_resize_is_applied_once_the_size_is_known(_shared_tk_ro
         assert grid.regions[Region.SCROLL].x_offset > 0
     finally:
         window.destroy()
+
+
+def test_muted_rows_use_fg_muted_and_others_fg_primary(make_grid):
+    from bw_gui.theming._theme_manager import get_theme
+
+    grid, window = make_grid(dates=2)
+    cols = _columns(2)
+    grid.set_rows([GridRow("a", {c.key: "aktiv" for c in cols}), GridRow("m", {c.key: "grau" for c in cols}, muted=True)])
+    window.update()
+    theme = get_theme()
+
+    fills = {}
+    for view in grid.regions.values():
+        for item in view._cells.items:
+            if view.body.itemcget(item, "state") != "hidden":
+                fills.setdefault(view.body.itemcget(item, "text"), set()).add(view.body.itemcget(item, "fill"))
+    assert fills["aktiv"] == {theme["fg_primary"]}
+    assert fills["grau"] == {theme["fg_muted"]}

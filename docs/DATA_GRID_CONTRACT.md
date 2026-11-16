@@ -28,7 +28,7 @@ of milliseconds at ~40 columns), a canvas only repaints the damaged area.
 | Call | Effect | Render kind |
 |---|---|---|
 | `set_columns([GridColumn(key, title, width, region, anchor)])` | column set | content |
-| `set_rows([GridRow(row_id, {key: text})])` | rows in display order (consumer sorts) | content |
+| `set_rows([GridRow(row_id, {key: text}, muted=False)])` | rows in display order (consumer sorts); `muted` rows draw their texts in `fg_muted` | content |
 | `set_cursor(row_id, column_key)` | selection band on the row, cell cursor and header marker on the column | markers |
 | `set_sort_indicator(column_key, ascending)` | ▲/▼ in that header | content |
 | `set_width_scale(f)` | global column-width zoom (all widths × f); unchanged value = no-op, so callers may pass it on every state update | content |
@@ -56,7 +56,7 @@ count (`tests/test_data_grid_tk.py`).
 ## Theme
 
 Colours come only from the ambient theme (principle A): band and header marker
-`accent_soft`, cursor `accent`, text `fg_primary`, header `bg_panel`, lines
+`accent_soft`, cursor `accent`, text `fg_primary` (`fg_muted` for `GridRow.muted`), header `bg_panel`, lines
 `border`. A theme switch re-renders; the grid's theme listener ends with its frame.
 The splitter handles are a flat gap in `bg_main` between the regions' borders; their
 look comes from the classic-widget table (`THEME_CONTRACT.md`, "Classic Tk widgets"),

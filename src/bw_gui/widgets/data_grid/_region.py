@@ -135,11 +135,12 @@ class RegionView:
         self._cells.begin()
         for row_index in state.visible:
             y = (row_index - state.top_row) * self._row_h + self._row_h / 2
-            cells = state.rows[row_index].cells
+            row = state.rows[row_index]
+            fill = theme["fg_muted"] if row.muted else theme["fg_primary"]
             for index in columns:
                 column = self.layout.columns[index]
                 x0, x1 = (edge - self.x_offset for edge in self.layout.span(index))
-                self._place_text(self._cells, column.anchor, x0, x1, y, cells.get(column.key, ""), theme["fg_primary"])
+                self._place_text(self._cells, column.anchor, x0, x1, y, row.cells.get(column.key, ""), fill)
         self._cells.end()
         self._sync_hbar()
         self.render_markers(state, theme)

@@ -43,10 +43,16 @@ class GridColumn:
 
 @dataclass(frozen=True)
 class GridRow:
-    """One row: its stable id and the display text per column key (missing key = empty)."""
+    """One row: its stable id and the display text per column key (missing key = empty).
+
+    ``muted`` draws the row's texts in the theme token ``fg_muted`` instead of
+    ``fg_primary`` (e.g. an inactive entry the consumer keeps listed). Like all
+    text colours it never depends on the selection.
+    """
 
     row_id: str
     cells: Mapping[str, str] = field(default_factory=dict)
+    muted: bool = False
 
 
 class RegionLayout:
