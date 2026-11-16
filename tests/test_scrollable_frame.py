@@ -366,3 +366,20 @@ def test_see_x_range_is_rejected_for_vertical_orientation(root):
     frame = ScrollableFrame(root)
     with pytest.raises(RuntimeError):
         frame.see_x_range(0, 10)
+
+
+def test_styled_frame_paints_content_and_canvas_in_the_style_background(root) -> None:
+    from bw_gui.theming import configure_ttk_theme
+
+    configure_ttk_theme(root, "charcoal")
+    frame = ScrollableFrame(root, style="Panel.TFrame")
+    frame.pack(fill="both", expand=True)
+    root.update()
+    style = widgets.Style(root)
+
+    assert str(frame.content.cget("style")) == "Panel.TFrame"
+    assert frame.canvas.cget("background") == style.lookup("Panel.TFrame", "background")
+
+    configure_ttk_theme(root, "light")
+    root.update()
+    assert frame.canvas.cget("background") == style.lookup("Panel.TFrame", "background")

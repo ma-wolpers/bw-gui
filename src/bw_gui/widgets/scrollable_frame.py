@@ -112,7 +112,11 @@ class ScrollableFrame(widgets.Frame):
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
 
-        self.content = widgets.Frame(self.canvas)
+        # A given ttk style is the frame's surface: the content frame uses it too and
+        # the canvas (visible below short content) takes its background, so the whole
+        # viewport reads as one surface -- also after a theme switch (listener).
+        self._surface_style = frame_kwargs.get("style")
+        self.content = widgets.Frame(self.canvas, style=self._surface_style) if self._surface_style else widgets.Frame(self.canvas)
         self._content_window = self.canvas.create_window((0, 0), window=self.content, anchor="nw")
 
         self.content.bind("<Configure>", self._on_content_configure)
@@ -120,6 +124,21 @@ class ScrollableFrame(widgets.Frame):
         self.bind("<Destroy>", self._on_destroy, add="+")
 
         self._register_for_mousewheel_dispatch()
+        if self._surface_style:
+            from bw_gui.theming._theme_listeners import register_theme_listener  # late: theming imports widgets
+
+            self._apply_surface_background()
+            self._theme_subscription = register_theme_listener(self._apply_surface_background, owner=self)
+
+    def _apply_surface_background(self, _change: object = None) -> None:
+        """Give the canvas the background of the frame's style (no-op if the style has none).
+
+        Args:
+            _change: ``ThemeChange`` when called as theme listener (unused).
+        """
+        background = widgets.Style(self).lookup(self._surface_style, "background")
+        if background:
+            self.canvas.configure(background=background)
 
     def refresh_chrome(self) -> None:
         """Reapply canvas chrome (borderless regardless of the active ttk theme).

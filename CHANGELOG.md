@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Wrapping rows** (`bw_gui.widgets.FlowFrame`): small widgets (badges, label + entry pairs) flow left to right and wrap into the next row when the area is too narrow, instead of being cut off at the right edge. The frame asks for exactly the height of its rows, so a `ScrollableFrame` around it scrolls correctly. The wrapping rule is the pure function `compute_flow_layout`.
+- **`ScrollableFrame` keeps its panel colour:** With `style=` the content and the empty area below short content use that style's background, also after a theme switch. A panel no longer shows a lighter strip below its content.
 - **Side overlay panel** (`bw_gui.widgets.ResizableSideOverlay`): a full-height panel laid over the right edge of its parent (it floats above the parent's own layout instead of pushing it aside). The header shows a title and a close button "×". Dragging the grip on the left edge changes the width, which stays between `min_width` and `max_ratio` of the parent's width, also when the parent shrinks. `on_width_changed` reports the final width so the app can remember it.
 - **Zoomable document view** (`bw_gui.widgets.ZoomableDocText`): a read-only, themed view for formatted documents (`DocEvent`s from `html_to_events`). The mouse wheel scrolls; Ctrl+wheel changes the font size within a range and reports it (`on_zoom_changed`). Zooming does not re-render, and the view follows theme switches.
 - `configure_doc_text_theme(text, theme_key, base_size=)`: themes the doc tags of a `Text` straight from the theme contract. This is the one place that maps the theme to the doc look, so apps no longer build colour dicts themselves.

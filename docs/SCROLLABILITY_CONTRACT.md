@@ -107,6 +107,23 @@ next outer one. Scrolling uses accumulated whole notches.
 Vertical by default; `orient="horizontal"` exists for single-row strips - see
 "Horizontal scrolling" below.
 
+**Surface style.** A `style=` passed to `ScrollableFrame` is the surface of the
+whole viewport: `.content` uses the same style, and the canvas (visible below
+content shorter than the viewport) takes that style's `background`, re-applied
+after every theme switch (theme listener). A `Panel.TFrame` panel therefore
+reads as one panel surface instead of showing a `bg_surface` strip below its
+content. Without `style=` nothing changes (canvas in the classic-widget colours).
+
+**Wrapping rows inside.** A row of small widgets that would be clipped at the
+right edge (badges, label + entry pairs) goes into a `bw_gui.widgets.FlowFrame`
+instead of `pack(side="left")`: its children wrap into rows at the available
+width (rule in the pure `compute_flow_layout`: order kept, oversized child on its
+own row, rows as tall as their tallest child), and it requests the wrapped
+height, so the enclosing `ScrollableFrame` scrolls the real content height.
+Children are created with the `FlowFrame` as master and registered with
+`add()`; `clear()` destroys them. `FlowFrame` lays out, it does not scroll -
+it is not a third scroll primitive.
+
 ## `ScrollableImagePreview`
 
 A `ScrollableFrame` subclass that shows one image, fitted to the available

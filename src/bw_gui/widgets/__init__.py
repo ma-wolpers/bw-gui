@@ -3,6 +3,7 @@
 from .collapsible_section import CollapsibleSection
 from .doc_text_events import CodeBlockEvent, DocEvent, HeadingEvent, ListItemEvent, ParagraphEvent, TextRun, html_to_events
 from .doc_text_view import configure_doc_text_tags, configure_doc_text_theme, render_events_into_text
+from .flow_frame import FlowFrame, compute_flow_layout
 from .drag_drop import DragDropController
 from .grid_span import GridSpanSegment, compute_contiguous_spans
 from .hover_tooltip import HoverTooltip
@@ -22,6 +23,7 @@ __all__ = [
     "CodeBlockEvent",
     "DocEvent",
     "DragDropController",
+    "FlowFrame",
     "GridSpanSegment",
     "HeadingEvent",
     "HoverTooltip",
@@ -38,6 +40,7 @@ __all__ = [
     "WrappedTextField",
     "ZoomableDocText",
     "compute_contiguous_spans",
+    "compute_flow_layout",
     "configure_doc_text_tags",
     "configure_doc_text_theme",
     "draw_ring_chart",
