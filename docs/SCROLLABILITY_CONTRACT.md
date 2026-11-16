@@ -114,6 +114,14 @@ after every theme switch (theme listener). A `Panel.TFrame` panel therefore
 reads as one panel surface instead of showing a `bg_surface` strip below its
 content. Without `style=` nothing changes (canvas in the classic-widget colours).
 
+**Height cap (vertical).** `set_height_cap(px)` makes the frame request its
+content's height, but at most `px`; beyond that it scrolls (re-evaluated on every
+content-size change). For a panel docked below a main area that should take only
+what it needs, up to a share of the window. `set_height_cap(None)` restores the
+default (the frame takes the height its parent grants). `see_widget(w)` scrolls
+as little as needed so a descendant of `.content` is fully visible (e.g. a field
+that just got keyboard focus).
+
 **Wrapping rows inside.** A row of small widgets that would be clipped at the
 right edge (badges, label + entry pairs) goes into a `bw_gui.widgets.FlowFrame`
 instead of `pack(side="left")`: its children wrap into rows at the available

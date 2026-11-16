@@ -383,3 +383,41 @@ def test_styled_frame_paints_content_and_canvas_in_the_style_background(root) ->
     configure_ttk_theme(root, "light")
     root.update()
     assert frame.canvas.cget("background") == style.lookup("Panel.TFrame", "background")
+
+
+def test_height_cap_shrink_wraps_short_content_and_caps_long_content(root) -> None:
+    frame = ScrollableFrame(root)
+    frame.pack(fill="x")
+    frame.set_height_cap(100)
+    _add_rows(frame, 1)
+    root.update()
+    short = frame.winfo_reqheight()
+    assert short < 100
+    assert not frame.overflows()
+
+    _add_rows(frame, 20)
+    root.update()
+    assert frame.canvas.winfo_reqheight() == 100
+    assert frame.overflows()
+
+    frame.set_height_cap(None)
+    root.update()
+    assert frame.canvas.winfo_reqheight() != 100
+
+
+def test_height_cap_is_vertical_only(root) -> None:
+    with pytest.raises(ValueError):
+        ScrollableFrame(root, orient="horizontal").set_height_cap(50)
+
+
+def test_see_widget_scrolls_a_hidden_row_into_view(root) -> None:
+    frame = ScrollableFrame(root)
+    frame.pack(fill="both", expand=True)
+    _add_rows(frame, 30)
+    root.update()
+    last = frame.content.winfo_children()[-1]
+    frame.see_widget(last)
+    root.update()
+    canvas_bottom = frame.canvas.winfo_rooty() + frame.canvas.winfo_height()
+    assert last.winfo_rooty() + last.winfo_height() <= canvas_bottom + 1
+    assert last.winfo_rooty() >= frame.canvas.winfo_rooty()

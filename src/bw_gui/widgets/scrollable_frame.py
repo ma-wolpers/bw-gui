@@ -96,6 +96,8 @@ class ScrollableFrame(widgets.Frame):
         self._horizontal = orient == "horizontal"
 
         self.canvas = ui.Canvas(self, highlightthickness=0, borderwidth=0)
+        self._default_canvas_height = self.canvas.cget("height")
+        self._height_cap: int | None = None
         if self._horizontal:
             self._scrollbar = widgets.Scrollbar(self, orient="horizontal", command=self.canvas.xview)
             self.canvas.configure(xscrollcommand=self._scrollbar.set)
@@ -207,9 +209,56 @@ class ScrollableFrame(widgets.Frame):
         """Scroll by *units* (positive = towards the content end); used by the scroll resolver."""
         (self.canvas.xview_scroll if self._horizontal else self.canvas.yview_scroll)(int(units), "units")
 
+    def set_height_cap(self, cap: int | None) -> None:
+        """Vertical only: request the content's height, but at most *cap* pixels.
+
+        For a panel that should be as tall as its content and scroll only
+        beyond a limit (e.g. a details panel docked below a main area, capped
+        at a share of the window). ``None`` switches back to the default
+        (the frame takes whatever height its parent grants).
+
+        Args:
+            cap: Maximum requested height in pixels, or ``None``.
+
+        Raises:
+            ValueError: on a horizontal frame.
+        """
+        if self._horizontal:
+            raise ValueError("set_height_cap is only available for vertical ScrollableFrames")
+        self._height_cap = cap
+        if cap is None:
+            self.canvas.configure(height=self._default_canvas_height)
+        self._apply_height_cap()
+
+    def see_widget(self, widget) -> None:
+        """Vertical only: scroll as little as needed so *widget* (inside ``.content``) is fully visible.
+
+        Args:
+            widget: A descendant of ``.content``.
+        """
+        if self._horizontal or not self._overflows():
+            return
+        self.update_idletasks()
+        top = widget.winfo_rooty() - self.content.winfo_rooty()
+        bottom = top + widget.winfo_height()
+        view_top = self.canvas.canvasy(0)
+        view_bottom = view_top + self.canvas.winfo_height()
+        total = max(1, self.content.winfo_height())
+        if top < view_top:
+            self.canvas.yview_moveto(top / total)
+        elif bottom > view_bottom:
+            self.canvas.yview_moveto(max(0, bottom - self.canvas.winfo_height()) / total)
+
+    def _apply_height_cap(self) -> None:
+        """Request ``min(content height, cap)`` while a cap is set (see ``set_height_cap``)."""
+        if self._height_cap is not None:
+            self.canvas.configure(height=max(1, min(self.content.winfo_reqheight(), self._height_cap)))
+
     def _on_content_configure(self, _event=None) -> None:
         if self._horizontal:
             self.canvas.configure(width=self.content.winfo_reqwidth(), height=self.content.winfo_reqheight())
+        else:
+            self._apply_height_cap()
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
         self._update_scrollbar_visibility()
 
