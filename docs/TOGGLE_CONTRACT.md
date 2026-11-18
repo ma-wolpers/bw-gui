@@ -271,6 +271,16 @@ the Checkbox semantics (R2/R3): it only writes the chosen value into `variable`;
 business effect happens on the consumer's submit action. Space activates only without
 Ctrl/Alt (same exact-modifier rule as the toggles, `widgets/_exact_space.py`).
 
+## Several of many: `CheckList`
+
+Choosing **several of many** options, optionally under group headings, uses
+`bw_gui.widgets.CheckList(parent, groups=[(title, [(value, label), ...]), ...],
+selected=..., on_select=...)`. It stacks one `Checkbox` per option with fixed spacing
+and follows R2/R3: the consumer reads `selected_values()` (display order) on its submit
+action; `on_select` receives the new selection after each click for local presentation
+only; `set_selected(values)` fires no callback. The list is a plain frame; long lists go
+inside a `ScrollableFrame` of the consumer.
+
 ## Surfaces
 
 | Surface | Checkbox | Switch |

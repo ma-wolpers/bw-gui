@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Choosing several options** (`bw_gui.widgets.CheckList`): one checkbox per option, optionally grouped under headings, with fixed spacing. `selected_values()` returns the ticked values in display order, `set_selected()` sets them without a callback; staged like `Checkbox` (`docs/TOGGLE_CONTRACT.md`).
 - **DataGrid: greyed-out rows.** `GridRow(..., muted=True)` draws a row's texts in the theme's muted colour (`fg_muted`), e.g. for entries that stay listed but are inactive. The selection band still works as usual.
 - **Wrapping rows** (`bw_gui.widgets.FlowFrame`): small widgets (badges, label + entry pairs) flow left to right and wrap into the next row when the area is too narrow, instead of being cut off at the right edge. The frame asks for exactly the height of its rows, so a `ScrollableFrame` around it scrolls correctly. The wrapping rule is the pure function `compute_flow_layout`.
 - **`ScrollableFrame` as tall as its content, up to a limit:** `set_height_cap(px)` lets a panel grow with its content and scroll only beyond `px` (e.g. a panel below the main area that may take at most part of the window). `see_widget(w)` scrolls a field into view.

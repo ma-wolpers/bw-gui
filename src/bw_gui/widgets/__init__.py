@@ -1,5 +1,6 @@
 """Shared widget primitives."""
 
+from .check_list import CheckList
 from .collapsible_section import CollapsibleSection
 from .doc_text_events import CodeBlockEvent, DocEvent, HeadingEvent, ListItemEvent, ParagraphEvent, TextRun, html_to_events
 from .doc_text_view import configure_doc_text_tags, configure_doc_text_theme, render_events_into_text
@@ -18,6 +19,7 @@ from .wrapped_text_field import WrappedTextField
 from .zoomable_doc_text import ZoomableDocText
 
 __all__ = [
+    "CheckList",
     "Checkbox",
     "CollapsibleSection",
     "CodeBlockEvent",
