@@ -11,7 +11,12 @@ lines. Not counted are:
 Everything else counts, including lines of multi-line strings that are not docstrings
 (an embedded CSS/JS template is code-adjacent data and belongs in a data module).
 
-Two escape hatches, both explicit:
+**Test files are exempt** (user rule 2026-11-10, "Bei Tests kannst du die Längeregel
+ignorieren"): every file below a ``tests``/``test`` directory and every ``test_*.py``,
+``*_test.py`` or ``conftest.py`` (:func:`is_test_file`) is skipped, for touched files and
+explicit paths alike.
+
+Two escape hatches for source files, both explicit:
 
 * **Data-only modules** carry the header comment ``# line-limit: data-only`` and are
   exempt entirely. The check refuses the marker on a file that defines functions or
@@ -150,6 +155,27 @@ def data_only_problem(source: str) -> str | None:
     return None
 
 
+_TEST_DIRECTORIES = frozenset({"tests", "test"})
+
+
+def is_test_file(rel_path: str) -> bool:
+    """Return True if ``rel_path`` is a test file, which the line limit does not cover.
+
+    Test files are files below a ``tests``/``test`` directory (at any depth, compared
+    case-insensitively) and files named ``test_*.py``, ``*_test.py`` or ``conftest.py``
+    anywhere -- the pytest discovery conventions plus their support modules.
+
+    Example:
+        >>> [is_test_file(p) for p in ("tests/helpers.py", "app/test_x.py", "app/latest.py")]
+        [True, True, False]
+    """
+    parts = rel_path.replace("\\", "/").split("/")
+    name = parts[-1]
+    if any(part.lower() in _TEST_DIRECTORIES for part in parts[:-1]):
+        return True
+    return name == "conftest.py" or name.startswith("test_") or name.endswith("_test.py")
+
+
 def has_data_only_marker(source: str) -> bool:
     """Return True if a line of ``source`` is exactly the data-only marker comment."""
     return any(line.strip() == DATA_ONLY_MARKER for line in source.splitlines())
@@ -240,13 +266,16 @@ def check_files(
 ) -> list[str]:
     """Check ``rel_paths`` against the limit; return one error text per violation.
 
-    A file passes if it has at most ``limit`` executable lines, is a valid data-only
-    module, or is listed in ``exceptions``. Unparsable files are errors.
+    A file passes if it is a test file (:func:`is_test_file`, not even read), has at most
+    ``limit`` executable lines, is a valid data-only module, or is listed in
+    ``exceptions``. Unparsable source files are errors.
     """
     exceptions = exceptions or {}
     errors: list[str] = []
     for rel_path in rel_paths:
         posix = rel_path.replace("\\", "/")
+        if is_test_file(posix):
+            continue
         source = (Path(repo_root) / posix).read_text(encoding="utf-8-sig")
         try:
             problem = data_only_problem(source)

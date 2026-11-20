@@ -124,8 +124,10 @@ not part of the public contract.
 
 Files stay below 300 lines of code (docstrings, comments, blank lines and imports
 not counted). The check is automated: `bw_gui.testing.line_limits` counts exactly these
-executable lines for every touched Python file (sources and tests; `python -m
-bw_gui.testing.line_limits --repo .`), and consumer repos reuse the same module. Pure
+executable lines for every touched Python source file (`python -m
+bw_gui.testing.line_limits --repo .`), and consumer repos reuse the same module. Test
+files are exempt (`is_test_file`: below a `tests`/`test` directory, `test_*.py`,
+`*_test.py`, `conftest.py`). Pure
 data modules carry the header comment `# line-limit: data-only` (refused if the file
 defines functions or classes). Justified exceptions are listed below under
 "Line-limit exceptions". A function that is long by necessity stays whole and is marked

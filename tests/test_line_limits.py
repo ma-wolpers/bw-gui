@@ -10,6 +10,7 @@ from bw_gui.testing.line_limits import (
     check_repo,
     count_executable_lines,
     data_only_problem,
+    is_test_file,
     parse_exceptions,
     touched_python_files,
 )
@@ -163,3 +164,28 @@ def test_exception_table_rows_under_a_dated_heading():
     exceptions, problems = parse_exceptions(markdown)
     assert exceptions == {"kursplaner/a.py": "Buendelt die Aktionen"}
     assert problems == ["exception for `kursplaner/b.py` has no justification"]
+
+
+def test_test_files_are_exempt_for_explicit_paths(tmp_path):
+    """Test files are skipped (user rule), even far over the limit and unparsable."""
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "pkg" / "Test").mkdir(parents=True)
+    for rel in ("tests/support.py", "pkg/Test/helper.py", "test_big.py", "big_test.py", "conftest.py"):
+        _write_lines(tmp_path / rel, 400)
+    (tmp_path / "tests" / "broken.py").write_text("def (:\n", encoding="utf-8")
+    _write_lines(tmp_path / "latest.py", 301)
+    _write_lines(tmp_path / "contest.py", 301)
+
+    errors = check_files(
+        tmp_path,
+        ["tests/support.py", "pkg/Test/helper.py", "test_big.py", "big_test.py", "conftest.py",
+         "tests/broken.py", "latest.py", "contest.py"],
+    )
+
+    assert [error.split(":")[0] for error in errors] == ["latest.py", "contest.py"]
+
+
+def test_is_test_file_conventions():
+    assert is_test_file(r"tests\sub\x.py") is True
+    assert is_test_file("src/testing/line_limits.py") is False
+    assert is_test_file("app/attest_report.py") is False
