@@ -25,11 +25,13 @@ ordered stack of cards per row, a `TEXT` lane one free text per row, a `CARDS_TE
   placeholder and open no editor; its cells stay selectable with the cursor.
   `action` (text) shows a small button in the row-label column below the label; the row grows to
   fit it. Its look (fill, outline, text tokens) is the one `_ROW_ACTION_LOOK` entry in `_render.py`.
-- `BoardCard(key, text, badge=None, tone=CardTone.NORMAL)` – `key` unique across the board; `badge`
+- `BoardCard(key, text, badge=None, tone=CardTone.NORMAL, note=None)` – `key` unique across the board; `badge`
   is a short code in a bubble at the card's right side. `tone` marks a card without colours in
   the consumer: `EMPHASIS` (soft accent fill, e.g. the leading card of a cell), `WARNING`
   (warning outline, e.g. a rule the consumer reports as violated). The one tone → token table
-  lives in `_render.py` and follows theme switches.
+  lives in `_render.py` and follows theme switches. `note` is a secondary text in the same card:
+  below a dashed divider (`border`), muted (`fg_muted`), wrapped to the full card width; the card
+  grows by the note lines plus one `2 * CARD_PAD_Y` gap (`CardBox.note_lines`, `CardBox.divider_y`).
 - `BoardSlot(row_key, lane_key, index)` – insert before the card at `index` (`index == len` → end).
 - `Cursor = str | BoardCell | None` – a card key, or a cell (empty `CARDS` cell, or the text of a
   `TEXT`/`CARDS_TEXT` cell).
@@ -70,7 +72,10 @@ ordered stack of cards per row, a `TEXT` lane one free text per row, a `CARDS_TE
     `draft_card(slot, on_done=, initial=, validate=)` in a reserved draft space): one line, Enter
     (or Ctrl+Enter) commits, Escape cancels. `validate(text)` returns an error message, which is
     shown below the field (`FieldErrorLabel`, the same look as `askstring`) while the editor stays
-    open. Focus loss commits a valid text and discards an invalid one. An unchanged rename reports
+    open. It may instead return `TextRejection(message, replacement)`: the message is shown and the
+    field text becomes the replacement (cursor at its end), so a second Enter accepts it after it
+    passes `validate` again. Focus loss commits a valid text and discards an invalid one (a pending
+    replacement too – nobody saw it). An unchanged rename reports
     nothing; a draft always reports its text. The board never adds or renames the card itself –
     `on_done(text)` goes to the consumer, which updates its rows.
   - After every re-layout (`set_rows`, resize) the open editor follows its target, or closes

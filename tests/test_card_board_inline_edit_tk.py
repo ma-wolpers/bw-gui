@@ -9,7 +9,16 @@ import pytest
 
 from bw_gui.runtime import ui
 from bw_gui.testing.keys import press_key
-from bw_gui.widgets.card_board import BoardCard, BoardCell, BoardLane, BoardRow, BoardSlot, CardBoard, LaneKind
+from bw_gui.widgets.card_board import (
+    BoardCard,
+    BoardCell,
+    BoardLane,
+    BoardRow,
+    BoardSlot,
+    CardBoard,
+    LaneKind,
+    TextRejection,
+)
 
 LANES = (BoardLane("left", "Inhalt"), BoardLane("ideas", "Ideen", LaneKind.CARDS_TEXT))
 
@@ -81,6 +90,31 @@ def test_invalid_card_text_shows_inline_error_and_keeps_editor_open(make_board):
     board.editor.field.set("D")
     press_key(board.editor.field.text, "Return")
     assert done == ["D"]
+
+
+def test_rejection_replaces_the_field_text_and_a_second_enter_accepts_it(make_board):
+    def suggest(text):
+        return TextRejection("gibt es schon", "A (Kopie)") if text.strip().casefold() == "a" else None
+
+    board = make_board()
+    done = []
+    board.edit_card("b", on_done=done.append, validate=suggest)
+    board.editor.field.set("a")
+    press_key(board.editor.field.text, "Return")
+    assert done == [] and board.editing == "b"
+    assert board.editor.error_message == "gibt es schon"
+    assert board.editor.field.get() == "A (Kopie)"
+    press_key(board.editor.field.text, "Return")
+    assert done == ["A (Kopie)"]
+
+
+def test_focus_loss_discards_a_rejection_without_committing_its_suggestion(make_board):
+    board = make_board()
+    done = []
+    board.edit_card("b", on_done=done.append, validate=lambda t: TextRejection("nein", "X") if t == "a" else None)
+    board.editor.field.set("a")
+    board.editor.commit(from_focus=True)
+    assert done == [] and board.editing is None
 
 
 def test_focus_loss_discards_invalid_and_commits_valid_text(make_board):

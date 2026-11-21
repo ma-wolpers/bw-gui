@@ -21,6 +21,7 @@ from ._model import (
     lane_holds_text,
 )
 from ._navigation import lane_entries, neighbor
+from ._text_editor import TextRejection, TextValidator
 
 __all__ = [
     "BoardCard",
@@ -38,6 +39,8 @@ __all__ = [
     "HitKind",
     "LaneKind",
     "RowTint",
+    "TextRejection",
+    "TextValidator",
     "TextWrapper",
     "compute_layout",
     "hit_test",

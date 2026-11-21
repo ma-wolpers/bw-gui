@@ -30,7 +30,8 @@ _CARD_TONES: dict[CardTone, tuple[str, str, int, str]] = {
 # Row-action button look: (fill, outline, text) theme tokens -- one place, like _CARD_TONES.
 _ROW_ACTION_LOOK = ("bg_panel", "accent", "accent")
 _STACK = ("row_bg", "grid_line", "label", "row_action", "row_action_text", "add_box", "add_text", "card",
-          "card_text", "badge", "badge_text", "lane_text", "cursor", "drop_line")  # fmt: skip
+          "card_text", "card_divider", "card_note", "badge", "badge_text", "lane_text", "cursor",
+          "drop_line")  # fmt: skip
 
 
 class BoardRenderer:
@@ -47,7 +48,8 @@ class BoardRenderer:
         self._body, self._header, self._font = body, header, font
         kinds = {"row_bg": "rectangle", "grid_line": "line", "label": "text", "row_action": "polygon",
                  "row_action_text": "text", "add_box": "polygon",
-                 "add_text": "text", "card": "polygon", "card_text": "text", "badge": "polygon",
+                 "add_text": "text", "card": "polygon", "card_text": "text", "card_divider": "line",
+                 "card_note": "text", "badge": "polygon",
                  "badge_text": "text", "lane_text": "text", "cursor": "polygon", "drop_line": "line"}  # fmt: skip
         self._pools = {name: CanvasItemPool(body, kind, tags=(f"cb_{name}",)) for name, kind in kinds.items()}
         self._head_bg = CanvasItemPool(header, "rectangle")
@@ -136,6 +138,12 @@ class BoardRenderer:
             self._pools["card"].place(points, smooth=True, fill=theme[fill], outline=theme[outline], width=width)
             for index, line in enumerate(card.lines):
                 self._text("card_text", x0 + CARD_PAD_X, y0 + CARD_PAD_Y + index * line_h, line, theme["fg_primary"])
+            if card.divider_y is not None:
+                divider = (x0 + CARD_PAD_X, card.divider_y, x1 - CARD_PAD_X, card.divider_y)
+                self._pools["card_divider"].place(divider, fill=theme["border"], dash=(3, 3))
+                note_y = card.divider_y + CARD_PAD_Y
+                for index, line in enumerate(card.note_lines):
+                    self._text("card_note", x0 + CARD_PAD_X, note_y + index * line_h, line, theme["fg_muted"])
             if card.badge_box is not None and card.badge:
                 bx0, by0, bx1, by1 = card.badge_box
                 badge_points = rounded_rect_points(bx0, by0, bx1, by1, radius=line_h)

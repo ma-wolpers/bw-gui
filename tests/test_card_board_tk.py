@@ -171,6 +171,27 @@ def test_card_tones_use_theme_tokens_and_follow_theme_switch(make_board):
     configure_ttk_theme(board.frame, "light")
 
 
+def test_card_note_draws_a_dashed_divider_and_muted_text(make_board):
+    from bw_gui.theming._theme_manager import get_theme
+
+    board = make_board()
+    board.set_rows((BoardRow("r", "R", {"left": (BoardCard("n", "Neu", note="Original"), BoardCard("p", "P"))}),))
+    board.flush_now()
+    canvas, theme = board.key_widget, get_theme()
+
+    def visible(pool):
+        return [i for i in board._renderer._pools[pool].items if canvas.itemcget(i, "state") != "hidden"]
+
+    assert [canvas.itemcget(i, "text") for i in visible("card_note")] == ["Original"]
+    assert [canvas.itemcget(i, "fill") for i in visible("card_note")] == [theme["fg_muted"]]
+    dividers = visible("card_divider")
+    assert len(dividers) == 1 and canvas.itemcget(dividers[0], "dash")
+    assert canvas.itemcget(dividers[0], "fill") == theme["border"]
+    board.set_rows((BoardRow("r", "R", {"left": (BoardCard("n", "Neu"),)}),))
+    board.flush_now()
+    assert visible("card_note") == [] and visible("card_divider") == []
+
+
 def test_locked_row_text_cell_selects_but_does_not_edit(make_board):
     seen = []
     board = make_board(on_cursor_change=seen.append)

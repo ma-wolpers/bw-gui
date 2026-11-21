@@ -146,6 +146,18 @@ def test_card_tone_reaches_the_layout():
     assert layout.cards["b"].tone is CardTone.NORMAL
 
 
+def test_card_note_sits_below_a_divider_and_grows_the_card():
+    rows = (BoardRow("r", "R", {"left": (BoardCard("a", "A", badge="K-1", note="Original"), BoardCard("b", "B"))}),)
+    plain = _layout((BoardRow("r", "R", {"left": (BoardCard("a", "A", badge="K-1"), BoardCard("b", "B"))}),))
+    layout = _layout(rows)
+    card, before = layout.cards["a"], plain.cards["a"]
+    assert card.note_lines == ("Original",)
+    assert card.divider_y == before.box[3]  # Trenner dort, wo die Karte ohne Notiz endete
+    assert card.box[3] == before.box[3] + LINE + 2 * 4  # eine Notizzeile + Abstand (2 * CARD_PAD_Y)
+    assert layout.cards["b"].box[1] > card.box[3]
+    assert plain.cards["a"].divider_y is None and plain.cards["a"].note_lines == ()
+
+
 def test_locked_row_has_no_plus_boxes_no_slots_and_no_placeholder():
     lanes = (BoardLane("left", "Inhalt"), BoardLane("ideas", "Ideen", LaneKind.TEXT, placeholder="Idee …"))
     rows = (

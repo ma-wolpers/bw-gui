@@ -8,7 +8,9 @@ At most one editor is open; opening another commits the open one first. Two mode
 - **Card** (rename a card, or type a new card into a draft slot): a card text is
   one line -- Enter (or Ctrl+Enter) commits, Escape cancels. An optional
   validator's message appears in a `FieldErrorLabel` below the field and keeps
-  the editor open. Losing focus commits a valid text and discards an invalid
+  the editor open. A validator may also return a `TextRejection`: then the
+  field text is replaced by its suggestion as well, so the user can accept it
+  with a second Enter. Losing focus commits a valid text and discards an invalid
   one, so no stale editor is ever left behind. An unchanged rename is not reported.
 
 The board positions the editor (`open`/`move`); the editor knows no layout.
@@ -16,7 +18,8 @@ The board positions the editor (`open`/`move`); the editor knows no layout.
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from dataclasses import dataclass
+from typing import Any, Callable, Union
 
 from ...contracts.events import EventResult
 from ...contracts.key_spec import KeySpec
@@ -31,8 +34,27 @@ from ._model import BoardSlot, EditTarget
 TextDone = Callable[[str], object]
 """Receives the committed text."""
 
-TextValidator = Callable[[str], "str | None"]
-"""Error message for a card text, ``None`` to accept it."""
+@dataclass(frozen=True)
+class TextRejection:
+    """A rejected card text plus a suggestion the editor puts into the field.
+
+    Returned by a `TextValidator` instead of a plain message when the consumer
+    knows a text that *would* be accepted (e.g. ``"Titel (Kopie)"`` when
+    ``"Titel"`` already exists). The editor stays open, shows *message* below
+    the field and replaces the field text with *replacement*; a second Enter
+    accepts it (it is validated again like any typed text).
+
+    Attributes:
+        message: Error message shown below the field.
+        replacement: Text that replaces the field content.
+    """
+
+    message: str
+    replacement: str
+
+
+TextValidator = Callable[[str], Union[str, TextRejection, None]]
+"""Error message (or a `TextRejection` with a suggestion) for a card text, ``None`` to accept it."""
 
 _TEXT_KEYS = (("Ctrl+Enter", "bw_gui.card_board.text_commit"),)
 _CARD_KEYS = (("Enter", "bw_gui.card_board.card_commit"), ("Ctrl+Enter", "bw_gui.card_board.card_commit_ctrl"))
@@ -97,7 +119,7 @@ class InlineTextEditor:
             line_height: Font line height (sizes the field).
             on_done: Receives the committed text (only when it changed; always for a draft).
             card: Card mode (one line, Enter commits, *validate* applies).
-            validate: Card mode only: error message for a text, ``None`` to accept.
+            validate: Card mode only: error message (or `TextRejection`) for a text, ``None`` to accept.
         """
         self.commit()
         self._card, self._line_height = card, line_height
@@ -146,7 +168,8 @@ class InlineTextEditor:
 
         Args:
             from_focus: The editor lost the focus -- an invalid card text is
-                discarded instead of being shown.
+                discarded instead of being shown (a `TextRejection`'s suggestion too:
+                nobody sees it, so it must not be committed silently).
         """
         if self._field is None or self._target is None:
             return
@@ -158,13 +181,28 @@ class InlineTextEditor:
             if error:
                 if from_focus:
                     self.cancel()
-                elif self._error is not None:
-                    self._error.show(error)
+                else:
+                    self._reject(error)
                 return
         on_done = self._on_done
         self._close()
         if changed and on_done is not None:
             on_done(text)
+
+    def _reject(self, error: str | TextRejection) -> None:
+        """Keep the editor open: show the message, and put a `TextRejection`'s suggestion into the field.
+
+        The cursor goes to the end of the suggestion so the user can append to it
+        or accept it right away with Enter.
+        """
+        message = error
+        if isinstance(error, TextRejection):
+            message = error.message
+            if self._field is not None:
+                self._field.set(error.replacement)
+                self._field.text.mark_set("insert", "end")
+        if self._error is not None:
+            self._error.show(str(message))
 
     def cancel(self) -> None:
         """Close without reporting (no-op when closed)."""

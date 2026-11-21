@@ -97,12 +97,17 @@ class BoardCard:
         text: Card text; wrapped to the card width.
         badge: Optional short code shown in a small bubble at the card's side.
         tone: How the card stands out (see :class:`CardTone`).
+        note: Optional secondary text in the same card, below a dashed divider and
+            in a muted colour (e.g. the original wording of a card whose text the
+            user edited). Wrapped to the full card width; the card grows to fit.
+            ``None`` (default) draws no divider.
     """
 
     key: str
     text: str
     badge: str | None = None
     tone: CardTone = CardTone.NORMAL
+    note: str | None = None
 
 
 @dataclass(frozen=True)

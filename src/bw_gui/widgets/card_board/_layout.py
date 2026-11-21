@@ -100,7 +100,11 @@ class RowBox:
 
 @dataclass(frozen=True)
 class CardBox:
-    """Position of one card; ``badge_box`` is the bubble at its right side."""
+    """Position of one card; ``badge_box`` is the bubble at its right side.
+
+    ``note_lines`` are the wrapped lines of `BoardCard.note`, drawn below the
+    dashed divider at height ``divider_y`` (``None`` without a note).
+    """
 
     key: str
     cell: BoardCell
@@ -110,6 +114,8 @@ class CardBox:
     badge: str | None
     badge_box: Box | None
     tone: CardTone = CardTone.NORMAL
+    note_lines: tuple[str, ...] = ()
+    divider_y: float | None = None
 
 
 @dataclass(frozen=True)
@@ -183,6 +189,21 @@ def _lane_boxes(lanes: Sequence[BoardLane], width: float) -> tuple[LaneBox, ...]
     return tuple(boxes)
 
 
+def _note(
+    note: str | None, card_width: float, text_bottom: float, line_height: int, wrapper: TextWrapper
+) -> tuple[tuple[str, ...], float | None]:
+    """Lines and divider height of a card's note (`BoardCard.note`); ``((), None)`` without one.
+
+    The note uses the full inner card width (the badge sits next to the main
+    text only). The divider lies where the main text block ends (*text_bottom*
+    is the card bottom without the note); the note lines follow one
+    ``2 * CARD_PAD_Y`` gap below it, so the card grows by that gap plus the lines.
+    """
+    if not note:
+        return (), None
+    return wrapper.wrap(note, int(card_width - 2 * CARD_PAD_X)), text_bottom
+
+
 def compute_layout(
     rows: Sequence[BoardRow],
     lanes: Sequence[BoardLane],
@@ -245,10 +266,13 @@ def compute_layout(
                     text_w = int(x1 - x0 - 2 * CARD_PAD_X - (badge_w + GAP if badge_w else 0))
                     lines = wrapper.wrap(card.text, text_w)
                     bottom = top + max(1, len(lines)) * line_height + 2 * CARD_PAD_Y
+                    note_lines, divider_y = _note(card.note, x1 - x0, bottom, line_height, wrapper)
+                    bottom += len(note_lines) * line_height + (2 * CARD_PAD_Y if note_lines else 0)
                     badge_top = top + CARD_PAD_Y
                     badge_box = (x1 - CARD_PAD_X - badge_w, badge_top, x1 - CARD_PAD_X, badge_top + line_height)
                     cards[card.key] = CardBox(card.key, cell, index, (x0, top, x1, bottom), lines, card.badge,
-                                              badge_box if badge_w else None, card.tone)  # fmt: skip
+                                              badge_box if badge_w else None, card.tone, note_lines,
+                                              divider_y)  # fmt: skip
                     keys.append(card.key)
                     stack_bottom, top = bottom, bottom + GAP
                 if not row.locked:

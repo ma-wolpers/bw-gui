@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **CardBoard: second text in a card.** `BoardCard(..., note="…")` shows a muted text below a dashed divider in the same card (e.g. the original wording of a card the user edited); the card grows to fit. Divider and text use the theme tokens `border`/`fg_muted` and follow theme switches.
+- **CardBoard: editor suggests a replacement.** A card validator may return `TextRejection(message, replacement)` instead of a message: the editor stays open, shows the message and puts the suggestion into the field, so a second Enter accepts it (e.g. `"Titel (Kopie)"` when `"Titel"` exists). Focus loss discards it like any rejected text.
 - **Choosing several options** (`bw_gui.widgets.CheckList`): one checkbox per option, optionally grouped under headings, with fixed spacing. `selected_values()` returns the ticked values in display order, `set_selected()` sets them without a callback; staged like `Checkbox` (`docs/TOGGLE_CONTRACT.md`).
 - **DataGrid: greyed-out rows.** `GridRow(..., muted=True)` draws a row's texts in the theme's muted colour (`fg_muted`), e.g. for entries that stay listed but are inactive. The selection band still works as usual.
 - **Wrapping rows** (`bw_gui.widgets.FlowFrame`): small widgets (badges, label + entry pairs) flow left to right and wrap into the next row when the area is too narrow, instead of being cut off at the right edge. The frame asks for exactly the height of its rows, so a `ScrollableFrame` around it scrolls correctly. The wrapping rule is the pure function `compute_flow_layout`.
