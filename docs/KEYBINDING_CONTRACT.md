@@ -132,6 +132,7 @@ widget -> bwkeys:<path> -> Class -> bwkeys-after:<path> -> toplevel path -> all
   - It is stored as an attribute of the interpreter's `tkinter.Tk` root.
   - It is not kept in a global map keyed by `root.tk`, because `_tkinter.tkapp` is not weak-referenceable.
   - `interpreter_root(widget)` is the only place relying on tkinter internals.
+    - It resolves `tk_root` on the widget **and** on the end of its `.master` chain: a widget created with a wrapper as parent (`ui.Toplevel(app)` with a `BwBaseWindow`/`TkRootHost`) keeps the wrapper as `.master`, so `widget._root()` stops at the wrapper. Before this, such widgets got a second runtime in the wrapper's `__dict__`: popups opened with `parent=app` were missing from the root's overlay stack, `active_popup()` returned `None` and Escape was dropped.
   - Several toplevels of one interpreter resolve to the same router; several `Tk()` instances get separate routers.
   - Root destroy drops everything.
 - **Bootstrap (step 2-0):** `TkRootHost` / `create_root()` installs the router **directly after `Tk()`**, before any consumer code runs. `TkRootHost.create(build=...)` runs consumer code strictly afterwards. Everything on `all` at installation time is therefore by definition a Tk default.

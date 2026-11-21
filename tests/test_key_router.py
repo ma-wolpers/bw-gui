@@ -188,6 +188,29 @@ def test_one_router_per_interpreter_and_cleanup(fresh_root):
     assert "_bw_gui_runtime" not in other.__dict__
 
 
+def test_widget_under_root_host_wrapper_resolves_to_the_tk_root(fresh_root):
+    """A widget whose master is a ``TkRootHost``/``BwBaseWindow`` wrapper shares the root's runtime.
+
+    Regression: tkinter keeps the wrapper as ``.master``, so ``widget._root()`` ends at the
+    wrapper instead of the ``tk.Tk``. The runtime then lived in the wrapper's ``__dict__`` --
+    a second registry set: popups opened with ``parent=app`` were missing from the root's
+    overlay stack, ``active_popup()`` returned ``None`` and Escape no longer closed them.
+    """
+    from bw_gui.runtime.root_host import TkRootHost
+
+    root, _entry = fresh_root
+    host = TkRootHost(root)
+    popup = ui.Toplevel(host)
+    child = ui.Frame(popup)
+    try:
+        assert interpreter_root(popup) is root
+        assert interpreter_root(child) is root
+        assert runtime_for(child) is runtime_for(host) is runtime_for(root)
+        assert "_bw_gui_runtime" not in host.__dict__
+    finally:
+        popup.destroy()
+
+
 def test_existing_runtime_does_not_create(fresh_root):
     root, _entry = fresh_root
     assert existing_runtime(root) is None

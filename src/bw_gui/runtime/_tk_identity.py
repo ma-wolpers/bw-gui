@@ -21,18 +21,31 @@ from typing import Any, Callable
 _ATTRIBUTE = "_bw_gui_runtime"
 
 
+def _host_root(obj: Any) -> tk.Tk | None:
+    """Return *obj* itself if it is the ``tk.Tk``, or the ``tk_root`` it wraps, else ``None``."""
+    if isinstance(obj, tk.Tk):
+        return obj
+    root = getattr(obj, "tk_root", None)
+    return root if isinstance(root, tk.Tk) else None
+
+
 def interpreter_root(widget: Any) -> tk.Tk:
     """Return the ``tkinter.Tk`` root object of *widget*'s interpreter.
 
     Accepts any tkinter widget or an object delegating to one (``TkRootHost``,
-    ``BwBaseWindow`` expose ``tk_root``).
+    ``BwBaseWindow`` expose ``tk_root``). The end of the ``.master`` chain is resolved
+    the same way: a widget created with a wrapper as parent (``ui.Toplevel(app)``)
+    keeps the *wrapper* as ``.master``, so ``widget._root()`` stops at the wrapper,
+    not at the ``tk.Tk``. Without this second resolution such widgets got a separate
+    runtime in the wrapper's ``__dict__`` (e.g. popups missing from the root's overlay
+    stack, so Escape no longer closed them).
     """
-    root = getattr(widget, "tk_root", None)
-    if isinstance(root, tk.Tk):
+    root = _host_root(widget)
+    if root is not None:
         return root
-    if isinstance(widget, tk.Tk):
-        return widget
-    return widget._root()  # tkinter.Misc._root: follows .master up to the Tk instance
+    end = widget._root()  # tkinter.Misc._root: follows .master up to the top of the chain
+    root = _host_root(end)
+    return root if root is not None else end
 
 
 class InterpreterRuntime:

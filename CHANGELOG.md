@@ -89,6 +89,7 @@ All notable changes to this project will be documented in this file.
 - `bw_gui.theming.theme_scrollbar`: scrollbars colour themselves now (no consumer used it).
 
 ### Fixed
+- **Escape closes popups again in real apps:** a popup whose parent was the app's main window object (`BwBaseWindow`/`TkRootHost`, e.g. Kursplaner's "Einheit planen" dialog) ignored Escape, while the "Abbrechen" button and the window's "X" still worked. Such popups also did not block the main window's shortcuts. Every widget now resolves to the one `tk.Tk` root even when a wrapper sits at the top of its parent chain, so the popup is found as the active one.
 - **Menus and tooltips no longer flash in the top-left screen corner:** popups of the menu bar, submenus, description flyouts and `HoverTooltip` appeared at `+0+0` for a moment before jumping into place, which felt like a lag when opening a menu. They now stay hidden until they sit at their final position (`screen_placement.new_overlay_window`, revealed by `place_overlay_now`).
 - **A menu whose entries are all disabled stays open:** a top-level popup with only disabled rows (for example a single hint line) closed again right after opening, because it never took keyboard focus. Every real popup now takes focus (Escape closes it), and only description flyouts stay focus-free (`open_popup(..., description_flyout=True)`).
 - `DataGrid` splitter handles were a raised 3D bevel in system grey that stood out in dark themes; they are now a flat gap in the theme's window background.

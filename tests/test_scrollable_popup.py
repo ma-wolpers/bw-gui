@@ -239,6 +239,26 @@ def test_escape_closes_popup_built_on_scrollable_frame(root):
     assert not popup.winfo_exists()
 
 
+def test_escape_closes_popup_whose_master_is_a_root_host_wrapper(root):
+    """Apps pass their ``BwBaseWindow``/``TkRootHost`` as parent (e.g. Kursplaner ``parent=self.app``).
+
+    Regression: the popup registered in a runtime on the wrapper instead of the Tk root, so
+    ``active_popup()`` (root's overlay stack) did not see it and Escape was silently ignored.
+    """
+    from bw_gui.runtime.overlay_stack import overlay_state
+    from bw_gui.runtime.root_host import TkRootHost
+
+    popup = ScrollablePopupWindow(TkRootHost(root), title="T", geometry="200x120", minsize=(100, 80))
+    root.update()
+    assert ScrollablePopupWindow.active_popup() is popup
+    assert overlay_state(root).modal_dialog
+
+    popup._on_escape_close()
+    root.update()
+
+    assert not popup.winfo_exists()
+
+
 def test_overlay_category_registers_non_modal_tool_windows(root):
     """``overlay_category`` decides the stack category; presets follow it, Escape does not."""
     from bw_gui.runtime.overlay_stack import OverlayCategory, blocking, overlay_state
