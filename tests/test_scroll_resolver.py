@@ -107,6 +107,27 @@ def test_popup_does_not_scroll_main_window_frame(root):
     popup.destroy()
 
 
+def test_scrollable_popup_window_does_not_scroll_main_window_frame(root):
+    """Same boundary for ``ScrollablePopupWindow``, a wrapper whose children carry it as ``.master``.
+
+    Regression: the boundary check compared objects (``current is toplevel``); the wrapper
+    is not the Tk ``Toplevel`` object, so the walk ran past the popup into its parent's
+    frames and a wheel over short popup content scrolled the main window.
+    """
+    from bw_gui.dialogs.scrollable_popup import ScrollablePopupWindow
+
+    frame = ScrollableFrame(root)
+    frame.pack(fill="both", expand=True)
+    _rows(frame.content, 40)
+    popup = ScrollablePopupWindow(frame.content, title="T", geometry="200x200", minsize=(100, 80))
+    label = widgets.Label(popup.content, text="short")
+    label.pack()
+    root.update()
+    _wheel(label)
+    assert _top(frame) == 0.0
+    popup._request_close()
+
+
 def test_registration_order_is_irrelevant(root):
     results = []
     for order in ("outer-first", "inner-first"):

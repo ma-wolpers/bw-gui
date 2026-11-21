@@ -99,7 +99,8 @@ Geometry contract:
 (`bw_gui.runtime.scroll_resolver`, rules in `POINTER_CONTRACT.md`): one wheel
 handler per interpreter on the `all` tag. Each frame registers its outer frame,
 canvas and scrollbar; the nearest registered frame along the event widget's
-hierarchy (within its own toplevel) is the candidate, native scrollable widgets
+hierarchy (within its own toplevel, recognised by Tk path so that a
+`ScrollablePopupWindow` wrapper in the `.master` chain is a boundary too) is the candidate, native scrollable widgets
 (Text, Listbox, Treeview, scrollbars, combobox) and widgets with their own
 `bind_wheel` take precedence, and a non-overflowing frame passes the wheel to the
 next outer one. Scrolling uses accumulated whole notches.

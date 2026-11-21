@@ -8,7 +8,9 @@ number of frames play no role. Per event:
 
 1. Walk from ``event.widget`` up via ``.master`` up to and including its own toplevel,
    never beyond (64-step cap): a popup whose master sits in a frame of the main window
-   does not scroll the main window (bugfix 10).
+   does not scroll the main window (bugfix 10). The toplevel is recognised by its Tk
+   path, because a wrapper (``ScrollablePopupWindow``) stands in the ``.master`` chain
+   instead of the Tk ``Toplevel`` object.
 2. A native scrollable widget on the way, before the first frame candidate, is
    responsible if it can scroll in the wheel direction (``Text``, ``Listbox``,
    ``ttk.Treeview``) or always consumes the wheel (scrollbars, combobox), and so is a
@@ -85,7 +87,9 @@ class ScrollResolver:
         if steps == 0.0 or not isinstance(widget, tk.Misc):
             return False
         try:
-            toplevel = widget.winfo_toplevel()
+            # By Tk path, not identity: wrappers such as ScrollablePopupWindow sit in the
+            # .master chain in place of their Toplevel object (see module docstring, step 1).
+            toplevel_path = str(widget.winfo_toplevel())
         except tk.TclError:
             return False
         current = widget
@@ -102,7 +106,7 @@ class ScrollResolver:
                 return True
             elif isinstance(current, _YVIEW_NATIVE) and self._native_can_scroll(current, steps):
                 return True
-            if current is toplevel:
+            if str(current) == toplevel_path:
                 return False
             current = getattr(current, "master", None)
             if current is None:
