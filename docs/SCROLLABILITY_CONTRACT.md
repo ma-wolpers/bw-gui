@@ -94,6 +94,12 @@ Geometry contract:
   re-evaluated on every content- or canvas-size change, so it reacts to a
   growing/shrinking panel, a `PanedWindow` splitter drag, or a window
   resize alike.
+- Content that shrinks while the view is scrolled past its new end lies
+  completely outside the viewport; Tk then only *unmaps* the embedded
+  `.content` window (no resize, no `<Configure>`). `.content`'s `<Unmap>`
+  (while the canvas is mapped) runs the same re-evaluation, so a capped
+  panel still collapses to its new height and the view still snaps back /
+  is confined to the new scrollregion - in both orientations.
 
 **Mousewheel dispatch** is centralized in the router-owned scroll resolver
 (`bw_gui.runtime.scroll_resolver`, rules in `POINTER_CONTRACT.md`): one wheel

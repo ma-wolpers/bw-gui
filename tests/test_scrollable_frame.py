@@ -421,3 +421,72 @@ def test_see_widget_scrolls_a_hidden_row_into_view(root) -> None:
     canvas_bottom = frame.canvas.winfo_rooty() + frame.canvas.winfo_height()
     assert last.winfo_rooty() + last.winfo_height() <= canvas_bottom + 1
     assert last.winfo_rooty() >= frame.canvas.winfo_rooty()
+
+
+def _settle(root, rounds: int = 5) -> None:
+    """Let the unmap -> re-fit -> remap -> ``<Configure>`` chain run to its end."""
+    for _ in range(rounds):
+        root.update()
+
+
+def test_capped_frame_collapses_when_content_shrinks_while_scrolled_out_of_view(root) -> None:
+    """Regression (Kartograph details panel): hiding the body while scrolled to the end.
+
+    The shrunk content lies completely above the viewport; Tk only unmaps it
+    (no resize, no ``<Configure>``). The frame must still shrink-wrap the
+    short content, show it, and scroll back to the top.
+    """
+    frame = ScrollableFrame(root)
+    frame.pack(side="bottom", fill="x")
+    frame.set_height_cap(100)
+    _add_rows(frame, 1)
+    body = widgets.Frame(frame.content, height=600)
+    body.pack(fill="x")
+    _settle(root)
+    frame.canvas.yview_moveto(1.0)
+    _settle(root)
+
+    body.pack_forget()
+    _settle(root)
+
+    assert frame.content.winfo_ismapped()
+    assert frame.canvas.winfo_height() == frame.content.winfo_reqheight() < 100
+    assert frame.canvas.yview() == (0.0, 1.0)
+    assert not frame._scrollbar.winfo_ismapped()
+
+
+def test_view_is_confined_when_content_shrinks_out_of_view_but_still_overflows(root) -> None:
+    frame = ScrollableFrame(root)
+    frame.pack(side="bottom", fill="x")
+    frame.set_height_cap(100)
+    body = widgets.Frame(frame.content, height=600)
+    body.pack(fill="x")
+    _settle(root)
+    frame.canvas.yview_moveto(1.0)
+    _settle(root)
+
+    body.configure(height=250)
+    _settle(root)
+
+    assert frame.content.winfo_ismapped()
+    assert frame.content.winfo_height() == 250
+    assert frame.overflows()
+    assert frame.canvas.yview()[1] == 1.0
+
+
+def test_horizontal_strip_shrink_wraps_when_content_shrinks_while_scrolled_out_of_view(root) -> None:
+    frame = ScrollableFrame(root, orient="horizontal")
+    frame.pack(fill="x")
+    columns = _add_columns(frame, 40)
+    _settle(root)
+    assert frame.overflows()
+    frame.canvas.xview_moveto(1.0)
+    _settle(root)
+
+    for column in columns[1:]:
+        column.destroy()
+    _settle(root)
+
+    assert frame.content.winfo_ismapped()
+    assert frame.canvas.winfo_width() == frame.content.winfo_reqwidth()
+    assert frame.canvas.xview() == (0.0, 1.0)

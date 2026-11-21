@@ -48,6 +48,11 @@ class ScrollableFrame(widgets.Frame):
       that sits there unneeded. When it hides because content shrank back
       below the viewport height, the view snaps back to the top rather
       than staying scrolled into what is now empty space.
+    - This also holds when the content shrinks while scrolled so far that
+      the shrunk content lies entirely outside the viewport: Tk then only
+      *unmaps* the embedded window and neither resizes it nor sends
+      `<Configure>`, so `.content`'s `<Unmap>` triggers the same
+      re-evaluation (`_on_content_unmap`).
 
     Orientation: vertical by default. ``orient="horizontal"`` builds the
     horizontal counterpart for a *single-row strip* whose natural width can
@@ -122,6 +127,7 @@ class ScrollableFrame(widgets.Frame):
         self._content_window = self.canvas.create_window((0, 0), window=self.content, anchor="nw")
 
         self.content.bind("<Configure>", self._on_content_configure)
+        self.content.bind("<Unmap>", self._on_content_unmap)
         self.canvas.bind("<Configure>", self._on_canvas_configure)
         self.bind("<Destroy>", self._on_destroy, add="+")
 
@@ -255,12 +261,46 @@ class ScrollableFrame(widgets.Frame):
             self.canvas.configure(height=max(1, min(self.content.winfo_reqheight(), self._height_cap)))
 
     def _on_content_configure(self, _event=None) -> None:
+        """Re-fit viewport to the content: height cap (or strip size), scrollregion, scrollbar.
+
+        The one re-evaluation after any content size change; runs on
+        `.content`'s `<Configure>` and, for the case Tk sends none, on its
+        `<Unmap>` (see `_on_content_unmap`). Reads only requested sizes and
+        the canvas bbox (which also uses the requested size), so it is
+        correct even while `.content` is unmapped and still has its old size.
+
+        Args:
+            _event: The Tk event (unused).
+        """
         if self._horizontal:
             self.canvas.configure(width=self.content.winfo_reqwidth(), height=self.content.winfo_reqheight())
         else:
             self._apply_height_cap()
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
         self._update_scrollbar_visibility()
+
+    def _on_content_unmap(self, _event=None) -> None:
+        """Re-fit when the canvas unmapped `.content` because it scrolled out of view.
+
+        Tk's canvas unmaps an embedded window that lies completely outside
+        the visible area -- without resizing it and without `<Configure>`.
+        While the canvas is mapped, that only happens when the content
+        shrank while the view was scrolled past its new end (e.g. a details
+        panel hides its body while scrolled down). Without this
+        hook the height cap, scrollregion and scroll position would keep the
+        old, larger content's values: the panel stays tall and empty.
+
+        Running `_on_content_configure` here fixes the scrollregion (the
+        canvas then confines the view to it) or snaps back to the top; the
+        content is back in view, Tk maps and resizes it, and the regular
+        `<Configure>` path finishes the job. Ignored while the canvas itself
+        is not mapped (the whole frame is hidden, nothing scrolled away).
+
+        Args:
+            _event: The Tk ``<Unmap>`` event (unused).
+        """
+        if self.canvas.winfo_ismapped():
+            self._on_content_configure()
 
     def _on_canvas_configure(self, event) -> None:
         if not self._horizontal:
