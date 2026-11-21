@@ -249,11 +249,17 @@ class ChoiceOption:
             Unique within one ``askchoice`` call.
         label: Button text shown to the user.
         description: Optional muted explanation shown directly below the button.
+        enabled: ``False`` shows the option greyed out and not clickable; its
+            description stays visible (use it for the reason).
+        emphasized: Shows the option as the recommended one (primary button
+            style) and gives it the initial focus. At most one per call.
     """
 
     key: str
     label: str
     description: str = ""
+    enabled: bool = True
+    emphasized: bool = False
 
 
 def _validate_choice_options(options: Sequence[ChoiceOption]) -> tuple[ChoiceOption, ...]:
@@ -261,7 +267,8 @@ def _validate_choice_options(options: Sequence[ChoiceOption]) -> tuple[ChoiceOpt
 
     Raises:
         ValueError: No options, an entry that is not a :class:`ChoiceOption`, an
-            empty key, or a key that occurs twice.
+            empty key, a key that occurs twice, no enabled option, or more than
+            one emphasized option.
     """
     normalized = tuple(options)
     if not normalized:
@@ -275,6 +282,10 @@ def _validate_choice_options(options: Sequence[ChoiceOption]) -> tuple[ChoiceOpt
         if option.key in seen:
             raise ValueError(f"askchoice option key {option.key!r} is used twice.")
         seen.add(option.key)
+    if not any(option.enabled for option in normalized):
+        raise ValueError("askchoice needs at least one enabled option.")
+    if sum(1 for option in normalized if option.emphasized) > 1:
+        raise ValueError("askchoice allows at most one emphasized option.")
     return normalized
 
 
@@ -290,7 +301,11 @@ class _ChoiceDialog(_tk_simpledialog.Dialog):
     already defines e.g. ``_options`` as an internal method, and shadowing it
     breaks widget construction (``TypeError: 'list' object is not callable``).
 
-    Keyboard: initial focus is on the first option; Enter activates the
+    Disabled options are greyed out (ttk ``disabled`` state) and skipped by the
+    initial focus; the emphasized option uses ``PrimaryAction.TButton``.
+
+    Keyboard: initial focus is on the emphasized option, otherwise on the first
+    enabled one; Enter activates the
     focused button (ttk buttons have no Return binding of their own); Escape
     cancels and is consumed at the dialog (window binder, see ``_bind_dialog_keys``).
     """
@@ -329,8 +344,15 @@ class _ChoiceDialog(_tk_simpledialog.Dialog):
     def buttonbox(self) -> None:
         """Replace the default OK/Cancel box with one button per option and a cancel button."""
         box = ttk.Frame(self, padding=(10, 4, 10, 10))
+        initial: ttk.Button | None = None
         for option in self._choice_options:
             button = ttk.Button(box, text=option.label, command=lambda key=option.key: self._choose(key))
+            if option.emphasized:
+                button.configure(style="PrimaryAction.TButton")
+            if not option.enabled:
+                button.state(["disabled"])
+            elif option.emphasized or initial is None:
+                initial = button  # emphasized wins; otherwise the first enabled option
             button.pack(fill="x", pady=(4, 0))
             self._bind_return_to_invoke(button)
             self._choice_buttons.append(button)
@@ -343,7 +365,7 @@ class _ChoiceDialog(_tk_simpledialog.Dialog):
         self._bind_return_to_invoke(cancel_button)
         box.pack(fill="both", expand=True)
         _bind_dialog_keys(self, on_enter=None, on_escape=self.cancel)
-        self.initial_focus = self._choice_buttons[0]
+        self.initial_focus = initial  # validation guarantees at least one enabled option
 
     @staticmethod
     def _bind_return_to_invoke(button: ttk.Button) -> None:

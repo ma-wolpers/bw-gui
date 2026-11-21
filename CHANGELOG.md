@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Choice dialog: greyed-out and recommended options.** `ChoiceOption(..., enabled=False)` shows an option greyed out and not clickable; its description stays visible as the reason. `ChoiceOption(..., emphasized=True)` marks the recommended option (primary button style) and gives it the initial focus. At least one option must be enabled, at most one emphasized.
 - **CardBoard: second text in a card.** `BoardCard(..., note="…")` shows a muted text below a dashed divider in the same card (e.g. the original wording of a card the user edited); the card grows to fit. Divider and text use the theme tokens `border`/`fg_muted` and follow theme switches.
 - **CardBoard: editor suggests a replacement.** A card validator may return `TextRejection(message, replacement)` instead of a message: the editor stays open, shows the message and puts the suggestion into the field, so a second Enter accepts it (e.g. `"Titel (Kopie)"` when `"Titel"` exists). Focus loss discards it like any rejected text.
 - **Choosing several options** (`bw_gui.widgets.CheckList`): one checkbox per option, optionally grouped under headings, with fixed spacing. `selected_values()` returns the ticked values in display order, `set_selected()` sets them without a callback; staged like `Checkbox` (`docs/TOGGLE_CONTRACT.md`).

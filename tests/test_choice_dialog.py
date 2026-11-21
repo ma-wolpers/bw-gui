@@ -47,23 +47,29 @@ def _open_dialog(root):
     return dialogs[-1]
 
 
-def _ask_with(root, action, *, delay_ms: int = 150) -> str | None:
-    """Run `askchoice` while `action(dialog)` fires from the event loop; a watchdog cancels after 5 s."""
+def _ask_options(root, options, action) -> str | None:
+    """Run `askchoice` with *options* while `action(dialog)` fires from the event loop.
 
-    def _act() -> None:
-        action(_open_dialog(root))
+    A watchdog cancels a still-open dialog after 5 s, so a broken action fails
+    the assertion instead of hanging the suite.
+    """
 
     def _watchdog() -> None:
         for child in root.winfo_children():
             if isinstance(child, dialog_service._ChoiceDialog):
                 child.cancel()
 
-    root.after(delay_ms, _act)
+    root.after(150, lambda: action(_open_dialog(root)))
     watchdog_id = root.after(5000, _watchdog)
     try:
-        return ChoiceDialogService().askchoice("Neue Klausur", "Wie?", _OPTIONS, parent=root)
+        return ChoiceDialogService().askchoice("Neue Klausur", "Wie?", options, parent=root)
     finally:
         root.after_cancel(watchdog_id)
+
+
+def _ask_with(root, action) -> str | None:
+    """`_ask_options` with the standard two options."""
+    return _ask_options(root, _OPTIONS, action)
 
 
 @pytest.mark.parametrize(
@@ -73,6 +79,8 @@ def _ask_with(root, action, *, delay_ms: int = 150) -> str | None:
         ((ChoiceOption("", "Leer"),), "must not be empty"),
         ((ChoiceOption("a", "A"), ChoiceOption("a", "B")), "used twice"),
         (("a",), "ChoiceOption instances"),
+        ((ChoiceOption("a", "A", enabled=False),), "at least one enabled"),
+        ((ChoiceOption("a", "A", emphasized=True), ChoiceOption("b", "B", emphasized=True)), "at most one"),
     ],
 )
 def test_invalid_options_raise_before_anything_is_shown(monkeypatch, options, message):
@@ -164,4 +172,35 @@ def test_initial_focus_is_on_first_option(root):
 
     _ask_with(root, _record_and_close)
     assert seen == [True]
+
+
+def test_disabled_option_is_greyed_and_skipped_by_the_initial_focus(root):
+    options = (
+        ChoiceOption("member", "Schon dabei", "gehört schon dazu", enabled=False),
+        ChoiceOption("free", "Frei"),
+    )
+    seen: list[object] = []
+
+    def _inspect(dialog) -> None:
+        seen.append(dialog._choice_buttons[0].instate(["disabled"]))
+        seen.append(dialog.initial_focus is dialog._choice_buttons[1])
+        dialog._choice_buttons[0].invoke()  # disabled: no effect
+        dialog._choice_buttons[1].invoke()
+
+    assert _ask_options(root, options, _inspect) == "free"
+    assert seen == [True, True]
+
+
+def test_emphasized_option_gets_primary_style_and_initial_focus(root):
+    options = (ChoiceOption("a", "A"), ChoiceOption("b", "Vorschlag: B", emphasized=True), ChoiceOption("c", "C"))
+    seen: list[object] = []
+
+    def _inspect(dialog) -> None:
+        seen.append(str(dialog._choice_buttons[1].cget("style")))
+        seen.append(str(dialog._choice_buttons[0].cget("style")))
+        seen.append(dialog.initial_focus is dialog._choice_buttons[1])
+        dialog.cancel()
+
+    _ask_options(root, options, _inspect)
+    assert seen == ["PrimaryAction.TButton", "", True]
 
