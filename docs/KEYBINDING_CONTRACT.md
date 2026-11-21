@@ -21,7 +21,7 @@ is incomplete. Extend it here instead of writing a local helper.
 | `runtime/shortcuts.py` | `WindowShortcutBinder`, `ApplicationShortcutBinder` |
 | `runtime/widget_keys.py` | `WidgetShortcutBinder`, `on_key` |
 | `runtime/text_input.py` | text-input context (`accepts_text_input`, `register_text_input`) |
-| `runtime/_tk_identity.py` | per-interpreter state on the `tkinter.Tk` root |
+| `runtime/_tk_identity.py` | per-interpreter state on the `tkinter.Tk` root; `is_toplevel` (window boundary by Tk path) |
 
 ## `KeySpec`: the only public shortcut syntax
 

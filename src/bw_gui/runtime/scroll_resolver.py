@@ -34,7 +34,7 @@ from bw_gui.contracts.pointer import Axis, StepAccumulator, wheel_steps
 from bw_gui.contracts.subscription import Subscription
 
 from ._key_channel import detect_backend
-from ._tk_identity import runtime_for
+from ._tk_identity import is_toplevel, runtime_for
 from .key_router import router_for
 
 _ORDER_SCROLL = 30
@@ -46,6 +46,15 @@ class ScrollResolver:
     """Per-interpreter wheel resolver for registered scroll frames."""
 
     def __init__(self, root: Any) -> None:
+        """Hook the resolver into the interpreter's ``all`` router (one wheel handler per interpreter).
+
+        Created once per interpreter by :func:`scroll_resolver_for`, never directly.
+        X11 has no ``<MouseWheel>``; its wheel arrives as ``<Button-4>``/``<Button-5>``,
+        which are registered there in addition.
+
+        Args:
+            root: The interpreter's ``tkinter.Tk`` root.
+        """
         self.root = root
         self.backend = detect_backend(root)
         self.frames: dict[str, Any] = {}
@@ -64,6 +73,7 @@ class ScrollResolver:
         self._accumulators[str(frame)] = StepAccumulator()
 
         def _remove() -> None:
+            """Unregister *frame*; a path already re-registered by another frame stays."""
             for path in paths:
                 if self.frames.get(path) is frame:
                     del self.frames[path]
@@ -73,6 +83,15 @@ class ScrollResolver:
 
     @staticmethod
     def _native_can_scroll(widget: Any, steps: float) -> bool:
+        """Whether a native ``yview`` widget can still scroll in the wheel's direction.
+
+        At its top/bottom end it passes the wheel on to the next frame candidate
+        (rule 2 of the module docstring). Any ``yview`` failure counts as "cannot".
+
+        Args:
+            widget: ``Text``, ``Listbox`` or ``ttk.Treeview``.
+            steps: Signed wheel steps; positive scrolls down.
+        """
         try:
             first, last = (float(v) for v in widget.yview())
         except Exception:
@@ -80,17 +99,21 @@ class ScrollResolver:
         return last < 1.0 if steps > 0 else first > 0.0
 
     def _on_wheel(self, event: Any) -> bool:
+        """Apply the module's resolution rules to one wheel event; ``True`` = consumed.
+
+        Walks from the event widget up the ``.master`` chain (64-step cap) and stops at
+        the first responsible candidate or at the window boundary (``is_toplevel``,
+        by Tk path so a ``ScrollablePopupWindow`` wrapper counts as the boundary).
+        A destroyed widget on the way ends the walk without scrolling.
+
+        Args:
+            event: Tk wheel event (``delta`` on win32/aqua, ``num`` 4/5 on X11).
+        """
         from .pointer import wheel_subscribed
 
         steps = wheel_steps(backend=self.backend, delta=getattr(event, "delta", 0), num=getattr(event, "num", None))
         widget = getattr(event, "widget", None)
         if steps == 0.0 or not isinstance(widget, tk.Misc):
-            return False
-        try:
-            # By Tk path, not identity: wrappers such as ScrollablePopupWindow sit in the
-            # .master chain in place of their Toplevel object (see module docstring, step 1).
-            toplevel_path = str(widget.winfo_toplevel())
-        except tk.TclError:
             return False
         current = widget
         for _ in range(64):
@@ -106,7 +129,11 @@ class ScrollResolver:
                 return True
             elif isinstance(current, _YVIEW_NATIVE) and self._native_can_scroll(current, steps):
                 return True
-            if str(current) == toplevel_path:
+            try:
+                at_boundary = is_toplevel(current)
+            except tk.TclError:
+                return False
+            if at_boundary:
                 return False
             current = getattr(current, "master", None)
             if current is None:

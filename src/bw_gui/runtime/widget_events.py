@@ -21,6 +21,7 @@ from typing import Any, Callable
 from bw_gui.contracts.subscription import CompositeSubscription, Subscription
 from bw_gui.contracts.widget_events import FocusChange, ResizeEvent, TabChange
 
+from ._tk_identity import is_toplevel
 from .pointer import _bind, _track
 
 __all__ = [
@@ -35,15 +36,11 @@ __all__ = [
 ]
 
 
-def _is_toplevel(widget: Any) -> bool:
-    return str(widget.winfo_toplevel()) == str(widget)
-
-
 def _bind_scope(widget: Any, sequence: str, func: Callable[[Any], None], *, within: bool) -> Subscription:
     """Bind on the widget's bw tag, or (``within``) on the toplevel's path tag for all descendants."""
     if not within:
         return _track(widget, _bind(widget, sequence, func))
-    if not _is_toplevel(widget):
+    if not is_toplevel(widget):
         raise ValueError("within=True is only supported for toplevel windows")
     return _track(widget, _bind_path(widget, sequence, func))
 
@@ -59,6 +56,10 @@ def _bind_path(widget: Any, sequence: str, func: Callable[[Any], None]) -> Subsc
     funcid = widget.bind(sequence, func, add="+")
 
     def _remove() -> None:
+        """Drop only this binding's script line and command; other ``+``-added scripts stay.
+
+        Errors are ignored: the widget may already be destroyed, which removed both.
+        """
         try:
             script = widget.tk.call("bind", tag, sequence)
             widget.tk.call("bind", tag, sequence, "\n".join(l for l in str(script).split("\n") if funcid not in l))
@@ -80,6 +81,7 @@ def on_resize(widget: Any, handler: Callable[[ResizeEvent], object], *, within: 
     path = str(widget)
 
     def _on_configure(event: Any) -> None:
+        """Forward the widget's own ``<Configure>`` (any descendant's with ``within``)."""
         if not within and str(event.widget) != path:
             return
         handler(ResizeEvent(int(event.width), int(event.height), int(event.x), int(event.y), event.widget))
@@ -109,6 +111,7 @@ def on_focus_change(
             continue
 
         def _on_focus(event: Any, *, _callback=callback, _gained=gained) -> None:
+            """Report one focus event; defaults bind callback/direction per loop pass (late binding)."""
             if not within and str(event.widget) != path:
                 return
             _callback(FocusChange(_gained, event.widget))
@@ -134,6 +137,11 @@ def on_visibility(
     state = {"viewable": bool(widget.winfo_viewable())}
 
     def _check(_event: Any = None) -> None:
+        """Re-read ``winfo_viewable()`` and report only a real state change.
+
+        A ``<Map>``/``<Unmap>`` of any chain member triggers it; a failing query
+        (widget being destroyed) reports nothing.
+        """
         try:
             viewable = bool(widget.winfo_viewable())
         except Exception:
@@ -148,7 +156,7 @@ def on_visibility(
     chain, current = [], widget
     while current is not None:
         chain.append(current)
-        if _is_toplevel(current):
+        if is_toplevel(current):
             break
         current = current.master
     subs = [_bind(member, sequence, _check) for member in chain for sequence in ("<Map>", "<Unmap>")]
@@ -165,6 +173,7 @@ def on_destroy(widget: Any, handler: Callable[[Any], object]) -> Subscription:
     path = str(widget)
 
     def _on_destroy(event: Any) -> None:
+        """Call the handler for the widget's own ``<Destroy>``, not for its descendants'."""
         if str(event.widget) == path:
             handler(widget)
 
@@ -183,6 +192,7 @@ def on_text_modified(text: Any, handler: Callable[[Any], object]) -> Subscriptio
     """
 
     def _on_modified(_event: Any) -> None:
+        """Reset the modified flag and report; the event caused by the reset is skipped."""
         try:
             if not text.edit_modified():
                 return
@@ -208,6 +218,7 @@ def on_tab_changed(notebook: Any, handler: Callable[[TabChange], object]) -> Sub
     """Report a change of the selected tab of a ``ttk.Notebook`` (user or ``select()``) as :class:`TabChange`."""
 
     def _on_changed(_event: Any) -> None:
+        """Report the selected tab's index (``None`` if unknown) and Tk id."""
         tab_id = str(notebook.select())
         tabs = [str(tab) for tab in notebook.tabs()]
         handler(TabChange(tabs.index(tab_id) if tab_id in tabs else None, tab_id, notebook))
