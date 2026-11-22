@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import pytest
 
-from bw_gui.runtime import attach_multicursor, ui
+from bw_gui.runtime import MemoryTextClipboard, attach_multicursor, ui
 from bw_gui.testing.keys import press_key
 
 CTRL, SHIFT = 0x4, 0x1
@@ -25,8 +25,14 @@ def text(_shared_tk_root):
 
 
 @pytest.fixture
-def mc(text):
-    return attach_multicursor(text)
+def clipboard():
+    """Zwischenablage im Speicher: die Tests überschreiben nie die echte Zwischenablage."""
+    return MemoryTextClipboard()
+
+
+@pytest.fixture
+def mc(text, clipboard):
+    return attach_multicursor(text, clipboard=clipboard)
 
 
 def _load(text, content):

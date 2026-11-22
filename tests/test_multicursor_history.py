@@ -15,6 +15,7 @@ from multicursor_support import (  # noqa: F401  (Fixtures werden über den Name
     _three_lines,
     _type,
     _value,
+    clipboard,
     mc,
     text,
 )

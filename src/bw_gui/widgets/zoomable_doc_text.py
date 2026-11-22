@@ -15,7 +15,7 @@ from collections.abc import Callable
 from bw_gui.contracts.events import EventResult
 from bw_gui.contracts.key_modifiers import KeyModifiers
 from bw_gui.contracts.pointer import WheelEvent
-from bw_gui.runtime import ui, widgets
+from bw_gui.runtime import TkTextClipboard, ui, widgets
 from bw_gui.runtime.pointer import bind_wheel
 from bw_gui.theming._theme_listeners import ThemeChange, register_theme_listener
 from bw_gui.theming._widget_utils import theme_text
@@ -37,7 +37,7 @@ class ZoomableDocText(widgets.Frame):
         on_zoom_changed: Called with the new size after every zoom step
             (e.g. to persist it); not called for ``set_base_size`` no-ops.
         on_copy: Receives a code block's raw text when its "Kopieren"
-            button is pressed (default: the Tk clipboard).
+            button is pressed (default: the system clipboard via ``TkTextClipboard``).
     """
 
     def __init__(
@@ -55,7 +55,7 @@ class ZoomableDocText(widgets.Frame):
         self._max_size = max_size
         self._base_size = self._clamp(base_size)
         self._on_zoom_changed = on_zoom_changed
-        self._on_copy = on_copy or self._copy_to_clipboard
+        self._on_copy = on_copy or TkTextClipboard(self).write_text
         self.text = ui.Text(self, wrap="word", relief="flat", borderwidth=0, padx=10, pady=8, takefocus=0)
         self._scrollbar = widgets.Scrollbar(self, orient="vertical", command=self.text.yview)
         self.text.configure(yscrollcommand=self._scrollbar.set, state="disabled")
@@ -107,7 +107,3 @@ class ZoomableDocText(widgets.Frame):
 
     def _on_theme_changed(self, _change: ThemeChange) -> None:
         self._apply_style()
-
-    def _copy_to_clipboard(self, code: str) -> None:
-        self.clipboard_clear()
-        self.clipboard_append(code)

@@ -14,6 +14,7 @@ from multicursor_support import (  # noqa: F401  (Fixtures werden über den Name
     _three_lines,
     _type,
     _value,
+    clipboard,
     mc,
     text,
 )
@@ -185,21 +186,27 @@ def test_emoji_are_never_split(text, mc):
     assert _value(text) == "ab\ncd\n"
 
 
-def test_copy_cut_paste_distribute_lines(text, mc):
+def test_copy_cut_paste_distribute_lines(text, mc, clipboard):
     _load(text, "one two\nthree four\n")
     text.tag_add("sel", "1.0", "1.3")
     text.mark_set("insert", "1.3")
     _drag(text, "2.0", "2.5")
     press_key(text, "c", state=CTRL)
-    assert text.clipboard_get() == "one\nthree"
+    assert clipboard.text == "one\nthree"
     press_key(text, "x", state=CTRL)
     assert _value(text) == " two\n four\n"
     press_key(text, "v", state=CTRL)
     assert _value(text) == "one two\nthree four\n"
-    text.clipboard_clear()
-    text.clipboard_append("Q")
+    clipboard.write_text("Q")
     press_key(text, "v", state=CTRL)
     assert _value(text) == "oneQ two\nthreeQ four\n"
+
+
+def test_paste_without_clipboard_text_changes_nothing(text, mc, clipboard):
+    _three_lines(text, mc)
+    clipboard.text = None
+    assert press_key(text, "v", state=CTRL) is True
+    assert _value(text) == "aaa\nbbb\nccc\n" and mc.is_active()
 
 
 def test_foreign_change_ends_the_mode(text, mc):

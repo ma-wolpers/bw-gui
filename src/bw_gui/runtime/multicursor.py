@@ -35,6 +35,7 @@ from bw_gui.contracts.multicursor import (
 )
 from bw_gui.contracts.multicursor_history import CursorHistory, TxRecord, text_digest
 
+from .clipboard import TextClipboard, TkTextClipboard
 from .multicursor_text import TextSurface
 from .multicursor_view import MultiCursorView
 from .pointer import bind_click, bind_drag
@@ -48,8 +49,9 @@ _PAGE_KEYS = {Key.PAGE_UP, Key.PAGE_DOWN}
 class MultiCursorController:
     """Regions, mode and history of one ``Text``; create it with :func:`attach_multicursor`."""
 
-    def __init__(self, text: Any) -> None:
+    def __init__(self, text: Any, clipboard: TextClipboard | None = None) -> None:
         self._text = text
+        self._clipboard: TextClipboard = clipboard if clipboard is not None else TkTextClipboard(text)
         self._surface = TextSurface(text)
         self._view = MultiCursorView(self._surface)
         self._history = CursorHistory()
@@ -348,8 +350,7 @@ class MultiCursorController:
             return None
         selected = self._selected_text()
         if selected:
-            self._text.clipboard_clear()
-            self._text.clipboard_append(selected)
+            self._clipboard.write_text(selected)
         return EventResult.HANDLED
 
     def _cut(self) -> EventResult | None:
@@ -366,18 +367,21 @@ class MultiCursorController:
     def _paste(self) -> EventResult | None:
         if not self._active or not self.sync():
             return None
-        try:
-            clipboard = str(self._text.clipboard_get())
-        except tkinter.TclError:
-            return EventResult.HANDLED
-        self._commit_edits(plan_lines_or_text(self._regions, clipboard.replace("\r\n", "\n")))
+        clipboard = self._clipboard.read_text()
+        if clipboard is not None:
+            self._commit_edits(plan_lines_or_text(self._regions, clipboard))
         return EventResult.HANDLED
 
 
-def attach_multicursor(text: Any) -> MultiCursorController:
+def attach_multicursor(text: Any, *, clipboard: TextClipboard | None = None) -> MultiCursorController:
     """Give a ``Text`` multi-cursor editing. Attach after consumer click handlers.
 
     A consumer click handler returning ``HANDLED`` (e.g. "no document loaded") must run
     first so it also stops the Ctrl gestures of this controller.
+
+    Args:
+        text: The ``Text`` widget.
+        clipboard: Clipboard for copy/cut/paste; default is the system clipboard
+            (``TkTextClipboard``). Tests pass a ``MemoryTextClipboard``.
     """
-    return MultiCursorController(text)
+    return MultiCursorController(text, clipboard)

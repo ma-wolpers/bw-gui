@@ -1,6 +1,6 @@
 # Multi-cursor Contract
 
-`attach_multicursor(text) -> MultiCursorController` gives a Tk `Text` several cursors and selections. Consumers see regions and edits, never marks, tags, or Tk index arithmetic.
+`attach_multicursor(text, *, clipboard=None) -> MultiCursorController` gives a Tk `Text` several cursors and selections. Consumers see regions and edits, never marks, tags, or Tk index arithmetic. Copy/cut/paste go through `clipboard` (a `TextClipboard`; default the system clipboard via `TkTextClipboard`, tests pass a `MemoryTextClipboard`).
 
 | Module | Responsibility |
 |---|---|
