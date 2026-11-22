@@ -476,12 +476,27 @@ def _reapply_icon_button(button: ttk.Button) -> None:
         fg = get_theme()["fg_primary"]
     else:
         fg = tinted_foreground(color_tint, degree=entry["degree"], base_token=entry["base_token"])
-    new_photo = _recolor_photo(entry["base_photo"], fg)
-    entry["current_photo"] = new_photo
     try:
-        button.configure(image=new_photo)
+        _apply_icon_images(button, entry, fg)
     except tk.TclError:
         pass
+
+
+def _apply_icon_images(button: ttk.Button, entry: dict, fg: str) -> None:
+    """Set the icon of *button* in color *fg*, plus a ``fg_muted`` copy for the disabled state.
+
+    ttk shows the second image while the button is ``disabled``, so a greyed-out
+    icon button looks greyed out (with one image only it would look clickable).
+    Both images are kept in *entry* -- ttk stores only their Tcl names.
+
+    Args:
+        button: The icon button.
+        entry: Its ``_icon_button_registry`` entry (``base_photo`` is read).
+        fg: Foreground color for the normal state.
+    """
+    entry["current_photo"] = _recolor_photo(entry["base_photo"], fg)
+    entry["disabled_photo"] = _recolor_photo(entry["base_photo"], get_theme()["fg_muted"])
+    button.configure(image=(entry["current_photo"], "disabled", entry["disabled_photo"]))
 
 
 def recolor_photo(
@@ -626,16 +641,10 @@ def icon_button(
         fg = tinted_foreground(color_tint, degree=degree, base_token=base_token)
     else:
         fg = get_theme()["fg_primary"]
-    colored = _recolor_photo(photo_image, fg)
-
-    btn = ttk.Button(parent, image=colored, command=command, **button_kwargs)
-    _icon_button_registry[btn] = {
-        "base_photo": photo_image,
-        "color_tint": color_tint,
-        "degree": degree,
-        "base_token": base_token,
-        "current_photo": colored,
-    }
+    btn = ttk.Button(parent, command=command, **button_kwargs)
+    entry = {"base_photo": photo_image, "color_tint": color_tint, "degree": degree, "base_token": base_token}
+    _icon_button_registry[btn] = entry
+    _apply_icon_images(btn, entry, fg)
     button_ref = weakref.ref(btn)  # the listener must not keep its owner alive
 
     def _on_theme(_change: object) -> None:

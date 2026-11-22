@@ -142,6 +142,19 @@ def test_widget_bound_listener_ends_on_destroy_while_the_object_is_still_referen
     assert log == [] and root.reported == []
 
 
+def test_icon_buttons_show_a_muted_icon_while_disabled(root):
+    photo = ui.PhotoImage(width=4, height=4)
+    photo.put("#000000", to=(0, 0, 4, 4))
+    button = icon_button(root, photo, command=lambda: None)
+    spec = [str(part) for part in root.tk.splitlist(button.cget("image"))]
+    assert len(spec) == 3 and spec[1] == "disabled" and spec[0] != spec[2]
+    entry = _icon_button_registry[button]
+    assert entry["disabled_photo"].get(0, 0) != entry["current_photo"].get(0, 0)
+    configure_ttk_theme(root, "mono_night")
+    assert "disabled" in [str(part) for part in root.tk.splitlist(button.cget("image"))]
+    button.destroy()
+
+
 def test_icon_buttons_follow_the_theme_and_are_held_weakly(root):
     photo = ui.PhotoImage(width=4, height=4)
     photo.put("#000000", to=(0, 0, 4, 4))
