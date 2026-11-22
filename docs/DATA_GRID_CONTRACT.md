@@ -11,6 +11,12 @@ of milliseconds at ~40 columns), a canvas only repaints the damaged area.
 - Three regions, left to right: `Region.LEFT` | `Region.SCROLL` | `Region.RIGHT`,
   separated by two splitter sashes (user-resizable). Initially LEFT and RIGHT get
   their natural width (RIGHT at most 45 %), SCROLL the rest.
+- A side region (LEFT/RIGHT) without columns is taken out of the splitter (no
+  empty strip, no sash) and returns at its place once it has columns again;
+  SCROLL always stays. `shown_regions` lists the regions in the splitter. When
+  that set changes, the initial split is redone (user-moved sashes reset), and
+  visible-row height, first-size detection and rendering consider only shown
+  regions.
 - Every region has a header and a body; a horizontal scrollbar appears only
   while its content is wider than its pane. One vertical scrollbar for all.
 - A row counts as visible only if it is fully visible in **every** region, so the

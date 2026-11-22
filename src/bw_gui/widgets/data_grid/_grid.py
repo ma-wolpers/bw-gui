@@ -41,6 +41,15 @@ _WHEEL_PIXELS = 60
 _RIGHT_MAX_SHARE = 0.45
 
 
+def _pane_options(region: Region) -> dict[str, Any]:
+    """Splitter options of a region's pane (only SCROLL stretches with the window).
+
+    Args:
+        region: Region whose pane is added.
+    """
+    return {"minsize": 60, "stretch": "always" if region is Region.SCROLL else "never"}
+
+
 class DataGrid:
     """Three-region table (LEFT | SCROLL | RIGHT) with splitters, shared rows and one cursor."""
 
@@ -70,9 +79,10 @@ class DataGrid:
         for region in Region:
             view = RegionView(self._paned, font=self._font, clipper=clipper, row_height=self._row_h,
                               header_height=head_h, on_viewport_change=self._on_viewport_change)
-            self._paned.add(view.frame, minsize=60, stretch="always" if region is Region.SCROLL else "never")
+            self._paned.add(view.frame, **_pane_options(region))
             self.regions[region] = view
             self._bind_pointer(region, view)
+        self._shown: tuple[Region, ...] = tuple(Region)
         self._callbacks = (on_cell_click, on_cell_double_click, on_header_click)
         self._columns: tuple[GridColumn, ...] = ()
         self._rows: tuple[GridRow, ...] = ()
@@ -90,9 +100,21 @@ class DataGrid:
     # -- data ------------------------------------------------------------------
 
     def set_columns(self, columns: Sequence[GridColumn]) -> None:
-        """Replace the column set (keys must be unique across regions)."""
+        """Replace the column set (keys must be unique across regions).
+
+        A side region (``LEFT``/``RIGHT``) without columns is taken out of the
+        splitter, so it leaves no empty strip and no sash; it comes back at its
+        place as soon as it has columns again. ``SCROLL`` always stays. When
+        the set of shown regions changes, the initial split is redone.
+        """
         self._columns = tuple(columns)
+        self._show_regions(tuple(r for r in Region if r is Region.SCROLL or any(c.region is r for c in self._columns)))
         self._relayout()
+
+    @property
+    def shown_regions(self) -> tuple[Region, ...]:
+        """Regions currently in the splitter, left to right."""
+        return self._shown
 
     def set_rows(self, rows: Sequence[GridRow]) -> None:
         """Replace rows (already in display order); unchanged visible cells cost nothing."""
@@ -179,9 +201,32 @@ class DataGrid:
 
     # -- internals --------------------------------------------------------------
 
+    def _shown_views(self) -> list[RegionView]:
+        """Views of the shown regions, left to right (hidden ones keep a stale viewport)."""
+        return [self.regions[region] for region in self._shown]
+
+    def _show_regions(self, wanted: tuple[Region, ...]) -> None:
+        """Put exactly the *wanted* regions into the splitter, keeping the left-to-right order.
+
+        Args:
+            wanted: Regions to show, in ``Region`` order.
+        """
+        if wanted == self._shown:
+            return
+        for region in self._shown:
+            if region not in wanted:
+                self._paned.forget(self.regions[region].frame)
+        for index, region in enumerate(wanted):
+            if region not in self._shown:
+                later = [self.regions[r].frame for r in wanted[index + 1:] if r in self._shown]
+                placement = {"before": later[0]} if later else {}
+                self._paned.add(self.regions[region].frame, **_pane_options(region), **placement)
+        self._shown = wanted
+        self._split_done = False
+
     def _has_real_size(self) -> bool:
-        """Whether every region has received its first real size from a resize event."""
-        return all(view.viewport != (1, 1) for view in self.regions.values())
+        """Whether every shown region has received its first real size from a resize event."""
+        return all(view.viewport != (1, 1) for view in self._shown_views())
 
     def _apply_see(self, row_id: str, column_key: str | None) -> None:
         """Adjust ``top_row`` and the region x offsets so the target is visible (no render)."""
@@ -234,7 +279,7 @@ class DataGrid:
             pending, self._pending_see = self._pending_see, None
             self._apply_see(*pending)
         state, theme = self._state(), get_theme()
-        for view in self.regions.values():
+        for view in self._shown_views():
             view.render_content(state, theme)
         total = max(1, len(self._rows))
         self._vbar.set(self._top_row / total, min(1.0, (self._top_row + self._body_height() / self._row_h) / total))
@@ -242,18 +287,26 @@ class DataGrid:
     def _render_markers(self) -> None:
         """Move only band, cursor and active-column marker in all regions."""
         state, theme = self._state(), get_theme()
-        for view in self.regions.values():
+        for view in self._shown_views():
             view.render_markers(state, theme)
 
     def _initial_split(self) -> None:
-        """Once the grid has a width: LEFT/RIGHT get their natural widths (RIGHT at most 45 %)."""
+        """Once the grid has a width: shown LEFT/RIGHT get their natural widths (RIGHT at most 45 %).
+
+        Sash *i* sits between the *i*-th and the next shown pane, so a hidden
+        side region shifts the indices: without LEFT, sash 0 is SCROLL|RIGHT.
+        """
         width = int(self._paned.winfo_width()) if not self._split_done else 0
         if self._split_done or width <= 1 or not self._columns:
             return
-        left = self.regions[Region.LEFT].layout.total_width + 4
-        right = min(self.regions[Region.RIGHT].layout.total_width + 4, int(width * _RIGHT_MAX_SHARE))
-        self._paned.sash_place(0, left, 0)
-        self._paned.sash_place(1, max(left + 60, width - right), 0)
+        sash, left = 0, 0
+        if Region.LEFT in self._shown:
+            left = self.regions[Region.LEFT].layout.total_width + 4
+            self._paned.sash_place(sash, left, 0)
+            sash += 1
+        if Region.RIGHT in self._shown:
+            right = min(self.regions[Region.RIGHT].layout.total_width + 4, int(width * _RIGHT_MAX_SHARE))
+            self._paned.sash_place(sash, max(left + 60, width - right), 0)
         self._split_done = True
 
     def _body_height(self) -> int:
@@ -263,7 +316,7 @@ class DataGrid:
         if no region hides it, so scrolling, ``see()`` and the vertical scrollbar
         never leave the last row under a region's scrollbar.
         """
-        return min(view.viewport[1] for view in self.regions.values())
+        return min(view.viewport[1] for view in self._shown_views())
 
     def _clamped_top(self, top: int) -> int:
         """Keep *top* so the last page is full."""

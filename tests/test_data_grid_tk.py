@@ -222,3 +222,49 @@ def test_muted_rows_use_fg_muted_and_others_fg_primary(make_grid):
                 fills.setdefault(view.body.itemcget(item, "text"), set()).add(view.body.itemcget(item, "fill"))
     assert fills["aktiv"] == {theme["fg_primary"]}
     assert fills["grau"] == {theme["fg_muted"]}
+
+
+def _pane_regions(grid) -> list[Region]:
+    """Regions in the splitter, left to right, as Tk reports them."""
+    by_frame = {str(view.frame): region for region, view in grid.regions.items()}
+    return [by_frame[str(pane)] for pane in grid._paned.panes()]
+
+
+def test_side_region_without_columns_leaves_the_splitter_and_comes_back(make_grid):
+    grid, window = make_grid(dates=5)
+    cols = _columns(5)
+    grid.set_columns([c for c in cols if c.region is not Region.RIGHT])
+    window.update()
+    assert grid.shown_regions == (Region.LEFT, Region.SCROLL)
+    assert _pane_regions(grid) == [Region.LEFT, Region.SCROLL]
+    grid.set_columns([c for c in cols if c.region is not Region.LEFT])
+    window.update()
+    assert _pane_regions(grid) == [Region.SCROLL, Region.RIGHT]
+    grid.set_columns(cols)
+    window.update()
+    assert _pane_regions(grid) == [Region.LEFT, Region.SCROLL, Region.RIGHT]
+
+
+def test_scroll_region_stays_even_without_columns(make_grid):
+    grid, window = make_grid(dates=5)
+    grid.set_columns([c for c in _columns(5) if c.region is Region.LEFT])
+    window.update()
+    assert _pane_regions(grid) == [Region.LEFT, Region.SCROLL]
+
+
+def test_split_is_redone_for_the_shown_regions(make_grid):
+    grid, window = make_grid(dates=5)
+    grid.set_columns([c for c in _columns(5) if c.region is not Region.LEFT])
+    window.update()
+    window.update()
+    # Without LEFT, sash 0 separates SCROLL | RIGHT: RIGHT gets its natural width (180 + 120 + 4).
+    sash_x = grid._paned.sash_coord(0)[0]
+    assert abs(int(grid._paned.winfo_width()) - sash_x - 304) <= 8
+
+
+def test_hidden_region_does_not_limit_the_visible_rows(make_grid):
+    grid, window = make_grid(dates=5)
+    grid.set_columns([c for c in _columns(5) if c.region is not Region.RIGHT])
+    window.update()
+    grid.regions[Region.RIGHT].viewport = (100, 10)  # stale size of a hidden region
+    assert grid._body_height() == min(grid.regions[r].viewport[1] for r in (Region.LEFT, Region.SCROLL))
