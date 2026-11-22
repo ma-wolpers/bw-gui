@@ -2,6 +2,7 @@
 
 from .app_shell import AppShellConfig, TkinterAppShell
 from .base_window import BwBaseWindow
+from .clipboard import MemoryTextClipboard, TextClipboard, TkTextClipboard
 from .primitives import fonts, ui, widgets
 from .overlay_stack import (
     OverlayCategory,
@@ -58,6 +59,9 @@ __all__ = [
     "reset_text_modified",
     "treeview_selection",
     "BwBaseWindow",
+    "MemoryTextClipboard",
+    "TextClipboard",
+    "TkTextClipboard",
     "fonts",
     "ui",
     "widgets",
